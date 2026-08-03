@@ -1,0 +1,4 @@
+Poné acá los dos logos de Clarín (los mismos que ya tenías):
+  logo-blanco.png
+  logo-negro.png
+Después borrá este archivo.

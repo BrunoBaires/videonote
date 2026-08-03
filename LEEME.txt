@@ -1,0 +1,21 @@
+INCERTIS · VIDEO NOTE — carpeta para publicar en Vercel
+
+Contenido:
+  index.html   -> app de escritorio (editor completo)
+  movil.html   -> app móvil (subir video, nombre+destino, compartir a WhatsApp)
+  vercel.json  -> cabeceras (no borrar)
+  brand/       -> poné acá logo-blanco.png y logo-negro.png
+
+Publicar:
+  1. Entrá a vercel.com, botón "Add New" -> "Project".
+  2. Elegí subir carpeta y arrastrá TODA esta carpeta.
+  3. Deploy.
+
+Direcciones (con tu dominio de Vercel):
+  Escritorio:  tu-app.vercel.app/            (o /index.html)
+  Móvil:       tu-app.vercel.app/movil.html
+
+Contraseña de acceso: incertis2026
+
+Nota: ya no hace falta la carpeta lib/ (ffmpeg). La app graba mp4 nativo.
+En navegadores muy viejos que no graben mp4, usar la app de escritorio.

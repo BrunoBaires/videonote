@@ -33,6 +33,7 @@ export default async function handler(req, res) {
     });
     res.status(200).json(jsonResponse);
   } catch (e) {
+    console.error('[/api/upload] error:', e);
     res.status(400).json({ error: String(e && e.message || e) });
   }
 }

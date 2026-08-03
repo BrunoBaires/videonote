@@ -444,7 +444,7 @@ async function generarServidor(){
   $('prog').classList.add('on'); $('progBar').style.width='0%';
   try{
     st('status','<span class="spin"></span>Subiendo el video…','run'); $('progBar').style.width='15%';
-    const { upload } = await import('https://esm.sh/@vercel/blob@0.27.0/client');
+    const { upload } = await import('https://esm.sh/@vercel/blob@2.6.1/client');
     const ext=(mvFile.name&&mvFile.name.match(/\.[a-z0-9]+$/i)) ? mvFile.name.match(/\.[a-z0-9]+$/i)[0] : '.mp4';
     const put=await upload('cronista-'+hhmm()+ext, mvFile, { access:'public', handleUploadUrl:'/api/upload', contentType:mvFile.type||'video/mp4' });
     st('status','<span class="spin"></span>Generando el video en el servidor…','run'); $('progBar').style.width='55%';

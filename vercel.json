@@ -1,7 +1,21 @@
 {
+  "functions": {
+    "api/render.js": {
+      "maxDuration": 60,
+      "memory": 1024,
+      "includeFiles": "node_modules/ffmpeg-static/**"
+    }
+  },
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" }
+      ]
+    },
+    {
+      "source": "/index.html",
       "headers": [
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
         { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" }

@@ -1,0 +1,15 @@
+{
+  "name": "videonote",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Incertis Video Note — render server-side (Vercel Functions)",
+  "type": "module",
+  "scripts": {
+    "test:local": "node test/local-render.js"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.60",
+    "@vercel/blob": "^0.27.0",
+    "ffmpeg-static": "^5.2.0"
+  }
+}

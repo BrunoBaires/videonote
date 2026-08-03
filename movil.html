@@ -385,7 +385,92 @@ function hhmm(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')
 function startProgress(){ stopProgress(); progInt=setInterval(()=>{ if(vid.duration){ const p=Math.min(vid.currentTime/vid.duration,1); $('progBar').style.width=(p*100)+'%'; const rem=Math.max(0,Math.ceil(vid.duration-vid.currentTime)); st('status','<span class="spin"></span>Grabando… faltan '+rem+' s. No cierres ni bloquees el teléfono.','run'); } },140); }
 function stopProgress(){ if(progInt){ clearInterval(progInt); progInt=null; } }
 
-$('gen').onclick=async()=>{
+/* ---------- geometría + overlay para el render en servidor ---------- */
+function geomActual(){
+  const margin=W*0.03;
+  const D0=(W-margin*2)*(diamPct/100);
+  const r=D0/2, cx=W/2, cy=margin+r;
+  const stroke=PRESET.ringPx*(W/1080)*1.9;
+  return { margin, r, cx, cy, stroke, R:r-stroke };
+}
+function buildParams(){
+  const g=geomActual();
+  return {
+    W, H, fps:30, ringFps:15,
+    circle:{ cx:g.cx, cy:g.cy, rOuter:g.r, stroke:g.stroke },
+    ring:{ on:true, color:PRESET.ringC, trackColor:PRESET.trackC },
+    timer:{ on:PRESET.timer, down:PRESET.down },
+    videoOffsetPct:0,
+    maxDuration:30
+  };
+}
+// Overlay estático (fondo + pista del anillo + textos + marca) con un agujero
+// transparente donde el servidor pega el video recortado en círculo.
+function buildOverlayDataURL(){
+  const g=geomActual();
+  const oc=document.createElement('canvas'); oc.width=W; oc.height=H;
+  const c=oc.getContext('2d');
+  const gr=c.createLinearGradient(0,0,0,H);
+  gr.addColorStop(0,PRESET.grad1); gr.addColorStop(1,PRESET.grad2);
+  c.fillStyle=gr; c.fillRect(0,0,W,H);
+  c.beginPath(); c.arc(g.cx,g.cy,g.r-g.stroke/2,0,Math.PI*2);
+  c.strokeStyle=PRESET.trackC; c.lineWidth=g.stroke; c.stroke();
+  const light=isDark(PRESET.grad2);
+  const name=$('name').value.trim(), place=$('place').value.trim();
+  let ty=g.cy+g.r+W*0.08;
+  if(name){ const fs=W*0.058; c.font=`700 ${fs}px ${NAME_FONT}`; c.fillStyle=light?'#fff':'#111'; c.textAlign='center'; c.fillText(name,g.cx,ty); ty+=fs*0.95; }
+  if(place){ const fs=W*0.04; c.font=`400 ${fs}px ${NAME_FONT}`; c.fillStyle=light?'rgba(255,255,255,.88)':'rgba(17,17,17,.82)'; c.textAlign='center'; c.fillText(place,g.cx,ty); }
+  const col=light?'#fff':'#111';
+  c.font=`500 ${W*0.0186}px ${NAME_FONT}`; c.fillStyle=col; c.textBaseline='alphabetic';
+  if(PRESET.sign){ c.textAlign='left'; c.fillText(spaced('CLARÍN'), W*0.075, H*0.955); }
+  if(PRESET.date){ c.textAlign='right'; c.fillText(spaced(FECHA), W*0.925, H*0.955); }
+  if(PRESET.logo){
+    if(logoCustom && logoCok){ const box=W*0.11, mx=W*0.02, ar=logoCustom.width/logoCustom.height; let lw=box,lh=box; if(ar>=1) lh=box/ar; else lw=box*ar; c.drawImage(logoCustom, mx, H*0.014, lw, lh); }
+    else { const logoLight=isDark(PRESET.grad1); const img=logoLight?logoW:logoB, ok=logoLight?logoWok:logoBok; if(ok){ const box=W*0.105, mx=W*0.02, ar=img.width/img.height; let lw=box,lh=box; if(ar>=1) lh=box/ar; else lw=box*ar; c.drawImage(img, mx, H*0.014, lw, lh); } }
+  }
+  c.globalCompositeOperation='destination-out';
+  c.beginPath(); c.arc(g.cx,g.cy,g.R,0,Math.PI*2); c.fill();
+  c.globalCompositeOperation='source-over';
+  return oc.toDataURL('image/png');
+}
+
+// Flujo principal: subir video crudo a Blob -> /api/render -> mp4.
+// Si algo falla (sin conexión, Blob no configurado, etc.) cae a grabación local.
+async function generarServidor(){
+  if(busy||!loaded) return;
+  if(!mvFile){ st('status','Primero subí el video.','err'); return; }
+  busy=true; $('gen').disabled=true; $('previewBtn').disabled=true;
+  $('resultCard').hidden=true; lastBlob=null;
+  $('prog').classList.add('on'); $('progBar').style.width='0%';
+  try{
+    st('status','<span class="spin"></span>Subiendo el video…','run'); $('progBar').style.width='15%';
+    const { upload } = await import('https://esm.sh/@vercel/blob@0.27.0/client');
+    const ext=(mvFile.name&&mvFile.name.match(/\.[a-z0-9]+$/i)) ? mvFile.name.match(/\.[a-z0-9]+$/i)[0] : '.mp4';
+    const put=await upload('cronista-'+hhmm()+ext, mvFile, { access:'public', handleUploadUrl:'/api/upload', contentType:mvFile.type||'video/mp4' });
+    st('status','<span class="spin"></span>Generando el video en el servidor…','run'); $('progBar').style.width='55%';
+    const overlayPng=buildOverlayDataURL();
+    const params=buildParams();
+    const r=await fetch('/api/render',{ method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ blobUrl:put.url, overlayPng, params }) });
+    if(!r.ok){ let m=''; try{ m=(await r.json()).error||''; }catch(e){} throw new Error('render '+r.status+(m?' · '+m:'')); }
+    const mp4=await r.blob();
+    if(!mp4 || mp4.size<1000) throw new Error('el servidor devolvió un video vacío');
+    $('progBar').style.width='100%';
+    lastBlob=mp4; lastExt='mp4';
+    $('resVideo').src=URL.createObjectURL(mp4);
+    $('resultCard').hidden=false;
+    const mb=Math.round(mp4.size/1048576*10)/10;
+    st('status','¡Listo! Video generado en el servidor ('+mb+' MB). Miralo abajo y compartilo.','ok');
+    $('resHint').textContent='Reproducilo para confirmar (imagen y sonido). Después "Compartir a WhatsApp".';
+    try{ $('resultCard').scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){}
+    busy=false; $('gen').disabled=false; $('previewBtn').disabled=false; $('prog').classList.remove('on');
+  }catch(e){
+    busy=false; $('gen').disabled=false; $('previewBtn').disabled=false; $('prog').classList.remove('on');
+    st('status','Servidor no disponible ('+(e.message||e)+'). Probando grabación local…','err');
+    return generarLocal();
+  }
+}
+
+async function generarLocal(){
   if(busy||!loaded) return;
   // bloqueamos solo lo seguro: navegador no-Safari en iPhone, o sin MediaRecorder.
   // si falta captureStream lo intentamos igual (la detección a veces falla); si no anda, el catch avisa claro.
@@ -449,7 +534,9 @@ $('gen').onclick=async()=>{
     else{ st('status','No se pudo iniciar la grabación: '+(err&&err.message||'error'),'err'); }
     cleanup();
   }
-};
+}
+
+$('gen').onclick = generarServidor;
 
 function finish(){
   stopRecLoop(); stopProgress();

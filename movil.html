@@ -444,15 +444,20 @@ async function generarServidor(){
   $('prog').classList.add('on'); $('progBar').style.width='0%';
   try{
     st('status','<span class="spin"></span>Subiendo el video…','run'); $('progBar').style.width='15%';
-    const { upload } = await import('https://esm.sh/@vercel/blob@2.6.1/client');
+    const { upload } = await import('./blob-client.js');
     const ext=(mvFile.name&&mvFile.name.match(/\.[a-z0-9]+$/i)) ? mvFile.name.match(/\.[a-z0-9]+$/i)[0] : '.mp4';
-    const put=await upload('cronista-'+hhmm()+ext, mvFile, {
+    let lastPct=-1;
+    const upP = upload('cronista-'+hhmm()+ext, mvFile, {
       access:'public',
       handleUploadUrl:'/api/upload',
       contentType:mvFile.type||'video/mp4',
       multipart:true,
-      onUploadProgress:(p)=>{ const pct=Math.round((p&&p.percentage)||0); st('status','<span class="spin"></span>Subiendo el video… '+pct+'%','run'); if(pct>0) $('progBar').style.width=Math.min(50,pct/2)+'%'; }
+      onUploadProgress:(p)=>{ const pct=Math.round((p&&p.percentage)||0); lastPct=pct; st('status','<span class="spin"></span>Subiendo el video… '+pct+'%','run'); if(pct>0) $('progBar').style.width=Math.min(50,pct/2)+'%'; }
     });
+    const put = await Promise.race([
+      upP,
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('la subida se colgó (timeout, último '+(lastPct<0?'0':lastPct)+'%)')), 120000))
+    ]);
     st('status','<span class="spin"></span>Generando el video en el servidor…','run'); $('progBar').style.width='55%';
     const overlayPng=buildOverlayDataURL();
     const params=buildParams();
@@ -543,6 +548,8 @@ async function generarLocal(){
 }
 
 $('gen').onclick = generarServidor;
+// marca de versión visible (para confirmar que el teléfono cargó la última versión)
+try{ const _v=document.createElement('div'); _v.textContent='build v13'; _v.style.cssText='position:fixed;bottom:4px;right:6px;font:10px/1 monospace;color:#fff;background:#c00;opacity:.9;z-index:99999;padding:2px 5px;border-radius:4px'; (document.body||document.documentElement).appendChild(_v); }catch(e){}
 
 function finish(){
   stopRecLoop(); stopProgress();

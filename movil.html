@@ -451,12 +451,12 @@ async function generarServidor(){
       access:'public',
       handleUploadUrl:'/api/upload',
       contentType:mvFile.type||'video/mp4',
-      multipart:true,
+      multipart:false,
       onUploadProgress:(p)=>{ const pct=Math.round((p&&p.percentage)||0); lastPct=pct; st('status','<span class="spin"></span>Subiendo el video… '+pct+'%','run'); if(pct>0) $('progBar').style.width=Math.min(50,pct/2)+'%'; }
     });
     const put = await Promise.race([
       upP,
-      new Promise((_,rej)=>setTimeout(()=>rej(new Error('la subida se colgó (timeout, último '+(lastPct<0?'0':lastPct)+'%)')), 120000))
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('la subida se colgó (timeout 30s, último '+(lastPct<0?'0':lastPct)+'%)')), 30000))
     ]);
     st('status','<span class="spin"></span>Generando el video en el servidor…','run'); $('progBar').style.width='55%';
     const overlayPng=buildOverlayDataURL();
@@ -476,8 +476,11 @@ async function generarServidor(){
     busy=false; $('gen').disabled=false; $('previewBtn').disabled=false; $('prog').classList.remove('on');
   }catch(e){
     busy=false; $('gen').disabled=false; $('previewBtn').disabled=false; $('prog').classList.remove('on');
-    st('status','Servidor no disponible ('+(e.message||e)+'). Probando grabación local…','err');
-    return generarLocal();
+    // MODO DIAGNÓSTICO: mostramos el error completo y NO caemos a grabación local,
+    // para poder leer qué falla en la subida. (Se revierte al fallback cuando ande.)
+    const em = e && (e.name ? e.name+': ' : '') + (e.message||e);
+    st('status','ERROR: '+em,'err');
+    return;
   }
 }
 
@@ -549,7 +552,7 @@ async function generarLocal(){
 
 $('gen').onclick = generarServidor;
 // marca de versión visible (para confirmar que el teléfono cargó la última versión)
-try{ const _v=document.createElement('div'); _v.textContent='build v13'; _v.style.cssText='position:fixed;bottom:4px;right:6px;font:10px/1 monospace;color:#fff;background:#c00;opacity:.9;z-index:99999;padding:2px 5px;border-radius:4px'; (document.body||document.documentElement).appendChild(_v); }catch(e){}
+try{ const _v=document.createElement('div'); _v.textContent='build v14'; _v.style.cssText='position:fixed;bottom:4px;right:6px;font:10px/1 monospace;color:#fff;background:#c00;opacity:.9;z-index:99999;padding:2px 5px;border-radius:4px'; (document.body||document.documentElement).appendChild(_v); }catch(e){}
 
 function finish(){
   stopRecLoop(); stopProgress();

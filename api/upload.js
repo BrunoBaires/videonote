@@ -17,6 +17,13 @@ function readJson(req) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ error: 'usar POST' }); return; }
+  // diagnóstico: confirmar qué credenciales ve la función en runtime
+  console.error('[/api/upload] env:', {
+    hasRW: !!process.env.BLOB_READ_WRITE_TOKEN,
+    rwPrefix: (process.env.BLOB_READ_WRITE_TOKEN || '').slice(0, 16),
+    hasStoreId: !!process.env.BLOB_STORE_ID,
+    hasOidc: !!process.env.VERCEL_OIDC_TOKEN,
+  });
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : await readJson(req);
     const jsonResponse = await handleUpload({

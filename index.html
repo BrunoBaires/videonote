@@ -1236,7 +1236,7 @@ function skyActive(){ return !bgImg && !bgVideo && $('paletaHora').checked && $(
 /* ---------- dibujo principal ---------- */
 function draw(){
   const [W,H] = DIMS[$('fmt').value];
-  if(cv.width !== W){ cv.width = W; cv.height = H; bgCacheKey=''; }
+  if(cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; bgCacheKey=''; }
 
   const veilAmt = parseFloat($('veil').value)/100;
   const veilRGB = $('veilC').value;

@@ -495,13 +495,13 @@ video.src{display:none}
           </div>
         </div>
         <div class="grp">
-          <span class="lbl"><span id="szLbl">Diámetro</span> <span class="val" id="szV">55 %</span></span>
-          <input type="range" id="sz" min="40" max="100" value="55">
+          <span class="lbl"><span id="szLbl">Diámetro</span> <span class="val" id="szV">61 %</span></span>
+          <input type="range" id="sz" min="40" max="100" value="61">
           <div class="hint">Se reduce solo si el epígrafe necesita lugar.</div>
         </div>
         <div class="grp">
-          <span class="lbl">Anillo <span class="val" id="ringV">6 px</span></span>
-          <input type="range" id="ring" min="2" max="40" value="6">
+          <span class="lbl">Anillo <span class="val" id="ringV">13 px</span></span>
+          <input type="range" id="ring" min="2" max="40" value="13">
           <div class="row" style="margin-top:8px">
             <div><span class="lbl">Recorrido</span><input type="color" id="ringC" value="#F9F8F6"></div>
             <div><span class="lbl">Pista</span><input type="color" id="trackC" value="#D80126"></div>
@@ -521,10 +521,10 @@ video.src{display:none}
         <div class="grp">
           <span class="lbl">Proporción</span>
           <select id="fmt">
-            <option value="1:1.22" selected>1:1,22 · 1080×1320</option>
+            <option value="1:1.22">1:1,22 · 1080×1320</option>
             <option value="1:1.5">1:1,5 · 1080×1620</option>
             <option value="9:16">9:16 · 1080×1920</option>
-            <option value="1:1">1:1 · 1080×1080</option>
+            <option value="1:1" selected>1:1 · 1080×1080</option>
             <option value="4:5">4:5 · 1080×1350</option>
           </select>
         </div>
@@ -581,18 +581,18 @@ video.src{display:none}
     <div class="card" data-pane="video">
       <div class="head" data-toggle><h2>Subtítulos</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
-        <label class="chk" style="margin-top:0"><input type="checkbox" id="subOn"> Mostrar subtítulos sincronizados</label>
+        <label class="chk" style="margin-top:0"><input type="checkbox" id="subOn" checked> Mostrar subtítulos sincronizados</label>
         <div class="hint" id="subInfo">Transcribí el video primero (usa los tiempos por palabra de AssemblyAI).</div>
         <span class="lbl" style="margin-top:10px">Editar subtítulos <span class="counter">una línea = un bloque</span></span>
         <textarea id="subEdit" rows="7" placeholder="Al transcribir, cada bloque de subtítulo aparece acá. Corregí el texto antes de generar; los tiempos se mantienen."></textarea>
         <button type="button" class="mini-btn" id="subReload" style="margin-top:6px">Rearmar desde la transcripción</button>
         <div class="grp" style="margin-top:10px">
-          <span class="lbl">Tamaño <span class="val" id="subSzV">3,4 %</span></span>
-          <input type="range" id="subSz" min="2" max="6" value="3.4" step="0.1">
-          <span class="lbl" style="margin-top:8px">Posición vertical <span class="val" id="subYV">74 %</span></span>
-          <input type="range" id="subY" min="40" max="92" value="74">
-          <span class="lbl" style="margin-top:8px">Ancho máx (corte de línea) <span class="val" id="subWV">90 %</span></span>
-          <input type="range" id="subW" min="50" max="100" value="90">
+          <span class="lbl">Tamaño <span class="val" id="subSzV">4,2 %</span></span>
+          <input type="range" id="subSz" min="2" max="6" value="4.2" step="0.1">
+          <span class="lbl" style="margin-top:8px">Posición vertical <span class="val" id="subYV">69 %</span></span>
+          <input type="range" id="subY" min="40" max="92" value="69">
+          <span class="lbl" style="margin-top:8px">Ancho máx (corte de línea) <span class="val" id="subWV">68 %</span></span>
+          <input type="range" id="subW" min="50" max="100" value="68">
           <label class="chk"><input type="checkbox" id="subBox" checked> Fondo por línea (se ajusta al texto)</label>
           <label class="chk"><input type="checkbox" id="subUpper"> Mayúsculas</label>
           <label class="chk"><input type="checkbox" id="subHideName" checked> Bajar nombre y crédito al reproducir (quedan visibles, ideal para loops)</label>
@@ -652,12 +652,12 @@ video.src{display:none}
       <div class="body collapsible">
         <textarea id="ctx" rows="5" placeholder="Contexto, alineado a la izquierda"></textarea>
         <div class="grp" style="margin-top:10px">
-          <span class="lbl">Cuerpo <span class="val" id="ctxSzV">3,4 %</span></span>
-          <input type="range" id="ctxSz" min="2" max="5" value="3.4" step="0.1">
+          <span class="lbl">Cuerpo <span class="val" id="ctxSzV">4,3 %</span></span>
+          <input type="range" id="ctxSz" min="2" max="5" value="4.3" step="0.1">
         </div>
         <div class="grp">
-          <span class="lbl">Separación del bloque <span class="val" id="gapV">7,2 %</span></span>
-          <input type="range" id="gap" min="2" max="16" value="7.2" step="0.2">
+          <span class="lbl">Separación del bloque <span class="val" id="gapV">7,6 %</span></span>
+          <input type="range" id="gap" min="2" max="16" value="7.6" step="0.2">
         </div>
         <div class="grp">
           <span class="lbl">Alineación</span>
@@ -680,7 +680,7 @@ video.src{display:none}
     <div class="card open" data-pane="fondos" hidden>
       <div class="head" data-toggle><h2>Zócalo de contexto</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
-        <label class="chk"><input type="checkbox" id="zocOn"> Mostrar zócalo</label>
+        <label class="chk"><input type="checkbox" id="zocOn" checked> Mostrar zócalo</label>
         <div class="grp" style="margin-top:11px">
           <span class="lbl">Hora <span class="counter" id="zHoraC">0</span></span>
           <input type="text" id="zHora" placeholder="22:00">

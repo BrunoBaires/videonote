@@ -289,6 +289,29 @@ video.src{display:none}
       </div>
     </div>
 
+    <!-- Fondo animado · pestaña Fondos -->
+    <div class="card tool" data-pane="fondos" hidden>
+      <div class="head" data-toggle><h2>Fondo animado</h2><span class="arrow">▸</span></div>
+      <div class="body collapsible">
+        <div class="hint">Un movimiento lento y suave sobre el fondo, para romper la inmovilidad (sobre todo en degradado). Se ve en la previsualización y queda en el mp4.</div>
+        <span class="lbl" style="margin-top:9px">Efecto</span>
+        <select id="bgFx">
+          <option value="none">Ninguno</option>
+          <option value="deriva">Deriva de luz (suave)</option>
+          <option value="brillo">Brillo diagonal</option>
+          <option value="respira">Respiración (brillo)</option>
+          <option value="aurora">Aurora (color)</option>
+          <option value="ondas">Ondas lentas</option>
+          <option value="vineta">Viñeta que respira</option>
+        </select>
+        <span class="lbl" style="margin-top:9px">Velocidad <span class="val" id="bgFxSpeedV">100 %</span></span>
+        <input type="range" id="bgFxSpeed" min="15" max="300" value="100">
+        <span class="lbl" style="margin-top:8px">Intensidad <span class="val" id="bgFxOpV">40 %</span></span>
+        <input type="range" id="bgFxOp" min="0" max="100" value="40">
+        <div class="hint">Probá el efecto y ajustá velocidad e intensidad hasta que quede sutil. Podés previsualizar sin reproducir todo el video.</div>
+      </div>
+    </div>
+
     <!-- Crear con IA · pestaña Fondos -->
     <div class="card tool" data-pane="fondos" hidden>
       <div class="head" data-toggle><h2>Crear con IA</h2><span class="arrow">▸</span></div>
@@ -1287,6 +1310,8 @@ function draw(){
     if(skyActive()) drawSky(W,H, solarState.starI);
   }
 
+  if(!bakingFondo) drawBgFx(W,H);
+
   drawSubjCut(W,H);
 
   const stroke = parseFloat($('ring').value)*(W/1080)*1.9;
@@ -1390,13 +1415,16 @@ function draw(){
   const _mf = Math.max(0,Math.min(1,((vid.currentTime||0)-segIn()-0.10)/0.45));
   const lowNameY = H*0.82;                                   // destino en el tercio inferior
   const slideY = moveDown ? Math.max(0,(lowNameY-ty))*_mf : 0;
+  const nameOp = moveDown ? (1 - 0.5*_mf) : 1;               // al reproducir subtítulos baja al 50% (junto con el deslizamiento)
 
   if(name){
     const fs = W*(parseFloat($('nameSz').value)/100);
     ctx.font=`700 ${fs}px ${NAME_FONT}`;
     ctx.fillStyle = light ? '#FFFFFF' : '#111111';
     ctx.textAlign='center';
+    ctx.save(); ctx.globalAlpha = nameOp;
     ctx.fillText(name, cx, ty+slideY);
+    ctx.restore();
     ty += fs*0.92;
   }
   if(place){
@@ -1404,7 +1432,9 @@ function draw(){
     ctx.font=`400 ${fs}px ${NAME_FONT}`;
     ctx.fillStyle = light ? 'rgba(255,255,255,.88)' : 'rgba(17,17,17,.82)';
     ctx.textAlign='center';
+    ctx.save(); ctx.globalAlpha = nameOp;
     ctx.fillText(place, cx, ty+slideY);
+    ctx.restore();
     ty += fs*1.3;
   }
 
@@ -1747,6 +1777,59 @@ function drawFlag(x,y,w,h,flip){
   ctx.restore();
 }
 
+/* ---------- fondo animado: movimiento lento y suave sobre el fondo ---------- */
+function drawBgFx(W,H){
+  const fx=$('bgFx') ? $('bgFx').value : 'none';
+  if(fx==='none') return;
+  const op=(parseFloat($('bgFxOp').value)/100)||0;
+  if(op<=0) return;
+  const spd=Math.max(0.05, parseFloat($('bgFxSpeed').value)/100);
+  const t=performance.now()/1000*spd;
+  const M=Math.max(W,H);
+  ctx.save();
+  if(fx==='deriva'){
+    const gx=W*(0.5+0.30*Math.sin(t*0.22)), gy=H*(0.44+0.24*Math.cos(t*0.17));
+    const g=ctx.createRadialGradient(gx,gy,0, gx,gy,M*0.58);
+    g.addColorStop(0,'rgba(255,255,255,'+op.toFixed(3)+')');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.globalCompositeOperation='screen'; ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  } else if(fx==='brillo'){
+    const sweep=((t*0.11)%1.7)-0.35, cx=W*sweep, bw=W*0.45;
+    const g=ctx.createLinearGradient(cx-bw,0,cx+bw,H);
+    g.addColorStop(0,'rgba(255,255,255,0)');
+    g.addColorStop(0.5,'rgba(255,255,255,'+op.toFixed(3)+')');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.globalCompositeOperation='screen'; ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  } else if(fx==='respira'){
+    const p=Math.sin(t*0.55)*0.5+0.5;
+    ctx.globalCompositeOperation='overlay';
+    ctx.fillStyle='rgba(255,255,255,'+(op*p).toFixed(3)+')'; ctx.fillRect(0,0,W,H);
+  } else if(fx==='aurora'){
+    ctx.globalCompositeOperation='screen';
+    const blob=(cx,cy,col,a)=>{ const g=ctx.createRadialGradient(cx,cy,0,cx,cy,M*0.55); g.addColorStop(0,rgba(col,a)); g.addColorStop(1,rgba(col,0)); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); };
+    blob(W*(0.36+0.20*Math.sin(t*0.16)), H*(0.34+0.14*Math.cos(t*0.12)), '#ffe6bf', op*0.95);
+    blob(W*(0.66+0.20*Math.cos(t*0.13)), H*(0.64+0.14*Math.sin(t*0.10)), '#bcd7ff', op*0.95);
+  } else if(fx==='ondas'){
+    ctx.globalCompositeOperation='screen';
+    const bands=3, bh=H*0.16;
+    for(let i=0;i<bands;i++){
+      const yy=((t*0.04 + i/bands)%1)*(H+bh*2)-bh;
+      const g=ctx.createLinearGradient(0,yy-bh,0,yy+bh);
+      g.addColorStop(0,'rgba(255,255,255,0)');
+      g.addColorStop(0.5,'rgba(255,255,255,'+(op*0.6).toFixed(3)+')');
+      g.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=g; ctx.fillRect(0,yy-bh,W,bh*2);
+    }
+  } else if(fx==='vineta'){
+    const p=Math.sin(t*0.5)*0.5+0.5;
+    const g=ctx.createRadialGradient(W/2,H/2,M*0.18, W/2,H/2,M*0.72);
+    g.addColorStop(0,'rgba(0,0,0,0)');
+    g.addColorStop(1,'rgba(0,0,0,'+(op*(0.4+0.6*p)).toFixed(3)+')');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  }
+  ctx.restore();
+}
+
 /* ---------- sujeto recortado sobre el fondo de color ---------- */
 function drawSubjCut(W,H){
   if(!subjCut) return;
@@ -1814,7 +1897,8 @@ setInterval(() => {
   if(busy || rafId!==null) return;
   const zocAnim = $('zocOn').checked && $('zocFx').value!=='none';
   const elAnim  = elImg && $('elFlame').checked;
-  if(zocAnim || elAnim || skyActive()) draw();
+  const bgFxAnim = $('bgFx') && $('bgFx').value!=='none' && (parseFloat($('bgFxOp').value)||0)>0;
+  if(zocAnim || elAnim || skyActive() || bgFxAnim) draw();
 }, 45);
 
 function startRecLoop(){ stopRecLoop(); recTimer=setInterval(()=>{ if(!vid.paused && !vid.ended){ draw(); if(vid.currentTime >= segOut()-0.03) finishRec(); } },33); }
@@ -1877,7 +1961,8 @@ const CTRLS = ['fmt','bg','mg','sz','of','zoom','ofH','ring','ringC','trackC','r
   'gradOn','grad2','subjSz','subjX','subjY','circleOn','paletaHora','nightStars',
   'bgZoom','bgPosX','bgPosY','logoSz','ctxAlign','ctxDX','ctxDY',
   'zocH','zocBarC','zocBar2C','zocTxtC','zocGoldC','zocFx','zocFxSpeed',
-  'elFlip','elMirror','elFlame','zIntroDelay','zTypeSpeed','subOn','subSz','subY','subW','subBox','subUpper','subHideName','subHideZoc'];
+  'elFlip','elMirror','elFlame','zIntroDelay','zTypeSpeed','subOn','subSz','subY','subW','subBox','subUpper','subHideName','subHideZoc',
+  'bgFx','bgFxSpeed','bgFxOp'];
 CTRLS.forEach(id => ['input','change'].forEach(ev => $(id).addEventListener(ev, redraw)));
 
 const VALS = {ring:' px', mg:' %', sz:' %', of:' %', zoom:' %', ofH:' %', veil:' %', rad:' %',
@@ -1886,7 +1971,8 @@ const VALS = {ring:' px', mg:' %', sz:' %', of:' %', zoom:' %', ofH:' %', veil:'
   elSz:' %', elX:' %', elY:' %', subjSz:' %', subjX:' %', subjY:' %', zocSz:' %',
   zHoraSz:' %', zEvSz:' %', zDeSz:' %',
   bgZoom:' %', bgPosX:' %', bgPosY:' %', logoSz:' %', ctxDX:' %', ctxDY:' %',
-  zocH:' %', zocFxSpeed:' %', zIntroDelay:' s', zTypeSpeed:' %', subSz:' %', subY:' %', subW:' %'};
+  zocH:' %', zocFxSpeed:' %', zIntroDelay:' s', zTypeSpeed:' %', subSz:' %', subY:' %', subW:' %',
+  bgFxSpeed:' %', bgFxOp:' %'};
 Object.keys(VALS).forEach(id => {
   const el=$(id), out=$(id+'V');
   if(el && out) el.addEventListener('input', () => { out.textContent = el.value.replace('.',',')+VALS[id]; });

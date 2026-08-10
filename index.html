@@ -281,6 +281,16 @@ video.src{display:none}
           </div>
           <input type="file" id="fileBg" accept="image/*,video/*" hidden>
           <button type="button" class="mini-btn" id="clearBg" hidden>Quitar fondo</button>
+          <div class="grp" id="bgTrimGrp" hidden style="margin-top:12px">
+            <span class="lbl">Recorte del fondo (in / out) <span class="val" id="bgTrimV">—</span></span>
+            <div class="tl" id="btl">
+              <div class="tl-range" id="btlRange"></div>
+              <div class="tl-play" id="btlPlay"></div>
+              <div class="tl-h" id="btlIn" data-h="in"></div>
+              <div class="tl-h" id="btlOut" data-h="out"></div>
+            </div>
+            <div class="hint">El video de fondo hace loop dentro de este tramo. Solo aparece cuando el fondo es un video.</div>
+          </div>
         </div>
         <div class="row" style="margin-top:12px;gap:6px">
           <button type="button" class="genbtn go" id="saveBg" style="margin-top:0;flex:1">⬇ Fondo PNG</button>
@@ -862,6 +872,7 @@ let bgImg=null, bgVideo=false, overflow=false, finalFrame=false, brandTouched=fa
 let bgCache=null, bgCacheKey='', hiddenDuringRec=false, recTimer=null;
 let elImg=null, subjCut=null, elFile=null, logoCustom=null, bakingFondo=false, ctxBBox=null, mainVidFile=null;
 let trimIn=0, trimOut=0, recFinishing=false;
+let bgTrimIn=0, bgTrimOut=0, btlDragH=null;
 let subWords=[], subCues=[], seeking=false, subBgCv=null;
 
 /* ---------- paneles plegables ---------- */
@@ -965,6 +976,58 @@ document.addEventListener('pointermove', e=>{
 });
 document.addEventListener('pointerup', ()=>{ tlDragH=null; });
 
+/* ===== recorte in/out del video de fondo (loop dentro del tramo) ===== */
+function bgSegIn(){ return Math.max(0, bgTrimIn||0); }
+function bgSegOut(){ const d=vidBg.duration||0; return (bgTrimOut>0 && bgTrimOut<=d+0.01) ? bgTrimOut : d; }
+function bgSegDur(){ return Math.max(0.05, bgSegOut()-bgSegIn()); }
+function layoutBTL(){
+  const d=vidBg.duration||0; if(!d) return;
+  const fi=bgSegIn()/d, fo=bgSegOut()/d;
+  $('btlIn').style.left=(fi*100)+'%';
+  $('btlOut').style.left=(fo*100)+'%';
+  $('btlRange').style.left=(fi*100)+'%';
+  $('btlRange').style.width=Math.max(0,(fo-fi)*100)+'%';
+  $('bgTrimV').textContent=fmt1(bgSegIn())+' – '+fmt1(bgSegOut())+' s ('+fmt1(bgSegDur())+' s)';
+  updateBTLPlay();
+}
+function updateBTLPlay(){
+  const d=vidBg.duration||0; const p=$('btlPlay'); if(!d||!p) return;
+  const f=Math.max(0,Math.min(1,(vidBg.currentTime||0)/d));
+  p.style.left=(f*100)+'%';
+}
+function btlFromX(clientX){
+  const r=$('btl').getBoundingClientRect(); const d=vidBg.duration||0;
+  if(!r.width||!d) return null;
+  let f=(clientX-r.left)/r.width; f=Math.max(0,Math.min(1,f));
+  return f*d;
+}
+function btlApply(which,t){
+  const minGap=0.3;
+  if(which==='in'){ bgTrimIn=Math.max(0, Math.min(t, bgSegOut()-minGap)); }
+  else { bgTrimOut=Math.min(vidBg.duration||0, Math.max(t, bgSegIn()+minGap)); }
+  try{ vidBg.currentTime = (which==='in') ? bgSegIn() : Math.max(0,bgSegOut()-0.02); }catch(e){}
+  layoutBTL();
+}
+['btlIn','btlOut'].forEach(id=>{
+  const el=$(id); if(!el) return;
+  el.addEventListener('pointerdown', e=>{ e.preventDefault(); btlDragH=el.dataset.h; try{ el.setPointerCapture(e.pointerId); }catch(_){} });
+});
+document.addEventListener('pointermove', e=>{
+  if(!btlDragH) return;
+  const t=btlFromX(e.clientX); if(t==null) return;
+  btlApply(btlDragH,t); redraw();
+});
+document.addEventListener('pointerup', ()=>{ btlDragH=null; });
+/* mantiene el fondo en loop dentro del tramo elegido, en reposo y al reproducir/exportar */
+setInterval(()=>{
+  if(!bgVideo || vidBg.paused) return;
+  const inP=bgSegIn(), outP=bgSegOut();
+  if(vidBg.currentTime >= outP-0.03 || vidBg.currentTime < inP-0.05){
+    try{ vidBg.currentTime = inP; }catch(e){}
+  }
+  if(!$('bgTrimGrp').hidden) updateBTLPlay();
+}, 40);
+
 /* ===== entrada animada del zócalo (rápida ~1 s, typewriter secuencial) ===== */
 const ZI_SLIDE=0.30;   // duración del deslizamiento hacia arriba (s)
 function zocPlaying(){ return loaded && !vid.paused && !vid.ended && !finalFrame; }
@@ -999,21 +1062,25 @@ function loadBg(f){
     bgImg = null;
     bgVideo = true;
     vidBg.muted = true;
-    vidBg.loop = true;
+    vidBg.loop = false;
     vidBg.playsInline = true;
     vidBg.src = URL.createObjectURL(f);
     vidBg.onloadedmetadata = () => {
       $('dropBg').querySelector('strong').textContent = f.name.slice(0,24);
       $('dropBg').querySelector('small').textContent = 'video · ' + Math.round(vidBg.duration*10)/10 + ' s · en loop, sin audio';
-      vidBg.currentTime = 0.05;
+      bgTrimIn = 0; bgTrimOut = vidBg.duration || 0;
+      vidBg.currentTime = bgSegIn();
+      $('bgTrimGrp').hidden = false; layoutBTL();
       afterBgLoad();
     };
+    vidBg.onended = () => { try{ vidBg.currentTime = bgSegIn(); vidBg.play(); }catch(e){} };
     vidBg.onseeked = () => redraw();
     vidBg.oncanplay = () => { vidBg.play().catch(()=>{}); redraw(); };
     vidBg.onerror = () => setStatus('No se pudo leer el video de fondo.','err');
   } else {
     bgVideo = false;
     vidBg.pause(); vidBg.removeAttribute('src'); vidBg.load();
+    $('bgTrimGrp').hidden = true;
     const img = new Image();
     img.onload = () => {
       bgImg = img;
@@ -1034,6 +1101,7 @@ function afterBgLoad(){
 $('clearBg').onclick = () => {
   bgImg = null; bgVideo = false;
   vidBg.pause(); vidBg.removeAttribute('src'); vidBg.load();
+  $('bgTrimGrp').hidden = true;
   bgCacheKey = '';
   $('dropBg').querySelector('strong').textContent = 'Imagen o video';
   $('dropBg').querySelector('small').textContent = 'jpg, png, mp4, webm · opcional';
@@ -1947,7 +2015,7 @@ $('restart').onclick=()=>{
   if(busy||!loaded) return;
   seeking=false;
   try{ vid.currentTime=segIn(); }catch(e){}
-  if(bgVideo){ try{ vidBg.currentTime=0; }catch(e){} vidBg.play().catch(()=>{}); }
+  if(bgVideo){ try{ vidBg.currentTime=bgSegIn(); }catch(e){} vidBg.play().catch(()=>{}); }
   vid.play(); $('play').textContent='Pausar';
   if(rafId===null) loop();
 };
@@ -2277,6 +2345,7 @@ function applyPreview(url){
 function setGenBg(img){
   bgImg=img; bgVideo=false;
   vidBg.pause(); try{ vidBg.removeAttribute('src'); vidBg.load(); }catch(e){}
+  $('bgTrimGrp').hidden = true;
   bgCacheKey='';
   $('clearBg').hidden=false; $('veilGrp').hidden=false;
   $('dropBg').querySelector('strong').textContent='Fondo IA';
@@ -2460,14 +2529,17 @@ $('rwCancel').onclick = () => {
 };
 function setRunwayBg(srcUrl){
   bgImg=null; bgVideo=true;
-  vidBg.muted=true; vidBg.loop=true; vidBg.playsInline=true;
+  vidBg.muted=true; vidBg.loop=false; vidBg.playsInline=true;
   vidBg.src=srcUrl;
   vidBg.onloadedmetadata=()=>{
     $('dropBg').querySelector('strong').textContent='Animación Runway';
     $('dropBg').querySelector('small').textContent='video · '+Math.round(vidBg.duration*10)/10+' s · en loop';
-    vidBg.currentTime=0.05;
+    bgTrimIn=0; bgTrimOut=vidBg.duration||0;
+    vidBg.currentTime=bgSegIn();
+    $('bgTrimGrp').hidden=false; layoutBTL();
     bgCacheKey=''; afterBgLoad();
   };
+  vidBg.onended=()=>{ try{ vidBg.currentTime=bgSegIn(); vidBg.play(); }catch(e){} };
   vidBg.onseeked=()=>redraw();
   vidBg.oncanplay=()=>{ vidBg.play().catch(()=>{}); redraw(); };
   vidBg.onerror=()=> setStatus('No se pudo cargar el video de Runway.','err');
@@ -2814,7 +2886,7 @@ $('rec').onclick = async () => {
     vid.currentTime=segIn();
     await new Promise(res => { vid.onseeked=res; });
     vid.onseeked=null;
-    if(bgVideo){ vidBg.currentTime=0; vidBg.play().catch(()=>{}); }
+    if(bgVideo){ vidBg.currentTime=bgSegIn(); vidBg.play().catch(()=>{}); }
 
     await new Promise(res => {
       const t0=performance.now();

@@ -2018,7 +2018,7 @@ function loop(){
     if(!busy){
       $('play').textContent='Previsualizar'; if(atEnd) seeking=false;
       if(justEnded && atEnd && $('finAnimOn') && $('finAnimOn').checked && $('circleOn').checked && !finAnim.active){
-        finalFrame=true; playClosing(()=>{});   // cierre traumótropo en la previsualización
+        finalFrame=true; playClosing(()=>{ cancelClosing(); finalFrame=true; draw(); });   // cierre traumótropo en la previsualización; al terminar vuelve al reposo
       } else {
         draw();   // al final: reposo (vuelven nombre/zócalo/epígrafe)
       }
@@ -3005,6 +3005,7 @@ $('rec').onclick = async () => {
   $('prog').classList.add('on'); $('progBar').style.width='0%';
   $('dl').classList.remove('on'); $('dl').innerHTML='';
   hiddenDuringRec=false;
+  cancelClosing(); finalFrame=false; recFinishing=false;   // arrancar la grabación desde el video, no desde un cierre previo congelado
 
   // formato de grabación: preferimos MP4 nativo (WhatsApp lo toma sin conversión)
   const MP4=['video/mp4;codecs=avc1.640028,mp4a.40.2','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1,mp4a','video/mp4'];

@@ -170,6 +170,18 @@ video.src{display:none}
         <button type="button" class="genbtn go" id="cfgSave" style="margin-top:10px">Guardar mi configuración</button>
         <button type="button" class="mini-btn" id="cfgReset" style="margin-top:8px">Restablecer a lo original</button>
         <div class="genstat" id="cfgStat"></div>
+
+        <div id="tplBlock" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+          <div class="hint" style="font-style:normal;margin-top:0"><strong style="color:var(--ink)">Plantillas del equipo</strong><br>Guardá este estilo con un nombre y lo ve todo el equipo, desde cualquier dispositivo. Elegí una para aplicarla al toque.</div>
+          <select id="tplSel" style="margin-top:8px"><option value="">— Elegí una plantilla —</option></select>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button type="button" class="genbtn go" id="tplApply" style="margin-top:0;flex:1">Aplicar</button>
+            <button type="button" class="mini-btn" id="tplDelete" style="margin-top:0;width:auto;flex:0 0 auto;padding:6px 14px">Borrar</button>
+          </div>
+          <input type="text" id="tplName" placeholder="Nombre (ej. Placa política)" style="margin-top:8px">
+          <button type="button" class="genbtn" id="tplSave" style="margin-top:8px">Guardar como plantilla del equipo</button>
+          <div class="genstat" id="tplStat"></div>
+        </div>
       </div>
     </div>
 
@@ -1483,7 +1495,7 @@ function draw(){
   const _mf = Math.max(0,Math.min(1,((vid.currentTime||0)-segIn()-0.10)/0.45));
   const lowNameY = H*0.82;                                   // destino en el tercio inferior
   const slideY = moveDown ? Math.max(0,(lowNameY-ty))*_mf : 0;
-  const nameOp = moveDown ? (1 - 0.5*_mf) : 1;               // al reproducir subtítulos baja al 50% (junto con el deslizamiento)
+  const nameOp = 1;                                          // el nombre y el crédito permanecen a pleno contraste durante los subtítulos (revertido: antes bajaban al 50%)
 
   if(name){
     const fs = W*(parseFloat($('nameSz').value)/100);
@@ -3021,6 +3033,68 @@ function cfgStat(t){ const el=$('cfgStat'); if(el){ el.textContent=t; el.classNa
 $('cfgSave').onclick=()=>{ try{ localStorage.setItem('vn_cfg', JSON.stringify(getConfig())); cfgStat('Configuración guardada ✓ — se aplica en cada video nuevo.'); }catch(e){ cfgStat('No se pudo guardar en este navegador.'); } };
 $('cfgReset').onclick=()=>{ try{ localStorage.removeItem('vn_cfg'); }catch(e){} applyConfig(CFG_DEFAULTS); cfgStat('Volvió a la configuración original.'); };
 (function initCfg(){ try{ const s=localStorage.getItem('vn_cfg'); if(s){ applyConfig(JSON.parse(s)); cfgStat('Tu configuración guardada está aplicada.'); } }catch(e){} })();
+
+/* ---------- biblioteca de plantillas del equipo (servidor / Vercel Blob) ---------- */
+(function tplLib(){
+  const API='/api/templates';
+  const sel=$('tplSel'), nameIn=$('tplName'), statEl=$('tplStat'), block=$('tplBlock');
+  if(!sel||!block) return;
+  let TPLS=[];
+  function tstat(t,cls){ if(statEl){ statEl.textContent=t; statEl.className='genstat'+(cls?' '+cls:''); } }
+  function esc(s){ return String(s==null?'':s).replace(/[<>&]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+  function fill(){
+    const cur=sel.value;
+    sel.innerHTML='<option value="">— Elegí una plantilla —</option>'+
+      TPLS.map(t=>'<option value="'+esc(t.id)+'">'+esc(t.name||'(sin nombre)')+'</option>').join('');
+    if(cur && TPLS.some(t=>t.id===cur)) sel.value=cur;
+  }
+  async function load(){
+    tstat('Cargando plantillas…');
+    try{
+      const r=await fetch(API,{cache:'no-store'});
+      if(r.status===501){ tstat('Biblioteca no configurada en el servidor todavía.','err'); return; }
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const d=await r.json(); TPLS=Array.isArray(d.templates)?d.templates:[];
+      fill();
+      tstat(TPLS.length ? (TPLS.length+' plantilla'+(TPLS.length>1?'s':'')+' del equipo.') : 'Todavía no hay plantillas guardadas.', 'ok');
+    }catch(e){ tstat('No se pudo cargar la biblioteca (¿sin conexión?). Podés seguir usando "Guardar mi configuración".','err'); }
+  }
+  $('tplApply').onclick=()=>{
+    const t=TPLS.find(x=>x.id===sel.value);
+    if(!t){ tstat('Elegí una plantilla de la lista.','err'); return; }
+    applyConfig(t.cfg||{});
+    tstat('Aplicada: '+t.name+' ✓','ok');
+  };
+  $('tplSave').onclick=async()=>{
+    const nm=(nameIn.value||'').trim();
+    if(!nm){ tstat('Poné un nombre para la plantilla.','err'); if(nameIn) nameIn.focus(); return; }
+    const dup=TPLS.find(x=>(x.name||'').toLowerCase()===nm.toLowerCase());
+    if(dup && !confirm('Ya existe una plantilla "'+dup.name+'". ¿La reemplazo con el estilo actual?')) return;
+    tstat('Guardando…');
+    try{
+      const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:nm,cfg:getConfig(),id:dup?dup.id:undefined})});
+      if(r.status===501){ tstat('Biblioteca no configurada en el servidor todavía.','err'); return; }
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const d=await r.json(); TPLS=Array.isArray(d.templates)?d.templates:TPLS;
+      fill(); if(d.template) sel.value=d.template.id; if(nameIn) nameIn.value='';
+      tstat('Guardada: '+nm+' ✓ — ya la ve todo el equipo.','ok');
+    }catch(e){ tstat('No se pudo guardar: '+((e&&e.message)||e),'err'); }
+  };
+  $('tplDelete').onclick=async()=>{
+    const t=TPLS.find(x=>x.id===sel.value);
+    if(!t){ tstat('Elegí la plantilla que querés borrar.','err'); return; }
+    if(!confirm('¿Borrar la plantilla "'+t.name+'" para todo el equipo?')) return;
+    tstat('Borrando…');
+    try{
+      const r=await fetch(API+'?id='+encodeURIComponent(t.id),{method:'DELETE'});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const d=await r.json(); TPLS=Array.isArray(d.templates)?d.templates:TPLS;
+      fill(); tstat('Plantilla borrada.','ok');
+    }catch(e){ tstat('No se pudo borrar: '+((e&&e.message)||e),'err'); }
+  };
+  sel.onchange=()=>{ const t=TPLS.find(x=>x.id===sel.value); if(t && nameIn) nameIn.value=t.name; };
+  load();
+})();
 
 function setStatus(t,cls){
   $('status').textContent=t;

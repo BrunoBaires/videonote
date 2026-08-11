@@ -1769,6 +1769,26 @@ $('subReload').onclick=()=>{ subCues=buildCues(subWords); fillSubEditor(); updat
 
 /* ---- traducir los subtítulos al español (mantiene los tiempos) ---- */
 function subTrStat(t,c){ const el=$('subTrStat'); if(el){ el.textContent=t; el.className='genstat'+(c?' '+c:''); } }
+// parte en dos (o más) las líneas que quedarían en 3+ líneas, repartiendo el tiempo dentro de su misma ventana
+function splitLongCues(){
+  const subW=parseFloat($('subW').value)||68, subSz=parseFloat($('subSz').value)||4.2;
+  const upper=$('subUpper')&&$('subUpper').checked;
+  let cpl=2*subW/subSz; if(upper) cpl*=0.82;                 // caracteres por línea (aprox)
+  const maxChars=Math.max(24, Math.floor(cpl*2));            // tope para 2 líneas
+  const out=[];
+  for(const c of subCues){
+    const t=(c.text||'').trim();
+    if(t.length<=maxChars){ out.push(c); continue; }
+    const words=t.split(/\s+/);
+    const groups=[]; let curg='';                              // empaqueta palabras hasta el tope (2 líneas) por grupo
+    for(const w of words){ const cand=curg?(curg+' '+w):w; if(curg && cand.length>maxChars){ groups.push(curg); curg=w; } else curg=cand; }
+    if(curg) groups.push(curg);
+    const totalChars=groups.reduce((s,g)=>s+g.length,0)||1;
+    const start=c.start, end=c.end, dur=Math.max(1,end-start); let acc=start;
+    groups.forEach((g,gi)=>{ const en=(gi===groups.length-1)?end:Math.round(acc+dur*(g.length/totalChars)); out.push(Object.assign({},c,{start:Math.round(acc),end:en,endRaw:en,text:g})); acc=en; });
+  }
+  subCues=out;
+}
 $('subTranslate').onclick = async () => {
   if(!subCues.length){ subTrStat('No hay subtítulos. Transcribí el video primero.','err'); return; }
   $('subTranslate').disabled=true;
@@ -1780,7 +1800,7 @@ $('subTranslate').onclick = async () => {
     const cur=texts[i]; if(!cur){ done++; return; }
     try{
       const prev=texts[i-1]||'', next=texts[i+1]||'';
-      const sys='Traducís subtítulos periodísticos al español rioplatense (Argentina), natural y conciso, fiel al sentido. Te doy la línea anterior y la siguiente SÓLO como contexto para entender; traducí ÚNICAMENTE la línea marcada [traducir]. Devolvé SOLO esa traducción, en una línea, sin comillas ni texto extra.';
+      const sys='Traducís subtítulos periodísticos al español rioplatense (Argentina), fiel al sentido. IMPORTANTE: es para SUBTÍTULO, y el español suele ser más largo que el inglés; CONDENSÁ y simplificá para que quede breve — parecido o MÁS CORTO que el original en inglés — sin perder la idea principal. Evitá muletillas, repeticiones y palabras de relleno. Te doy la línea anterior y la siguiente SÓLO como contexto; traducí ÚNICAMENTE la línea marcada [traducir]. Devolvé SOLO esa traducción, en una línea, sin comillas ni texto extra.';
       const usr=(prev?('[anterior] '+prev+'\n'):'')+'[traducir] '+cur+(next?('\n[siguiente] '+next):'');
       let out=await gptChat([{role:'system',content:sys},{role:'user',content:usr}], {temperature:0.2});
       out=out.replace(/\s+/g,' ').replace(/^["“]|["”]$/g,'').replace(/^\[traducir\]\s*/i,'').trim();
@@ -1793,8 +1813,10 @@ $('subTranslate').onclick = async () => {
   async function worker(){ while(idx<N){ const i=idx++; await translateOne(i); } }
   try{
     await Promise.all(Array.from({length:Math.min(CONC,N)}, ()=>worker()));
+    const before=subCues.length; try{ splitLongCues(); }catch(e){}
+    const added=subCues.length-before;
     fillSubEditor(); updateSubInfo(); redraw();
-    subTrStat('Traducido al español ✓ — cada línea conserva su tiempo del original'+(fail?(' ('+fail+' quedaron sin traducir, revisá esas)'):'.')+' Ajustá lo que quieras.','ok');
+    subTrStat('Traducido al español ✓ — sincronizado con el original, máximo 2 líneas'+(added>0?(' ('+added+' línea(s) larga(s) se partieron)'):'')+(fail?(' · '+fail+' sin traducir'):'')+'.','ok');
   }catch(e){ subTrStat('No se pudo traducir: '+((e&&e.message)||e),'err'); }
   $('subTranslate').disabled=false;
 };

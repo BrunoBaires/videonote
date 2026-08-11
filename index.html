@@ -894,7 +894,17 @@ let bgCache=null, bgCacheKey='', hiddenDuringRec=false, recTimer=null;
 let elImg=null, subjCut=null, elFile=null, logoCustom=null, bakingFondo=false, ctxBBox=null, mainVidFile=null;
 let trimIn=0, trimOut=0, recFinishing=false;
 let bgTrimIn=0, bgTrimOut=0, btlDragH=null;
-let finAnim = { active:false, theta:0, raf:0 };   // cierre "traumótropo" (animación final)
+let finAnim = { active:false, theta:0, raf:0, black:false, fade:null };   // cierre "traumótropo" (animación final)
+let firstFrameCv=null;   // primer frame del cronista (para el fundido final que conecta el loop)
+function captureFirstFrame(){
+  try{
+    if(vid.readyState<2) return;
+    const vw=vid.videoWidth||0, vh=vid.videoHeight||0; if(!vw||!vh) return;
+    if(!firstFrameCv) firstFrameCv=document.createElement('canvas');
+    if(firstFrameCv.width!==vw||firstFrameCv.height!==vh){ firstFrameCv.width=vw; firstFrameCv.height=vh; }
+    firstFrameCv.getContext('2d').drawImage(vid,0,0,vw,vh);
+  }catch(e){}
+}
 let subWords=[], subCues=[], seeking=false, subBgCv=null;
 
 /* ---------- paneles plegables ---------- */
@@ -1352,6 +1362,8 @@ function skyActive(){ return !bgImg && !bgVideo && $('paletaHora').checked && $(
 function draw(){
   const [W,H] = DIMS[$('fmt').value];
   if(cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; bgCacheKey=''; }
+  // capturar el primer frame del cronista cuando pasamos cerca del inicio (para el fundido final)
+  if(loaded && !finAnim.active && vid.readyState>=2 && (vid.currentTime||0) <= segIn()+0.25) captureFirstFrame();
 
   const veilAmt = parseFloat($('veil').value)/100;
   const veilRGB = $('veilC').value;
@@ -1456,6 +1468,18 @@ function draw(){
 
   if(!_spin){
     drawCronista(false);
+  } else if(finAnim.fade!=null){
+    // fundido de negro → primer frame del cronista (conecta con el loop)
+    ctx.save();
+    ctx.beginPath(); shapePath(ctx, cx, cy, r, isSq, rad); ctx.clip();
+    if(firstFrameCv){
+      const vw=firstFrameCv.width||1, vh=firstFrameCv.height||1, zoom=parseFloat($('zoom').value)/100;
+      const side=r*2, scale=Math.max(side/vw, side/vh)*zoom, dw=vw*scale, dh=vh*scale;
+      const off=dh*(parseFloat($('of').value)/100), offX=dw*(parseFloat($('ofH').value)/100);
+      ctx.drawImage(firstFrameCv, cx-dw/2+offX, cy-dh/2+off, dw, dh);
+    } else { ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-r, 2*r, 2*r); }
+    ctx.fillStyle='rgba(0,0,0,'+(1-finAnim.fade).toFixed(3)+')'; ctx.fillRect(cx-r, cy-r, 2*r, 2*r);   // el negro se desvanece
+    ctx.restore();
   } else if(finAnim.black){
     // corte a negro SOLO en el interior del círculo (el resto de la placa queda igual)
     ctx.save();
@@ -2018,7 +2042,7 @@ function loop(){
     if(!busy){
       $('play').textContent='Previsualizar'; if(atEnd) seeking=false;
       if(justEnded && atEnd && $('finAnimOn') && $('finAnimOn').checked && $('circleOn').checked && !finAnim.active){
-        finalFrame=true; playClosing(()=>{ cancelClosing(); finalFrame=true; draw(); });   // cierre traumótropo en la previsualización; al terminar vuelve al reposo
+        finalFrame=true; playClosing(()=>{ cancelClosing(); finalFrame=false; try{ vid.currentTime=segIn(); }catch(e){} draw(); });   // cierre en la previsualización; al terminar queda en el primer frame (como el loop)
       } else {
         draw();   // al final: reposo (vuelven nombre/zócalo/epígrafe)
       }
@@ -2129,6 +2153,7 @@ const finSound = new Audio('data:audio/mpeg;base64,SUQzBAAAAAAAfFRYWFgAAAASAAADb
 const finClick = new Audio('data:audio/mpeg;base64,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'); finClick.preload='auto';   // solo el golpe (cuando va sin música)
 const SND_CLICK_MS = 935;    // barrido hasta el golpe: el giro dura esto (el click cae justo al detenerse)
 const FIN_BLACK_MS = 1000;   // al golpe, corte a negro 1 s (evita que se pegue con el loop)
+const FIN_FADE_MS = 500;     // después del negro, fundido a la foto del cronista (primer frame) para conectar el loop
 let finSrc=null, finClickSrc=null;
 function ensureFinSound(){
   try{
@@ -2144,7 +2169,7 @@ function playFinClick(){
   try{ ensureFinSound(); if(audioCtx && audioCtx.state==='suspended') audioCtx.resume(); finClick.currentTime=0; finClick.play().catch(()=>{}); }catch(e){}
 }
 
-function cancelClosing(){ if(finAnim.raf){ cancelAnimationFrame(finAnim.raf); finAnim.raf=0; } finAnim.active=false; finAnim.theta=0; finAnim.black=false; }
+function cancelClosing(){ if(finAnim.raf){ cancelAnimationFrame(finAnim.raf); finAnim.raf=0; } finAnim.active=false; finAnim.theta=0; finAnim.black=false; finAnim.fade=null; }
 function playClosing(onDone){
   cancelClosing();
   const dur=SND_CLICK_MS;                 // el giro dura hasta el golpe del sonido
@@ -2156,12 +2181,15 @@ function playClosing(onDone){
   const t0=performance.now();
   (function frame(now){
     const el=now-t0;
-    if(el<dur){ finAnim.black=false; finAnim.theta=th*finEase(el/dur); draw(); finAnim.raf=requestAnimationFrame(frame); }
+    if(el<dur){ finAnim.black=false; finAnim.fade=null; finAnim.theta=th*finEase(el/dur); draw(); finAnim.raf=requestAnimationFrame(frame); }
     else if(el<dur+FIN_BLACK_MS){
       if(!clicked){ clicked=true; if(!music) playFinClick(); }   // el click SIEMPRE suena; sin música, se dispara acá (al detenerse)
-      finAnim.black=true; finAnim.theta=th; draw(); finAnim.raf=requestAnimationFrame(frame);   // corte a negro
+      finAnim.black=true; finAnim.fade=null; finAnim.theta=th; draw(); finAnim.raf=requestAnimationFrame(frame);   // corte a negro
     }
-    else { finAnim.raf=0; if(onDone) onDone(); }
+    else if(el<dur+FIN_BLACK_MS+FIN_FADE_MS){
+      finAnim.black=false; finAnim.fade=(el-dur-FIN_BLACK_MS)/FIN_FADE_MS; draw(); finAnim.raf=requestAnimationFrame(frame);   // fundido de negro → primer frame del cronista
+    }
+    else { finAnim.raf=0; finAnim.active=false; finAnim.black=false; finAnim.fade=null; if(onDone) onDone(); }   // el cierre NUNCA queda activo
   })(performance.now());
 }
 
@@ -3135,6 +3163,8 @@ function reset(){
   $('play').textContent='Previsualizar';
   $('prog').classList.remove('on');
   vid.onended=null;
+  try{ vid.currentTime=segIn(); }catch(e){}   // volver al inicio del tramo
+  draw();                                     // refrescar el lienzo (que no quede el cierre en pantalla)
 }
 
 /* ---------- guardar / restaurar mi configuración de estilo ---------- */

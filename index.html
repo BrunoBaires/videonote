@@ -202,6 +202,12 @@ video.src{display:none}
           <small>o arrastrarlo acá · mp4, mov, webm</small>
         </div>
         <input type="file" id="file" accept="video/*,.mov,.mp4,.m4v,.webm,.mkv,.qt" hidden>
+        <div class="grp" style="margin-top:11px">
+          <span class="lbl">…o traé el video directo de X (Twitter)</span>
+          <input type="text" id="xUrl" placeholder="Pegá el link del posteo de X" autocomplete="off">
+          <button type="button" class="genbtn" id="xFetch" style="margin-top:8px">Traer video de X</button>
+          <div class="genstat" id="xStat"></div>
+        </div>
         <div class="grp" style="margin-top:13px">
           <span class="lbl">Encuadre vertical <span class="val" id="ofV">0 %</span></span>
           <input type="range" id="of" min="-30" max="30" value="0">
@@ -960,6 +966,28 @@ $('drop').ondragover = e => { e.preventDefault(); $('drop').classList.add('over'
 $('drop').ondragleave = () => $('drop').classList.remove('over');
 $('drop').ondrop = e => { e.preventDefault(); $('drop').classList.remove('over'); if(e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); };
 $('file').onchange = e => { if(e.target.files[0]) load(e.target.files[0]); };
+
+/* ---------- traer el video directo de X (Twitter) vía api/xvideo ---------- */
+function xStat(t,c){ const el=$('xStat'); if(el){ el.innerHTML=t; el.className='genstat'+(c?' '+c:''); } }
+$('xFetch').onclick = async () => {
+  const url=($('xUrl').value||'').trim();
+  if(!url){ xStat('Pegá el link del posteo de X.','err'); return; }
+  $('xFetch').disabled=true;
+  xStat('<span class="spin"></span>Bajando el video de X… (puede tardar unos segundos)');
+  try{
+    const r=await fetch('/api/xvideo?download=1&url='+encodeURIComponent(url));
+    if(!r.ok){ let m=''; try{ const j=await r.json(); m=j.error||''; }catch(e){} throw new Error(m||('HTTP '+r.status)); }
+    const blob=await r.blob();
+    if(!blob || blob.size<1000){ throw new Error('el archivo vino vacío'); }
+    const file=new File([blob], 'x-'+Date.now()+'.mp4', {type: blob.type||'video/mp4'});
+    xStat('Video traído ✓ ('+(blob.size/1048576).toFixed(1)+' MB). Cargándolo en el editor…','ok');
+    load(file);
+  }catch(e){
+    const msg=(e&&e.message)||e;
+    xStat('No se pudo traer el video ('+msg+'). Revisá que el posteo sea público y tenga video.','err');
+  }
+  $('xFetch').disabled=false;
+};
 
 function load(f){
   const okType = (f.type && f.type.startsWith('video/')) || /\.(mov|mp4|m4v|webm|mkv|avi|qt|3gp)$/i.test(f.name||'');

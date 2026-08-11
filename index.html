@@ -1772,19 +1772,29 @@ function subTrStat(t,c){ const el=$('subTrStat'); if(el){ el.textContent=t; el.c
 $('subTranslate').onclick = async () => {
   if(!subCues.length){ subTrStat('No hay subtítulos. Transcribí el video primero.','err'); return; }
   $('subTranslate').disabled=true;
-  subTrStat('Traduciendo al español…');
+  const N=subCues.length; let done=0, fail=0;
+  subTrStat('<span class="spin"></span>Traduciendo línea por línea… 0/'+N);
+  const texts = subCues.map(c => (c.text||'').replace(/\s+/g,' ').trim());
+  // traduce UNA línea usando la anterior y la siguiente sólo como contexto → cada línea conserva su timecode 1:1
+  async function translateOne(i){
+    const cur=texts[i]; if(!cur){ done++; return; }
+    try{
+      const prev=texts[i-1]||'', next=texts[i+1]||'';
+      const sys='Traducís subtítulos periodísticos al español rioplatense (Argentina), natural y conciso, fiel al sentido. Te doy la línea anterior y la siguiente SÓLO como contexto para entender; traducí ÚNICAMENTE la línea marcada [traducir]. Devolvé SOLO esa traducción, en una línea, sin comillas ni texto extra.';
+      const usr=(prev?('[anterior] '+prev+'\n'):'')+'[traducir] '+cur+(next?('\n[siguiente] '+next):'');
+      let out=await gptChat([{role:'system',content:sys},{role:'user',content:usr}], {temperature:0.2});
+      out=out.replace(/\s+/g,' ').replace(/^["“]|["”]$/g,'').replace(/^\[traducir\]\s*/i,'').trim();
+      if(out) subCues[i].text=out; else fail++;
+    }catch(e){ fail++; }
+    done++; subTrStat('<span class="spin"></span>Traduciendo línea por línea… '+done+'/'+N);
+  }
+  // pool de concurrencia (para no disparar 36 pedidos de golpe)
+  const CONC=5; let idx=0;
+  async function worker(){ while(idx<N){ const i=idx++; await translateOne(i); } }
   try{
-    const lines = subCues.map((c,i)=> (i+1)+'. '+(c.text||'').replace(/\n/g,' '));
-    const sys = 'Sos traductor profesional de subtítulos periodísticos. Traducí al español rioplatense (Argentina), natural y conciso, cada línea numerada. Devolvé EXACTAMENTE la misma cantidad de líneas, cada una con su número al inicio en formato "N. texto". No unas ni separes líneas, no agregues comentarios ni comillas.';
-    const usr = 'Traducí al español estas líneas de subtítulos (conservá el número de cada una):\n\n' + lines.join('\n');
-    const out = await gptChat([{role:'system',content:sys},{role:'user',content:usr}], {temperature:0.3});
-    const map={};
-    out.split('\n').forEach(l=>{ const m=l.match(/^\s*(\d+)[\.\)\-]\s*(.*)$/); if(m){ map[parseInt(m[1],10)]=m[2].trim().replace(/^["“](.*)["”]$/,'$1'); } });
-    let n=0;
-    subCues.forEach((c,i)=>{ const t=map[i+1]; if(t){ c.text=t; n++; } });
+    await Promise.all(Array.from({length:Math.min(CONC,N)}, ()=>worker()));
     fillSubEditor(); updateSubInfo(); redraw();
-    if(n) subTrStat('Traducido al español ✓ ('+n+'/'+subCues.length+' líneas). Revisá y ajustá lo que quieras.','ok');
-    else subTrStat('La traducción no se pudo mapear. Reintentá.','err');
+    subTrStat('Traducido al español ✓ — cada línea conserva su tiempo del original'+(fail?(' ('+fail+' quedaron sin traducir, revisá esas)'):'.')+' Ajustá lo que quieras.','ok');
   }catch(e){ subTrStat('No se pudo traducir: '+((e&&e.message)||e),'err'); }
   $('subTranslate').disabled=false;
 };

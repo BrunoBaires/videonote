@@ -201,7 +201,7 @@ video.src{display:none}
           <strong>Elegir archivo</strong>
           <small>o arrastrarlo acá · mp4, mov, webm</small>
         </div>
-        <input type="file" id="file" accept="video/*" hidden>
+        <input type="file" id="file" accept="video/*,.mov,.mp4,.m4v,.webm,.mkv,.qt" hidden>
         <div class="grp" style="margin-top:13px">
           <span class="lbl">Encuadre vertical <span class="val" id="ofV">0 %</span></span>
           <input type="range" id="of" min="-30" max="30" value="0">
@@ -581,6 +581,16 @@ video.src{display:none}
       <div class="body collapsible">
         <span class="lbl">API key de AssemblyAI <span class="counter" id="aaiState">no cargada</span></span>
         <input type="password" id="aaiKey" placeholder="clave de AssemblyAI" autocomplete="off">
+        <span class="lbl" style="margin-top:12px">Idioma original del video</span>
+        <select id="srcLang">
+          <option value="auto">Automático (detectar)</option>
+          <option value="es">Español</option>
+          <option value="en">Inglés</option>
+          <option value="pt">Portugués</option>
+          <option value="fr">Francés</option>
+          <option value="it">Italiano</option>
+          <option value="de">Alemán</option>
+        </select>
         <button type="button" class="genbtn go" id="transcribeBtn" style="margin-top:10px">Transcribir el video</button>
         <div class="genstat" id="trStat"></div>
         <textarea id="trText" rows="6" placeholder="La transcripción aparece acá…" style="margin-top:10px"></textarea>
@@ -952,7 +962,8 @@ $('drop').ondrop = e => { e.preventDefault(); $('drop').classList.remove('over')
 $('file').onchange = e => { if(e.target.files[0]) load(e.target.files[0]); };
 
 function load(f){
-  if(!f.type.startsWith('video/')){ setStatus('Ese archivo no es un video.','err'); return; }
+  const okType = (f.type && f.type.startsWith('video/')) || /\.(mov|mp4|m4v|webm|mkv|avi|qt|3gp)$/i.test(f.name||'');
+  if(!okType){ setStatus('Ese archivo no es un video.','err'); return; }
   mainVidFile = f;
   vid.src = URL.createObjectURL(f);
   vid.onloadedmetadata = () => {
@@ -2802,7 +2813,9 @@ $('transcribeBtn').onclick = async () => {
     if(!up.ok) throw new Error('upload '+up.status);
     const { upload_url }=await up.json();
     trStat('<span class="spin"></span>Transcribiendo… (puede tardar)');
-    const cr=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'authorization':key, 'content-type':'application/json' }, body:JSON.stringify({ audio_url:upload_url, language_detection:true }) });
+    const _lang=($('srcLang')&&$('srcLang').value)||'auto';
+    const _tbody = _lang==='auto' ? { audio_url:upload_url, language_detection:true } : { audio_url:upload_url, language_code:_lang };
+    const cr=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'authorization':key, 'content-type':'application/json' }, body:JSON.stringify(_tbody) });
     if(!cr.ok) throw new Error('create '+cr.status);
     const job=await cr.json();
     let st=job.status, id=job.id, text='';

@@ -617,6 +617,8 @@ video.src{display:none}
         <span class="lbl" style="margin-top:10px">Editar subtítulos <span class="counter">una línea = un bloque</span></span>
         <textarea id="subEdit" rows="7" placeholder="Al transcribir, cada bloque de subtítulo aparece acá. Corregí el texto antes de generar; los tiempos se mantienen."></textarea>
         <button type="button" class="mini-btn" id="subReload" style="margin-top:6px">Rearmar desde la transcripción</button>
+        <button type="button" class="genbtn go" id="subTranslate" style="margin-top:6px">Traducir subtítulos al español</button>
+        <div class="genstat" id="subTrStat"></div>
         <div class="grp" style="margin-top:10px">
           <span class="lbl">Tamaño <span class="val" id="subSzV">4,2 %</span></span>
           <input type="range" id="subSz" min="2" max="6" value="4.2" step="0.1">
@@ -627,6 +629,11 @@ video.src{display:none}
           <label class="chk"><input type="checkbox" id="subBox" checked> Fondo por línea (se ajusta al texto)</label>
           <label class="chk"><input type="checkbox" id="subUpper"> Mayúsculas</label>
           <label class="chk"><input type="checkbox" id="subHideName" checked> Bajar nombre y crédito al reproducir (quedan visibles, ideal para loops)</label>
+          <div class="grp" style="margin-top:8px">
+            <span class="lbl">Bajar nombre — posición <span class="val" id="nameLowV">82 %</span></span>
+            <input type="range" id="nameLow" min="78" max="94" value="82">
+          </div>
+          <label class="chk"><input type="checkbox" id="subDimName"> Atenuar nombre y crédito al 50% durante los subtítulos</label>
           <label class="chk"><input type="checkbox" id="subHideZoc"> Ocultar zócalo durante los subtítulos</label>
           <div class="hint">Aparecen al previsualizar o generar. En reposo (pausado) y al terminar el video se ven el epígrafe, el nombre y el zócalo; durante los subtítulos se ocultan los que marques y vuelven a su lugar al final.</div>
         </div>
@@ -688,7 +695,7 @@ video.src{display:none}
         </div>
         <div class="grp">
           <span class="lbl">Separación del bloque <span class="val" id="gapV">7,6 %</span></span>
-          <input type="range" id="gap" min="2" max="16" value="7.6" step="0.2">
+          <input type="range" id="gap" min="2" max="40" value="7.6" step="0.2">
         </div>
         <div class="grp">
           <span class="lbl">Alineación</span>
@@ -1573,9 +1580,9 @@ function draw(){
   let ty = cy + r + gap;
   const moveDown = subMode() && $('subHideName').checked;   // al reproducir: baja el nombre/crédito y los deja visibles (clave en videos que loopean)
   const _mf = Math.max(0,Math.min(1,((vid.currentTime||0)-segIn()-0.10)/0.45));
-  const lowNameY = H*0.82;                                   // destino en el tercio inferior
+  const lowNameY = H*(parseFloat(($('nameLow')&&$('nameLow').value)||82)/100);   // destino al bajar (ajustable, para no pegarse a los subtítulos)
   const slideY = moveDown ? Math.max(0,(lowNameY-ty))*_mf : 0;
-  const nameOp = 1;                                          // el nombre y el crédito permanecen a pleno contraste durante los subtítulos (revertido: antes bajaban al 50%)
+  const nameOp = ($('subDimName') && $('subDimName').checked && subMode()) ? 0.5 : 1;   // atenuación opcional al 50% durante los subtítulos
 
   if(name){
     const fs = W*(parseFloat($('nameSz').value)/100);
@@ -1748,6 +1755,28 @@ function applySubEdit(){
 }
 $('subEdit').addEventListener('input', applySubEdit);
 $('subReload').onclick=()=>{ subCues=buildCues(subWords); fillSubEditor(); updateSubInfo(); redraw(); };
+
+/* ---- traducir los subtítulos al español (mantiene los tiempos) ---- */
+function subTrStat(t,c){ const el=$('subTrStat'); if(el){ el.textContent=t; el.className='genstat'+(c?' '+c:''); } }
+$('subTranslate').onclick = async () => {
+  if(!subCues.length){ subTrStat('No hay subtítulos. Transcribí el video primero.','err'); return; }
+  $('subTranslate').disabled=true;
+  subTrStat('Traduciendo al español…');
+  try{
+    const lines = subCues.map((c,i)=> (i+1)+'. '+(c.text||'').replace(/\n/g,' '));
+    const sys = 'Sos traductor profesional de subtítulos periodísticos. Traducí al español rioplatense (Argentina), natural y conciso, cada línea numerada. Devolvé EXACTAMENTE la misma cantidad de líneas, cada una con su número al inicio en formato "N. texto". No unas ni separes líneas, no agregues comentarios ni comillas.';
+    const usr = 'Traducí al español estas líneas de subtítulos (conservá el número de cada una):\n\n' + lines.join('\n');
+    const out = await gptChat([{role:'system',content:sys},{role:'user',content:usr}], {temperature:0.3});
+    const map={};
+    out.split('\n').forEach(l=>{ const m=l.match(/^\s*(\d+)[\.\)\-]\s*(.*)$/); if(m){ map[parseInt(m[1],10)]=m[2].trim().replace(/^["“](.*)["”]$/,'$1'); } });
+    let n=0;
+    subCues.forEach((c,i)=>{ const t=map[i+1]; if(t){ c.text=t; n++; } });
+    fillSubEditor(); updateSubInfo(); redraw();
+    if(n) subTrStat('Traducido al español ✓ ('+n+'/'+subCues.length+' líneas). Revisá y ajustá lo que quieras.','ok');
+    else subTrStat('La traducción no se pudo mapear. Reintentá.','err');
+  }catch(e){ subTrStat('No se pudo traducir: '+((e&&e.message)||e),'err'); }
+  $('subTranslate').disabled=false;
+};
 
 function drawBrand(W,H,lightBrand){
   const col = lightBrand ? '#FFFFFF' : '#111111';
@@ -2139,7 +2168,7 @@ const CTRLS = ['fmt','bg','mg','sz','of','zoom','ofH','ring','ringC','trackC','r
   'zocH','zocBarC','zocBar2C','zocTxtC','zocGoldC','zocFx','zocFxSpeed',
   'elFlip','elMirror','elFlame','zIntroDelay','zTypeSpeed','subOn','subSz','subY','subW','subBox','subUpper','subHideName','subHideZoc',
   'bgFx','bgFxSpeed','bgFxOp',
-  'finAnimOn','finMusic'];
+  'finAnimOn','finMusic','subDimName','nameLow'];
 CTRLS.forEach(id => ['input','change'].forEach(ev => $(id).addEventListener(ev, redraw)));
 
 /* ---------- animación final: cierre "traumótropo" ---------- */
@@ -2200,7 +2229,7 @@ const VALS = {ring:' px', mg:' %', sz:' %', of:' %', zoom:' %', ofH:' %', veil:'
   zHoraSz:' %', zEvSz:' %', zDeSz:' %',
   bgZoom:' %', bgPosX:' %', bgPosY:' %', logoSz:' %', ctxDX:' %', ctxDY:' %',
   zocH:' %', zocFxSpeed:' %', zIntroDelay:' s', zTypeSpeed:' %', subSz:' %', subY:' %', subW:' %',
-  bgFxSpeed:' %', bgFxOp:' %'};
+  bgFxSpeed:' %', bgFxOp:' %', nameLow:' %'};
 Object.keys(VALS).forEach(id => {
   const el=$(id), out=$(id+'V');
   if(el && out) el.addEventListener('input', () => { out.textContent = el.value.replace('.',',')+VALS[id]; });
@@ -2773,7 +2802,7 @@ $('transcribeBtn').onclick = async () => {
     if(!up.ok) throw new Error('upload '+up.status);
     const { upload_url }=await up.json();
     trStat('<span class="spin"></span>Transcribiendo… (puede tardar)');
-    const cr=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'authorization':key, 'content-type':'application/json' }, body:JSON.stringify({ audio_url:upload_url, language_code:'es' }) });
+    const cr=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'authorization':key, 'content-type':'application/json' }, body:JSON.stringify({ audio_url:upload_url, language_detection:true }) });
     if(!cr.ok) throw new Error('create '+cr.status);
     const job=await cr.json();
     let st=job.status, id=job.id, text='';

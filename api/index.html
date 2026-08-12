@@ -18,7 +18,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--ui);min-height:100vh;padding:22px 18px 50px}
 
-header{max-width:1560px;margin:0 auto 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:14px}
+header{max-width:1560px;margin:0 auto 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:12px 0 14px;position:sticky;top:0;z-index:40;background:var(--bg)}
 h1{font-family:var(--disp);font-weight:600;font-size:24px;letter-spacing:.05em;text-transform:uppercase}
 h1 span{color:var(--rojo)}
 header p{color:var(--dim);font-size:12px;line-height:1.5;max-width:400px}
@@ -135,6 +135,10 @@ video.src{display:none}
 .tab{font-family:var(--disp);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:9px 22px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--dim)}
 .tab:hover:not(.on){color:var(--ink)}
 .tab.on{background:var(--panel);color:var(--ink);border-color:var(--rojo);box-shadow:inset 0 -2px 0 var(--rojo)}
+/* AudioNote embebido (iframe) */
+.wrap[hidden]{display:none}
+#anFrame{display:block;width:100%;max-width:1560px;margin:0 auto;height:calc(100vh - 110px);min-height:540px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+#anFrame[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -155,6 +159,7 @@ video.src{display:none}
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
+    <button type="button" class="tab" data-tab="audio">AudioNote</button>
   </div>
 </header>
 
@@ -201,7 +206,13 @@ video.src{display:none}
           <strong>Elegir archivo</strong>
           <small>o arrastrarlo acá · mp4, mov, webm</small>
         </div>
-        <input type="file" id="file" accept="video/*" hidden>
+        <input type="file" id="file" accept="video/*,.mov,.mp4,.m4v,.webm,.mkv,.qt" hidden>
+        <div class="grp" style="margin-top:11px">
+          <span class="lbl">…o traé el video directo de X (Twitter)</span>
+          <input type="text" id="xUrl" placeholder="Pegá el link del posteo de X" autocomplete="off">
+          <button type="button" class="genbtn" id="xFetch" style="margin-top:8px">Traer video de X</button>
+          <div class="genstat" id="xStat"></div>
+        </div>
         <div class="grp" style="margin-top:13px">
           <span class="lbl">Encuadre vertical <span class="val" id="ofV">0 %</span></span>
           <input type="range" id="of" min="-30" max="30" value="0">
@@ -581,6 +592,16 @@ video.src{display:none}
       <div class="body collapsible">
         <span class="lbl">API key de AssemblyAI <span class="counter" id="aaiState">no cargada</span></span>
         <input type="password" id="aaiKey" placeholder="clave de AssemblyAI" autocomplete="off">
+        <span class="lbl" style="margin-top:12px">Idioma original del video</span>
+        <select id="srcLang">
+          <option value="auto">Automático (detectar)</option>
+          <option value="es">Español</option>
+          <option value="en">Inglés</option>
+          <option value="pt">Portugués</option>
+          <option value="fr">Francés</option>
+          <option value="it">Italiano</option>
+          <option value="de">Alemán</option>
+        </select>
         <button type="button" class="genbtn go" id="transcribeBtn" style="margin-top:10px">Transcribir el video</button>
         <div class="genstat" id="trStat"></div>
         <textarea id="trText" rows="6" placeholder="La transcripción aparece acá…" style="margin-top:10px"></textarea>
@@ -605,7 +626,18 @@ video.src{display:none}
         <div id="placesBox" hidden class="note" style="margin-top:8px"></div>
         <button type="button" class="mini-btn" id="datesBtn" style="margin-top:8px">Identificar fechas y horarios</button>
         <div id="datesBox" hidden class="note" style="margin-top:8px"></div>
-        <div class="hint">Nota, epígrafe, lugares y fechas usan tu API key de OpenAI (la de "Crear con IA").</div>
+        <button type="button" class="mini-btn" id="dataBtn" style="margin-top:8px">Datos del hablante → X</button>
+        <div id="dataBox" hidden style="margin-top:8px">
+          <textarea id="dataStruct" rows="8" placeholder="Datos estructurados (hablante, afirmaciones, cifras, lugares, fechas, entidades)…"></textarea>
+          <div class="row" style="margin-top:6px;gap:6px">
+            <button type="button" class="mini-btn" id="dataCopy" style="margin-top:0;flex:1">Copiar datos</button>
+            <button type="button" class="mini-btn" id="dataPost" style="margin-top:0;flex:1">Posteo X</button>
+            <button type="button" class="mini-btn" id="dataThread" style="margin-top:0;flex:1">Hilo X</button>
+          </div>
+          <textarea id="dataX" rows="8" hidden placeholder="El posteo / hilo para X aparece acá…" style="margin-top:6px"></textarea>
+          <button type="button" class="mini-btn" id="dataXCopy" hidden style="margin-top:6px">Copiar para X</button>
+        </div>
+        <div class="hint">Nota, epígrafe, lugares, fechas y datos → X usan tu API key de OpenAI (la de "Crear con IA").</div>
       </div>
     </div>
 
@@ -617,6 +649,8 @@ video.src{display:none}
         <span class="lbl" style="margin-top:10px">Editar subtítulos <span class="counter">una línea = un bloque</span></span>
         <textarea id="subEdit" rows="7" placeholder="Al transcribir, cada bloque de subtítulo aparece acá. Corregí el texto antes de generar; los tiempos se mantienen."></textarea>
         <button type="button" class="mini-btn" id="subReload" style="margin-top:6px">Rearmar desde la transcripción</button>
+        <button type="button" class="genbtn go" id="subTranslate" style="margin-top:6px">Traducir subtítulos al español</button>
+        <div class="genstat" id="subTrStat"></div>
         <div class="grp" style="margin-top:10px">
           <span class="lbl">Tamaño <span class="val" id="subSzV">4,2 %</span></span>
           <input type="range" id="subSz" min="2" max="6" value="4.2" step="0.1">
@@ -627,6 +661,11 @@ video.src{display:none}
           <label class="chk"><input type="checkbox" id="subBox" checked> Fondo por línea (se ajusta al texto)</label>
           <label class="chk"><input type="checkbox" id="subUpper"> Mayúsculas</label>
           <label class="chk"><input type="checkbox" id="subHideName" checked> Bajar nombre y crédito al reproducir (quedan visibles, ideal para loops)</label>
+          <div class="grp" style="margin-top:8px">
+            <span class="lbl">Bajar nombre — posición <span class="val" id="nameLowV">82 %</span></span>
+            <input type="range" id="nameLow" min="78" max="94" value="82">
+          </div>
+          <label class="chk"><input type="checkbox" id="subDimName"> Atenuar nombre y crédito al 50% durante los subtítulos</label>
           <label class="chk"><input type="checkbox" id="subHideZoc"> Ocultar zócalo durante los subtítulos</label>
           <div class="hint">Aparecen al previsualizar o generar. En reposo (pausado) y al terminar el video se ven el epígrafe, el nombre y el zócalo; durante los subtítulos se ocultan los que marques y vuelven a su lugar al final.</div>
         </div>
@@ -688,7 +727,7 @@ video.src{display:none}
         </div>
         <div class="grp">
           <span class="lbl">Separación del bloque <span class="val" id="gapV">7,6 %</span></span>
-          <input type="range" id="gap" min="2" max="16" value="7.6" step="0.2">
+          <input type="range" id="gap" min="2" max="40" value="7.6" step="0.2">
         </div>
         <div class="grp">
           <span class="lbl">Alineación</span>
@@ -846,6 +885,8 @@ video.src{display:none}
   </div>
 </div>
 
+<iframe id="anFrame" title="AudioNote" hidden></iframe>
+
 </div>
 
 <video class="src" id="vid" playsinline crossorigin="anonymous"></video>
@@ -894,7 +935,17 @@ let bgCache=null, bgCacheKey='', hiddenDuringRec=false, recTimer=null;
 let elImg=null, subjCut=null, elFile=null, logoCustom=null, bakingFondo=false, ctxBBox=null, mainVidFile=null;
 let trimIn=0, trimOut=0, recFinishing=false;
 let bgTrimIn=0, bgTrimOut=0, btlDragH=null;
-let finAnim = { active:false, theta:0, raf:0 };   // cierre "traumótropo" (animación final)
+let finAnim = { active:false, theta:0, raf:0, black:false, fade:null };   // cierre "traumótropo" (animación final)
+let firstFrameCv=null;   // primer frame del cronista (para el fundido final que conecta el loop)
+function captureFirstFrame(){
+  try{
+    if(vid.readyState<2) return;
+    const vw=vid.videoWidth||0, vh=vid.videoHeight||0; if(!vw||!vh) return;
+    if(!firstFrameCv) firstFrameCv=document.createElement('canvas');
+    if(firstFrameCv.width!==vw||firstFrameCv.height!==vh){ firstFrameCv.width=vw; firstFrameCv.height=vh; }
+    firstFrameCv.getContext('2d').drawImage(vid,0,0,vw,vh);
+  }catch(e){}
+}
 let subWords=[], subCues=[], seeking=false, subBgCv=null;
 
 /* ---------- paneles plegables ---------- */
@@ -905,7 +956,12 @@ document.querySelectorAll('[data-toggle]').forEach(h =>
 /* ---------- pestañas Video / Fondos ---------- */
 function setTab(which){
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab===which));
-  document.querySelectorAll('[data-pane]').forEach(c => { c.hidden = (c.dataset.pane !== which); });
+  const audio = (which==='audio');
+  const wrap = document.querySelector('.wrap');
+  const frame = document.getElementById('anFrame');
+  if(wrap) wrap.hidden = audio;
+  if(frame){ if(audio && !frame.getAttribute('src')) frame.setAttribute('src','audionote.html'); frame.hidden = !audio; }
+  if(!audio) document.querySelectorAll('[data-pane]').forEach(c => { c.hidden = (c.dataset.pane !== which); });
 }
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
 setTab('video');
@@ -934,8 +990,31 @@ $('drop').ondragleave = () => $('drop').classList.remove('over');
 $('drop').ondrop = e => { e.preventDefault(); $('drop').classList.remove('over'); if(e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); };
 $('file').onchange = e => { if(e.target.files[0]) load(e.target.files[0]); };
 
+/* ---------- traer el video directo de X (Twitter) vía api/xvideo ---------- */
+function xStat(t,c){ const el=$('xStat'); if(el){ el.innerHTML=t; el.className='genstat'+(c?' '+c:''); } }
+$('xFetch').onclick = async () => {
+  const url=($('xUrl').value||'').trim();
+  if(!url){ xStat('Pegá el link del posteo de X.','err'); return; }
+  $('xFetch').disabled=true;
+  xStat('<span class="spin"></span>Bajando el video de X… (puede tardar unos segundos)');
+  try{
+    const r=await fetch('/api/xvideo?download=1&url='+encodeURIComponent(url));
+    if(!r.ok){ let m=''; try{ const j=await r.json(); m=j.error||''; }catch(e){} throw new Error(m||('HTTP '+r.status)); }
+    const blob=await r.blob();
+    if(!blob || blob.size<1000){ throw new Error('el archivo vino vacío'); }
+    const file=new File([blob], 'x-'+Date.now()+'.mp4', {type: blob.type||'video/mp4'});
+    xStat('Video traído ✓ ('+(blob.size/1048576).toFixed(1)+' MB). Cargándolo en el editor…','ok');
+    load(file);
+  }catch(e){
+    const msg=(e&&e.message)||e;
+    xStat('No se pudo traer el video ('+msg+'). Revisá que el posteo sea público y tenga video.','err');
+  }
+  $('xFetch').disabled=false;
+};
+
 function load(f){
-  if(!f.type.startsWith('video/')){ setStatus('Ese archivo no es un video.','err'); return; }
+  const okType = (f.type && f.type.startsWith('video/')) || /\.(mov|mp4|m4v|webm|mkv|avi|qt|3gp)$/i.test(f.name||'');
+  if(!okType){ setStatus('Ese archivo no es un video.','err'); return; }
   mainVidFile = f;
   vid.src = URL.createObjectURL(f);
   vid.onloadedmetadata = () => {
@@ -1352,6 +1431,8 @@ function skyActive(){ return !bgImg && !bgVideo && $('paletaHora').checked && $(
 function draw(){
   const [W,H] = DIMS[$('fmt').value];
   if(cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; bgCacheKey=''; }
+  // capturar el primer frame del cronista cuando pasamos cerca del inicio (para el fundido final)
+  if(loaded && !finAnim.active && vid.readyState>=2 && (vid.currentTime||0) <= segIn()+0.25) captureFirstFrame();
 
   const veilAmt = parseFloat($('veil').value)/100;
   const veilRGB = $('veilC').value;
@@ -1456,6 +1537,18 @@ function draw(){
 
   if(!_spin){
     drawCronista(false);
+  } else if(finAnim.fade!=null){
+    // fundido de negro → primer frame del cronista (conecta con el loop)
+    ctx.save();
+    ctx.beginPath(); shapePath(ctx, cx, cy, r, isSq, rad); ctx.clip();
+    if(firstFrameCv){
+      const vw=firstFrameCv.width||1, vh=firstFrameCv.height||1, zoom=parseFloat($('zoom').value)/100;
+      const side=r*2, scale=Math.max(side/vw, side/vh)*zoom, dw=vw*scale, dh=vh*scale;
+      const off=dh*(parseFloat($('of').value)/100), offX=dw*(parseFloat($('ofH').value)/100);
+      ctx.drawImage(firstFrameCv, cx-dw/2+offX, cy-dh/2+off, dw, dh);
+    } else { ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-r, 2*r, 2*r); }
+    ctx.fillStyle='rgba(0,0,0,'+(1-finAnim.fade).toFixed(3)+')'; ctx.fillRect(cx-r, cy-r, 2*r, 2*r);   // el negro se desvanece
+    ctx.restore();
   } else if(finAnim.black){
     // corte a negro SOLO en el interior del círculo (el resto de la placa queda igual)
     ctx.save();
@@ -1549,9 +1642,9 @@ function draw(){
   let ty = cy + r + gap;
   const moveDown = subMode() && $('subHideName').checked;   // al reproducir: baja el nombre/crédito y los deja visibles (clave en videos que loopean)
   const _mf = Math.max(0,Math.min(1,((vid.currentTime||0)-segIn()-0.10)/0.45));
-  const lowNameY = H*0.82;                                   // destino en el tercio inferior
+  const lowNameY = H*(parseFloat(($('nameLow')&&$('nameLow').value)||82)/100);   // destino al bajar (ajustable, para no pegarse a los subtítulos)
   const slideY = moveDown ? Math.max(0,(lowNameY-ty))*_mf : 0;
-  const nameOp = 1;                                          // el nombre y el crédito permanecen a pleno contraste durante los subtítulos (revertido: antes bajaban al 50%)
+  const nameOp = ($('subDimName') && $('subDimName').checked && subMode()) ? 0.5 : 1;   // atenuación opcional al 50% durante los subtítulos
 
   if(name){
     const fs = W*(parseFloat($('nameSz').value)/100);
@@ -1724,6 +1817,105 @@ function applySubEdit(){
 }
 $('subEdit').addEventListener('input', applySubEdit);
 $('subReload').onclick=()=>{ subCues=buildCues(subWords); fillSubEditor(); updateSubInfo(); redraw(); };
+
+/* ---- traducir los subtítulos al español (en bloque, mapeo 1:1, sin repeticiones) ---- */
+function subTrStat(t,c){ const el=$('subTrStat'); if(el){ el.textContent=t; el.className='genstat'+(c?' '+c:''); } }
+
+/* parsea un array JSON aunque venga con ```json o texto alrededor */
+function parseJsonArray(s){
+  if(!s) return null;
+  let t=s.replace(/```json|```/gi,'').trim();
+  try{ const a=JSON.parse(t); return Array.isArray(a)?a:null; }catch(e){}
+  const i=t.indexOf('['), j=t.lastIndexOf(']');
+  if(i>=0 && j>i){ try{ const a=JSON.parse(t.slice(i,j+1)); return Array.isArray(a)?a:null; }catch(e){} }
+  return null;
+}
+
+const SUB_TR_SYS =
+  'Sos traductor de subtítulos periodísticos al español rioplatense (Argentina): natural, claro y fiel al sentido, registro de noticiero.\n'+
+  'Te paso un array JSON de N segmentos consecutivos de habla continua. IMPORTANTE: una misma oración suele venir partida en varios segmentos.\n'+
+  'Devolvé SOLO un array JSON con EXACTAMENTE N elementos, en el mismo orden, donde el elemento i es la traducción del segmento i.\n'+
+  'Reglas estrictas:\n'+
+  '- Traducí en el hilo de todo el pasaje, pero respetá el corte: si una oración está repartida en varios segmentos, repartí también su traducción en esos mismos segmentos. NUNCA pongas la oración entera en un segmento y la repitas total o parcialmente en el siguiente.\n'+
+  '- No repitas texto entre segmentos consecutivos. No fusiones, no dividas ni elimines segmentos. Cada elemento corresponde únicamente a su propio segmento (puede quedar una frase incompleta: está bien).\n'+
+  '- Conservá cifras, montos, porcentajes y nombres propios. Sin comillas, sin numerar, sin texto extra.\n'+
+  'Devolvé únicamente el array JSON de N strings.';
+
+async function translateBatch(lines, ctxPrev, ctxNext){
+  const N=lines.length;
+  const ctxMsg=(ctxPrev||ctxNext)
+    ? [{role:'system', content:'Contexto (NO traducir, sólo para continuidad). Antes: «'+(ctxPrev||'—')+'». Después: «'+(ctxNext||'—')+'».'}]
+    : [];
+  const ask=async (temp)=>{
+    const out=await gptChat([{role:'system',content:SUB_TR_SYS}, ...ctxMsg, {role:'user',content:JSON.stringify(lines)}], {model:'gpt-4o', temperature:temp});
+    return parseJsonArray(out);
+  };
+  let arr=await ask(0.2);
+  if(arr && arr.length===N) return arr.map(x=>String(x==null?'':x));
+  arr=await ask(0);
+  if(arr && arr.length===N) return arr.map(x=>String(x==null?'':x));
+  if(N>1){                                  // no coincide el conteo → parto el bloque y reintento
+    const mid=Math.ceil(N/2);
+    const a=await translateBatch(lines.slice(0,mid), ctxPrev, lines[mid]||ctxNext);
+    const b=await translateBatch(lines.slice(mid), lines[mid-1]||ctxPrev, ctxNext);
+    return a.concat(b);
+  }
+  return null;                              // una sola línea que no se pudo: la deja sin traducir
+}
+
+/* divide cues largos en 2+ con tiempo proporcional (evita bloques de 3-4 líneas en español) */
+function splitLongCues(cues, maxChars){
+  const out=[];
+  for(const c of cues){
+    const txt=(c.text||'').trim();
+    if(txt.length<=maxChars){ out.push(Object.assign({}, c, {text:txt})); continue; }
+    const words=txt.split(/\s+/);
+    const chunks=[]; let curc='';
+    for(const w of words){
+      if(curc && (curc.length+1+w.length)>maxChars){ chunks.push(curc); curc=w; }
+      else curc = curc ? curc+' '+w : w;
+    }
+    if(curc) chunks.push(curc);
+    const totalCh=chunks.reduce((a,b)=>a+b.length,0)||1;
+    const dur=Math.max(0.001,(c.end-c.start));
+    let t=c.start;
+    for(let i=0;i<chunks.length;i++){
+      const frac=chunks[i].length/totalCh;
+      const en=(i===chunks.length-1)? c.end : t+dur*frac;
+      out.push({start:t, end:en, endRaw:en, text:chunks[i], n:0, lastWord:''});
+      t=en;
+    }
+  }
+  return out;
+}
+
+$('subTranslate').onclick = async () => {
+  if(!subCues.length){ subTrStat('No hay subtítulos. Transcribí el video primero.','err'); return; }
+  $('subTranslate').disabled=true;
+  const texts = subCues.map(c => (c.text||'').replace(/\s+/g,' ').trim());
+  const N=texts.length, BATCH=24;
+  subTrStat('<span class="spin"></span>Traduciendo en bloque… 0/'+N);
+  try{
+    const result=new Array(N); let done=0, fail=0;
+    for(let s=0; s<N; s+=BATCH){
+      const slice=texts.slice(s, s+BATCH);
+      const ctxPrev=texts[s-1]||'', ctxNext=texts[s+slice.length]||'';
+      let tr=null;
+      try{ tr=await translateBatch(slice, ctxPrev, ctxNext); }catch(e){ tr=null; }
+      for(let i=0;i<slice.length;i++){
+        const v=(tr && tr[i]!=null) ? String(tr[i]).replace(/\s+/g,' ').trim() : '';
+        if(v){ result[s+i]=v; } else { result[s+i]=texts[s+i]; fail++; }
+      }
+      done=Math.min(N, s+slice.length);
+      subTrStat('<span class="spin"></span>Traduciendo en bloque… '+done+'/'+N);
+    }
+    for(let i=0;i<N;i++) subCues[i].text=result[i];
+    subCues=splitLongCues(subCues, 56);      // re-corta el español largo para no pasar de ~2 líneas
+    fillSubEditor(); updateSubInfo(); redraw();
+    subTrStat('Traducido al español ✓ — sin repeticiones, líneas re-cortadas y con los tiempos del original'+(fail?(' ('+fail+' segmentos quedaron sin traducir, revisá esos)'):'.'),'ok');
+  }catch(e){ subTrStat('No se pudo traducir: '+((e&&e.message)||e),'err'); }
+  $('subTranslate').disabled=false;
+};
 
 function drawBrand(W,H,lightBrand){
   const col = lightBrand ? '#FFFFFF' : '#111111';
@@ -2018,7 +2210,7 @@ function loop(){
     if(!busy){
       $('play').textContent='Previsualizar'; if(atEnd) seeking=false;
       if(justEnded && atEnd && $('finAnimOn') && $('finAnimOn').checked && $('circleOn').checked && !finAnim.active){
-        finalFrame=true; playClosing(()=>{});   // cierre traumótropo en la previsualización
+        finalFrame=true; playClosing(()=>{ cancelClosing(); finalFrame=false; try{ vid.currentTime=segIn(); }catch(e){} draw(); });   // cierre en la previsualización; al terminar queda en el primer frame (como el loop)
       } else {
         draw();   // al final: reposo (vuelven nombre/zócalo/epígrafe)
       }
@@ -2115,7 +2307,7 @@ const CTRLS = ['fmt','bg','mg','sz','of','zoom','ofH','ring','ringC','trackC','r
   'zocH','zocBarC','zocBar2C','zocTxtC','zocGoldC','zocFx','zocFxSpeed',
   'elFlip','elMirror','elFlame','zIntroDelay','zTypeSpeed','subOn','subSz','subY','subW','subBox','subUpper','subHideName','subHideZoc',
   'bgFx','bgFxSpeed','bgFxOp',
-  'finAnimOn','finMusic'];
+  'finAnimOn','finMusic','subDimName','nameLow'];
 CTRLS.forEach(id => ['input','change'].forEach(ev => $(id).addEventListener(ev, redraw)));
 
 /* ---------- animación final: cierre "traumótropo" ---------- */
@@ -2129,6 +2321,7 @@ const finSound = new Audio('data:audio/mpeg;base64,SUQzBAAAAAAAfFRYWFgAAAASAAADb
 const finClick = new Audio('data:audio/mpeg;base64,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'); finClick.preload='auto';   // solo el golpe (cuando va sin música)
 const SND_CLICK_MS = 935;    // barrido hasta el golpe: el giro dura esto (el click cae justo al detenerse)
 const FIN_BLACK_MS = 1000;   // al golpe, corte a negro 1 s (evita que se pegue con el loop)
+const FIN_FADE_MS = 500;     // después del negro, fundido a la foto del cronista (primer frame) para conectar el loop
 let finSrc=null, finClickSrc=null;
 function ensureFinSound(){
   try{
@@ -2144,7 +2337,7 @@ function playFinClick(){
   try{ ensureFinSound(); if(audioCtx && audioCtx.state==='suspended') audioCtx.resume(); finClick.currentTime=0; finClick.play().catch(()=>{}); }catch(e){}
 }
 
-function cancelClosing(){ if(finAnim.raf){ cancelAnimationFrame(finAnim.raf); finAnim.raf=0; } finAnim.active=false; finAnim.theta=0; finAnim.black=false; }
+function cancelClosing(){ if(finAnim.raf){ cancelAnimationFrame(finAnim.raf); finAnim.raf=0; } finAnim.active=false; finAnim.theta=0; finAnim.black=false; finAnim.fade=null; }
 function playClosing(onDone){
   cancelClosing();
   const dur=SND_CLICK_MS;                 // el giro dura hasta el golpe del sonido
@@ -2156,12 +2349,15 @@ function playClosing(onDone){
   const t0=performance.now();
   (function frame(now){
     const el=now-t0;
-    if(el<dur){ finAnim.black=false; finAnim.theta=th*finEase(el/dur); draw(); finAnim.raf=requestAnimationFrame(frame); }
+    if(el<dur){ finAnim.black=false; finAnim.fade=null; finAnim.theta=th*finEase(el/dur); draw(); finAnim.raf=requestAnimationFrame(frame); }
     else if(el<dur+FIN_BLACK_MS){
       if(!clicked){ clicked=true; if(!music) playFinClick(); }   // el click SIEMPRE suena; sin música, se dispara acá (al detenerse)
-      finAnim.black=true; finAnim.theta=th; draw(); finAnim.raf=requestAnimationFrame(frame);   // corte a negro
+      finAnim.black=true; finAnim.fade=null; finAnim.theta=th; draw(); finAnim.raf=requestAnimationFrame(frame);   // corte a negro
     }
-    else { finAnim.raf=0; if(onDone) onDone(); }
+    else if(el<dur+FIN_BLACK_MS+FIN_FADE_MS){
+      finAnim.black=false; finAnim.fade=(el-dur-FIN_BLACK_MS)/FIN_FADE_MS; draw(); finAnim.raf=requestAnimationFrame(frame);   // fundido de negro → primer frame del cronista
+    }
+    else { finAnim.raf=0; finAnim.active=false; finAnim.black=false; finAnim.fade=null; if(onDone) onDone(); }   // el cierre NUNCA queda activo
   })(performance.now());
 }
 
@@ -2172,7 +2368,7 @@ const VALS = {ring:' px', mg:' %', sz:' %', of:' %', zoom:' %', ofH:' %', veil:'
   zHoraSz:' %', zEvSz:' %', zDeSz:' %',
   bgZoom:' %', bgPosX:' %', bgPosY:' %', logoSz:' %', ctxDX:' %', ctxDY:' %',
   zocH:' %', zocFxSpeed:' %', zIntroDelay:' s', zTypeSpeed:' %', subSz:' %', subY:' %', subW:' %',
-  bgFxSpeed:' %', bgFxOp:' %'};
+  bgFxSpeed:' %', bgFxOp:' %', nameLow:' %'};
 Object.keys(VALS).forEach(id => {
   const el=$(id), out=$(id+'V');
   if(el && out) el.addEventListener('input', () => { out.textContent = el.value.replace('.',',')+VALS[id]; });
@@ -2745,7 +2941,9 @@ $('transcribeBtn').onclick = async () => {
     if(!up.ok) throw new Error('upload '+up.status);
     const { upload_url }=await up.json();
     trStat('<span class="spin"></span>Transcribiendo… (puede tardar)');
-    const cr=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'authorization':key, 'content-type':'application/json' }, body:JSON.stringify({ audio_url:upload_url, language_code:'es' }) });
+    const _lang=($('srcLang')&&$('srcLang').value)||'auto';
+    const _tbody = _lang==='auto' ? { audio_url:upload_url, language_detection:true } : { audio_url:upload_url, language_code:_lang };
+    const cr=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'authorization':key, 'content-type':'application/json' }, body:JSON.stringify(_tbody) });
     if(!cr.ok) throw new Error('create '+cr.status);
     const job=await cr.json();
     let st=job.status, id=job.id, text='';
@@ -2921,6 +3119,64 @@ $('datesBtn').onclick = async () => {
   $('datesBtn').disabled=false;
 };
 
+/* ---- datos estructurados del hablante → posteo / hilo para X ---- */
+const DATA_SYS =
+  'Sos analista de datos periodísticos. A partir de la transcripción de un video, extraé y estructurá la información del o los hablantes. '+
+  'Devolvé texto plano en español rioplatense con estas secciones, en este orden, y OMITÍ las que queden vacías:\n'+
+  'HABLANTE: quién habla y su rol o cargo si se menciona.\n'+
+  'AFIRMACIONES CLAVE: 3 a 6 afirmaciones o hechos centrales, una por línea con guion.\n'+
+  'CIFRAS Y VALORES: montos, porcentajes, cantidades y plazos con su contexto, una por línea con guion.\n'+
+  'LUGARES: lugares mencionados, separados por coma.\n'+
+  'FECHAS Y PLAZOS: fechas u horizontes temporales mencionados.\n'+
+  'ENTIDADES: personas, organizaciones, empresas, leyes o instituciones nombradas.\n'+
+  'No inventes nada que no esté en el texto. Sé fiel y conciso. Sin markdown ni comentarios extra.';
+
+$('dataBtn').onclick = async () => {
+  const t=$('trText').value.trim();
+  if(!t){ trStat('Primero transcribí el video.','err'); return; }
+  $('dataBtn').disabled=true; trStat('<span class="spin"></span>Estructurando datos…');
+  try{
+    const out=await gptChat([{role:'system',content:DATA_SYS},{role:'user',content:t}], {model:'gpt-4o', temperature:0.2});
+    $('dataStruct').value=out; $('dataBox').hidden=false;
+    trStat('Datos estructurados. Generá el posteo o el hilo para X.','ok');
+  }catch(e){ trStat(String(e.message||e),'err'); }
+  $('dataBtn').disabled=false;
+};
+$('dataCopy').onclick = () => {
+  const v=$('dataStruct').value||'';
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(v).catch(()=>{}); }
+  else { $('dataStruct').select(); try{ document.execCommand('copy'); }catch(e){} }
+  trStat('Datos copiados.','ok');
+};
+
+const X_POST_SYS =
+  'Sos community manager de un medio. Con los datos que te paso, escribí UN solo posteo para X (Twitter) en español rioplatense, listo para publicar.\n'+
+  'Reglas: máximo 280 caracteres en total; la primera línea es un gancho con el dato más fuerte; una idea o cifra por renglón usando saltos de línea (NO viñetas, NO markdown, NO numeración); las cifras y montos bien visibles; tono informativo y sobrio, sin exagerar ni clickbait; 0 a 2 hashtags relevantes al final como máximo; sin emojis salvo que sumen de verdad. Devolvé SOLO el texto del posteo.';
+const X_THREAD_SYS =
+  'Sos community manager de un medio. Con los datos que te paso, escribí un HILO para X (Twitter) en español rioplatense, listo para publicar.\n'+
+  'Reglas: el primer tuit es un gancho con el dato más fuerte; los tuits siguientes desglosan un dato, cifra, lugar o fecha por tuit, en orden de importancia; numerá cada tuit como 1/, 2/, 3/…; cada tuit ≤ 280 caracteres; tono informativo y sobrio; sin markdown ni viñetas; 0 a 2 hashtags en el último tuit como máximo. Separá cada tuit con una línea en blanco. Devolvé SOLO el hilo.';
+
+async function makeX(sys, label, btn){
+  const data=($('dataStruct').value||'').trim();
+  const t=data || $('trText').value.trim();
+  if(!t){ trStat('Primero estructurá los datos o transcribí el video.','err'); return; }
+  $(btn).disabled=true; trStat('<span class="spin"></span>Armando '+label+' para X…');
+  try{
+    const out=await gptChat([{role:'system',content:sys},{role:'user',content:t}], {model:'gpt-4o', temperature:0.6});
+    $('dataX').value=out; $('dataX').hidden=false; $('dataXCopy').hidden=false; $('dataBox').hidden=false;
+    trStat(label.charAt(0).toUpperCase()+label.slice(1)+' listo para X.','ok');
+  }catch(e){ trStat(String(e.message||e),'err'); }
+  $(btn).disabled=false;
+}
+$('dataPost').onclick = () => makeX(X_POST_SYS, 'posteo', 'dataPost');
+$('dataThread').onclick = () => makeX(X_THREAD_SYS, 'hilo', 'dataThread');
+$('dataXCopy').onclick = () => {
+  const v=$('dataX').value||'';
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(v).catch(()=>{}); }
+  else { $('dataX').select(); try{ document.execCommand('copy'); }catch(e){} }
+  trStat('Copiado para X.','ok');
+};
+
 /* ---------- arrastrar el epígrafe en el lienzo ---------- */
 let dragCtx=false, dragS=null;
 function cvXY(ev){ const r=cv.getBoundingClientRect(); return { x:(ev.clientX-r.left)*(cv.width/r.width), y:(ev.clientY-r.top)*(cv.height/r.height) }; }
@@ -3005,6 +3261,7 @@ $('rec').onclick = async () => {
   $('prog').classList.add('on'); $('progBar').style.width='0%';
   $('dl').classList.remove('on'); $('dl').innerHTML='';
   hiddenDuringRec=false;
+  cancelClosing(); finalFrame=false; recFinishing=false;   // arrancar la grabación desde el video, no desde un cierre previo congelado
 
   // formato de grabación: preferimos MP4 nativo (WhatsApp lo toma sin conversión)
   const MP4=['video/mp4;codecs=avc1.640028,mp4a.40.2','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1,mp4a','video/mp4'];
@@ -3134,6 +3391,8 @@ function reset(){
   $('play').textContent='Previsualizar';
   $('prog').classList.remove('on');
   vid.onended=null;
+  try{ vid.currentTime=segIn(); }catch(e){}   // volver al inicio del tramo
+  draw();                                     // refrescar el lienzo (que no quede el cierre en pantalla)
 }
 
 /* ---------- guardar / restaurar mi configuración de estilo ---------- */

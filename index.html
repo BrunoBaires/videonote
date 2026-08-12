@@ -621,7 +621,18 @@ video.src{display:none}
         <div id="placesBox" hidden class="note" style="margin-top:8px"></div>
         <button type="button" class="mini-btn" id="datesBtn" style="margin-top:8px">Identificar fechas y horarios</button>
         <div id="datesBox" hidden class="note" style="margin-top:8px"></div>
-        <div class="hint">Nota, epígrafe, lugares y fechas usan tu API key de OpenAI (la de "Crear con IA").</div>
+        <button type="button" class="mini-btn" id="dataBtn" style="margin-top:8px">Datos del hablante → X</button>
+        <div id="dataBox" hidden style="margin-top:8px">
+          <textarea id="dataStruct" rows="8" placeholder="Datos estructurados (hablante, afirmaciones, cifras, lugares, fechas, entidades)…"></textarea>
+          <div class="row" style="margin-top:6px;gap:6px">
+            <button type="button" class="mini-btn" id="dataCopy" style="margin-top:0;flex:1">Copiar datos</button>
+            <button type="button" class="mini-btn" id="dataPost" style="margin-top:0;flex:1">Posteo X</button>
+            <button type="button" class="mini-btn" id="dataThread" style="margin-top:0;flex:1">Hilo X</button>
+          </div>
+          <textarea id="dataX" rows="8" hidden placeholder="El posteo / hilo para X aparece acá…" style="margin-top:6px"></textarea>
+          <button type="button" class="mini-btn" id="dataXCopy" hidden style="margin-top:6px">Copiar para X</button>
+        </div>
+        <div class="hint">Nota, epígrafe, lugares, fechas y datos → X usan tu API key de OpenAI (la de "Crear con IA").</div>
       </div>
     </div>
 
@@ -1795,34 +1806,101 @@ function applySubEdit(){
 $('subEdit').addEventListener('input', applySubEdit);
 $('subReload').onclick=()=>{ subCues=buildCues(subWords); fillSubEditor(); updateSubInfo(); redraw(); };
 
-/* ---- traducir los subtítulos al español (mantiene los tiempos) ---- */
+/* ---- traducir los subtítulos al español (en bloque, mapeo 1:1, sin repeticiones) ---- */
 function subTrStat(t,c){ const el=$('subTrStat'); if(el){ el.textContent=t; el.className='genstat'+(c?' '+c:''); } }
+
+/* parsea un array JSON aunque venga con ```json o texto alrededor */
+function parseJsonArray(s){
+  if(!s) return null;
+  let t=s.replace(/```json|```/gi,'').trim();
+  try{ const a=JSON.parse(t); return Array.isArray(a)?a:null; }catch(e){}
+  const i=t.indexOf('['), j=t.lastIndexOf(']');
+  if(i>=0 && j>i){ try{ const a=JSON.parse(t.slice(i,j+1)); return Array.isArray(a)?a:null; }catch(e){} }
+  return null;
+}
+
+const SUB_TR_SYS =
+  'Sos traductor de subtítulos periodísticos al español rioplatense (Argentina): natural, claro y fiel al sentido, registro de noticiero.\n'+
+  'Te paso un array JSON de N segmentos consecutivos de habla continua. IMPORTANTE: una misma oración suele venir partida en varios segmentos.\n'+
+  'Devolvé SOLO un array JSON con EXACTAMENTE N elementos, en el mismo orden, donde el elemento i es la traducción del segmento i.\n'+
+  'Reglas estrictas:\n'+
+  '- Traducí en el hilo de todo el pasaje, pero respetá el corte: si una oración está repartida en varios segmentos, repartí también su traducción en esos mismos segmentos. NUNCA pongas la oración entera en un segmento y la repitas total o parcialmente en el siguiente.\n'+
+  '- No repitas texto entre segmentos consecutivos. No fusiones, no dividas ni elimines segmentos. Cada elemento corresponde únicamente a su propio segmento (puede quedar una frase incompleta: está bien).\n'+
+  '- Conservá cifras, montos, porcentajes y nombres propios. Sin comillas, sin numerar, sin texto extra.\n'+
+  'Devolvé únicamente el array JSON de N strings.';
+
+async function translateBatch(lines, ctxPrev, ctxNext){
+  const N=lines.length;
+  const ctxMsg=(ctxPrev||ctxNext)
+    ? [{role:'system', content:'Contexto (NO traducir, sólo para continuidad). Antes: «'+(ctxPrev||'—')+'». Después: «'+(ctxNext||'—')+'».'}]
+    : [];
+  const ask=async (temp)=>{
+    const out=await gptChat([{role:'system',content:SUB_TR_SYS}, ...ctxMsg, {role:'user',content:JSON.stringify(lines)}], {model:'gpt-4o', temperature:temp});
+    return parseJsonArray(out);
+  };
+  let arr=await ask(0.2);
+  if(arr && arr.length===N) return arr.map(x=>String(x==null?'':x));
+  arr=await ask(0);
+  if(arr && arr.length===N) return arr.map(x=>String(x==null?'':x));
+  if(N>1){                                  // no coincide el conteo → parto el bloque y reintento
+    const mid=Math.ceil(N/2);
+    const a=await translateBatch(lines.slice(0,mid), ctxPrev, lines[mid]||ctxNext);
+    const b=await translateBatch(lines.slice(mid), lines[mid-1]||ctxPrev, ctxNext);
+    return a.concat(b);
+  }
+  return null;                              // una sola línea que no se pudo: la deja sin traducir
+}
+
+/* divide cues largos en 2+ con tiempo proporcional (evita bloques de 3-4 líneas en español) */
+function splitLongCues(cues, maxChars){
+  const out=[];
+  for(const c of cues){
+    const txt=(c.text||'').trim();
+    if(txt.length<=maxChars){ out.push(Object.assign({}, c, {text:txt})); continue; }
+    const words=txt.split(/\s+/);
+    const chunks=[]; let curc='';
+    for(const w of words){
+      if(curc && (curc.length+1+w.length)>maxChars){ chunks.push(curc); curc=w; }
+      else curc = curc ? curc+' '+w : w;
+    }
+    if(curc) chunks.push(curc);
+    const totalCh=chunks.reduce((a,b)=>a+b.length,0)||1;
+    const dur=Math.max(0.001,(c.end-c.start));
+    let t=c.start;
+    for(let i=0;i<chunks.length;i++){
+      const frac=chunks[i].length/totalCh;
+      const en=(i===chunks.length-1)? c.end : t+dur*frac;
+      out.push({start:t, end:en, endRaw:en, text:chunks[i], n:0, lastWord:''});
+      t=en;
+    }
+  }
+  return out;
+}
+
 $('subTranslate').onclick = async () => {
   if(!subCues.length){ subTrStat('No hay subtítulos. Transcribí el video primero.','err'); return; }
   $('subTranslate').disabled=true;
-  const N=subCues.length; let done=0, fail=0;
-  subTrStat('<span class="spin"></span>Traduciendo línea por línea… 0/'+N);
   const texts = subCues.map(c => (c.text||'').replace(/\s+/g,' ').trim());
-  // traduce UNA línea usando la anterior y la siguiente sólo como contexto → cada línea conserva su timecode 1:1
-  async function translateOne(i){
-    const cur=texts[i]; if(!cur){ done++; return; }
-    try{
-      const prev=texts[i-1]||'', next=texts[i+1]||'';
-      const sys='Traducís subtítulos periodísticos al español rioplatense (Argentina), natural y conciso, fiel al sentido. Te doy la línea anterior y la siguiente SÓLO como contexto para entender; traducí ÚNICAMENTE la línea marcada [traducir]. Devolvé SOLO esa traducción, en una línea, sin comillas ni texto extra.';
-      const usr=(prev?('[anterior] '+prev+'\n'):'')+'[traducir] '+cur+(next?('\n[siguiente] '+next):'');
-      let out=await gptChat([{role:'system',content:sys},{role:'user',content:usr}], {temperature:0.2});
-      out=out.replace(/\s+/g,' ').replace(/^["“]|["”]$/g,'').replace(/^\[traducir\]\s*/i,'').trim();
-      if(out) subCues[i].text=out; else fail++;
-    }catch(e){ fail++; }
-    done++; subTrStat('<span class="spin"></span>Traduciendo línea por línea… '+done+'/'+N);
-  }
-  // pool de concurrencia (para no disparar 36 pedidos de golpe)
-  const CONC=5; let idx=0;
-  async function worker(){ while(idx<N){ const i=idx++; await translateOne(i); } }
+  const N=texts.length, BATCH=24;
+  subTrStat('<span class="spin"></span>Traduciendo en bloque… 0/'+N);
   try{
-    await Promise.all(Array.from({length:Math.min(CONC,N)}, ()=>worker()));
+    const result=new Array(N); let done=0, fail=0;
+    for(let s=0; s<N; s+=BATCH){
+      const slice=texts.slice(s, s+BATCH);
+      const ctxPrev=texts[s-1]||'', ctxNext=texts[s+slice.length]||'';
+      let tr=null;
+      try{ tr=await translateBatch(slice, ctxPrev, ctxNext); }catch(e){ tr=null; }
+      for(let i=0;i<slice.length;i++){
+        const v=(tr && tr[i]!=null) ? String(tr[i]).replace(/\s+/g,' ').trim() : '';
+        if(v){ result[s+i]=v; } else { result[s+i]=texts[s+i]; fail++; }
+      }
+      done=Math.min(N, s+slice.length);
+      subTrStat('<span class="spin"></span>Traduciendo en bloque… '+done+'/'+N);
+    }
+    for(let i=0;i<N;i++) subCues[i].text=result[i];
+    subCues=splitLongCues(subCues, 56);      // re-corta el español largo para no pasar de ~2 líneas
     fillSubEditor(); updateSubInfo(); redraw();
-    subTrStat('Traducido al español ✓ — cada línea conserva su tiempo del original'+(fail?(' ('+fail+' quedaron sin traducir, revisá esas)'):'.')+' Ajustá lo que quieras.','ok');
+    subTrStat('Traducido al español ✓ — sin repeticiones, líneas re-cortadas y con los tiempos del original'+(fail?(' ('+fail+' segmentos quedaron sin traducir, revisá esos)'):'.'),'ok');
   }catch(e){ subTrStat('No se pudo traducir: '+((e&&e.message)||e),'err'); }
   $('subTranslate').disabled=false;
 };
@@ -3027,6 +3105,64 @@ $('datesBtn').onclick = async () => {
     }
   }catch(e){ trStat(String(e.message||e),'err'); }
   $('datesBtn').disabled=false;
+};
+
+/* ---- datos estructurados del hablante → posteo / hilo para X ---- */
+const DATA_SYS =
+  'Sos analista de datos periodísticos. A partir de la transcripción de un video, extraé y estructurá la información del o los hablantes. '+
+  'Devolvé texto plano en español rioplatense con estas secciones, en este orden, y OMITÍ las que queden vacías:\n'+
+  'HABLANTE: quién habla y su rol o cargo si se menciona.\n'+
+  'AFIRMACIONES CLAVE: 3 a 6 afirmaciones o hechos centrales, una por línea con guion.\n'+
+  'CIFRAS Y VALORES: montos, porcentajes, cantidades y plazos con su contexto, una por línea con guion.\n'+
+  'LUGARES: lugares mencionados, separados por coma.\n'+
+  'FECHAS Y PLAZOS: fechas u horizontes temporales mencionados.\n'+
+  'ENTIDADES: personas, organizaciones, empresas, leyes o instituciones nombradas.\n'+
+  'No inventes nada que no esté en el texto. Sé fiel y conciso. Sin markdown ni comentarios extra.';
+
+$('dataBtn').onclick = async () => {
+  const t=$('trText').value.trim();
+  if(!t){ trStat('Primero transcribí el video.','err'); return; }
+  $('dataBtn').disabled=true; trStat('<span class="spin"></span>Estructurando datos…');
+  try{
+    const out=await gptChat([{role:'system',content:DATA_SYS},{role:'user',content:t}], {model:'gpt-4o', temperature:0.2});
+    $('dataStruct').value=out; $('dataBox').hidden=false;
+    trStat('Datos estructurados. Generá el posteo o el hilo para X.','ok');
+  }catch(e){ trStat(String(e.message||e),'err'); }
+  $('dataBtn').disabled=false;
+};
+$('dataCopy').onclick = () => {
+  const v=$('dataStruct').value||'';
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(v).catch(()=>{}); }
+  else { $('dataStruct').select(); try{ document.execCommand('copy'); }catch(e){} }
+  trStat('Datos copiados.','ok');
+};
+
+const X_POST_SYS =
+  'Sos community manager de un medio. Con los datos que te paso, escribí UN solo posteo para X (Twitter) en español rioplatense, listo para publicar.\n'+
+  'Reglas: máximo 280 caracteres en total; la primera línea es un gancho con el dato más fuerte; una idea o cifra por renglón usando saltos de línea (NO viñetas, NO markdown, NO numeración); las cifras y montos bien visibles; tono informativo y sobrio, sin exagerar ni clickbait; 0 a 2 hashtags relevantes al final como máximo; sin emojis salvo que sumen de verdad. Devolvé SOLO el texto del posteo.';
+const X_THREAD_SYS =
+  'Sos community manager de un medio. Con los datos que te paso, escribí un HILO para X (Twitter) en español rioplatense, listo para publicar.\n'+
+  'Reglas: el primer tuit es un gancho con el dato más fuerte; los tuits siguientes desglosan un dato, cifra, lugar o fecha por tuit, en orden de importancia; numerá cada tuit como 1/, 2/, 3/…; cada tuit ≤ 280 caracteres; tono informativo y sobrio; sin markdown ni viñetas; 0 a 2 hashtags en el último tuit como máximo. Separá cada tuit con una línea en blanco. Devolvé SOLO el hilo.';
+
+async function makeX(sys, label, btn){
+  const data=($('dataStruct').value||'').trim();
+  const t=data || $('trText').value.trim();
+  if(!t){ trStat('Primero estructurá los datos o transcribí el video.','err'); return; }
+  $(btn).disabled=true; trStat('<span class="spin"></span>Armando '+label+' para X…');
+  try{
+    const out=await gptChat([{role:'system',content:sys},{role:'user',content:t}], {model:'gpt-4o', temperature:0.6});
+    $('dataX').value=out; $('dataX').hidden=false; $('dataXCopy').hidden=false; $('dataBox').hidden=false;
+    trStat(label.charAt(0).toUpperCase()+label.slice(1)+' listo para X.','ok');
+  }catch(e){ trStat(String(e.message||e),'err'); }
+  $(btn).disabled=false;
+}
+$('dataPost').onclick = () => makeX(X_POST_SYS, 'posteo', 'dataPost');
+$('dataThread').onclick = () => makeX(X_THREAD_SYS, 'hilo', 'dataThread');
+$('dataXCopy').onclick = () => {
+  const v=$('dataX').value||'';
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(v).catch(()=>{}); }
+  else { $('dataX').select(); try{ document.execCommand('copy'); }catch(e){} }
+  trStat('Copiado para X.','ok');
 };
 
 /* ---------- arrastrar el epígrafe en el lienzo ---------- */

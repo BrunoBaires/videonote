@@ -81,7 +81,6 @@ audio,video.src{display:none}
 
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span class="badge">bosquejo AudioNote</span>
   <div class="tabs">
     <button type="button" class="tab" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -229,7 +228,9 @@ let recorder=null, recChunks=[];
 
 /* pestañas (bosquejo): sólo AudioNote está activa acá */
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
-  if(t.dataset.tab!=='audio'){ alert('En el bosquejo sólo está AudioNote. Video y Fondos ya existen en la app: la idea es que esta barra quede fija y se sume esta pestaña.'); return; }
+  const which=t.dataset.tab;
+  if(which==='video'){ window.location.href='index.html'; }
+  else if(which==='fondos'){ window.location.href='index.html#fondos'; }
 }));
 document.querySelectorAll('.viz').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('.viz').forEach(x=>x.classList.toggle('on',x===b)); viz=b.dataset.viz;

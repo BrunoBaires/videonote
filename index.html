@@ -955,16 +955,13 @@ document.querySelectorAll('[data-toggle]').forEach(h =>
 
 /* ---------- pestañas Video / Fondos ---------- */
 function setTab(which){
+  if(which==='audio'){ window.location.href='audionote.html'; return; }   // AudioNote es página propia (misma barra fija)
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab===which));
-  const audio = (which==='audio');
-  const wrap = document.querySelector('.wrap');
-  const frame = document.getElementById('anFrame');
-  if(wrap) wrap.hidden = audio;
-  if(frame){ if(audio && !frame.getAttribute('src')) frame.setAttribute('src','audionote.html'); frame.hidden = !audio; }
-  if(!audio) document.querySelectorAll('[data-pane]').forEach(c => { c.hidden = (c.dataset.pane !== which); });
+  document.querySelectorAll('[data-pane]').forEach(c => { c.hidden = (c.dataset.pane !== which); });
 }
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
 setTab('video');
+try{ if(location.hash==='#fondos') setTab('fondos'); }catch(e){}
 
 /* ---------- identidad ---------- */
 const logoW = new Image(), logoB = new Image();

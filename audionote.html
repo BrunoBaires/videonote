@@ -89,7 +89,7 @@ audio,video.src{display:none}
 
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span class="badge" title="versión del editor">AudioNote v14 · recorte</span>
+  <span class="badge" title="versión del editor">AudioNote v15 · recuadro fuente</span>
   <div class="tabs">
     <button type="button" class="tab" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -284,9 +284,33 @@ audio,video.src{display:none}
         <select id="fmt"><option value="1:1">1:1 · 1080×1080</option><option value="4:5">4:5 · 1080×1350</option><option value="9:16">9:16 · 1080×1920</option></select>
       </div>
       <label class="chk"><input type="checkbox" id="nightMode"> Noche (invierte: fondo oscuro, texto claro)</label>
-      <label class="chk"><input type="checkbox" id="footageOn" checked> Fondo con la imagen del video (transmisión en vivo o archivo)</label>
-      <div class="grp" style="margin-top:9px"><span class="lbl">Oscurecer el fondo para leer <span class="val" id="footageDimV">45 %</span></span><input type="range" id="footageDim" min="0" max="85" value="45"></div>
       <div class="hint">Con “Fondo con la imagen del video” ves al que habla de fondo y el texto/karaoke encima (queda como un video-note). Si el audio no trae imagen, se usa el fondo de color. La palabra ya dicha va con un color y la que todavía no, con otro.</div>
+    </div></div>
+
+    <div class="card"><div class="body">
+      <h2>Fuente / video de origen</h2>
+      <div class="grp"><span class="lbl">Cómo mostrar el video</span>
+        <select id="videoMode">
+          <option value="none">Sin video (solo placa)</option>
+          <option value="inset" selected>Recuadro (viñeta de la fuente)</option>
+          <option value="full">Pantalla completa (fondo)</option>
+        </select>
+      </div>
+      <div id="insetCtrls">
+        <div class="row">
+          <div><span class="lbl">Posición</span><select id="insetPos"><option value="bl" selected>Abajo izq</option><option value="br">Abajo der</option><option value="tl">Arriba izq</option><option value="tr">Arriba der</option></select></div>
+          <div><span class="lbl">Proporción</span><select id="insetAR"><option value="original" selected>Original</option><option value="1:1">1:1</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="4:3">4:3</option></select></div>
+        </div>
+        <div class="grp" style="margin-top:9px"><span class="lbl">Tamaño del recuadro <span class="val" id="insetSzV">34 %</span></span><input type="range" id="insetSz" min="16" max="72" value="34"></div>
+        <div class="grp"><span class="lbl">Zoom — enfocar un sujeto <span class="val" id="insetZoomV">100 %</span></span><input type="range" id="insetZoom" min="100" max="320" value="100"></div>
+        <div class="row">
+          <div><span class="lbl">Encuadre ←→ <span class="val" id="insetXV">0</span></span><input type="range" id="insetX" min="-100" max="100" value="0"></div>
+          <div><span class="lbl">Encuadre ↑↓ <span class="val" id="insetYV">0</span></span><input type="range" id="insetY" min="-100" max="100" value="0"></div>
+        </div>
+      </div>
+      <div class="grp" style="margin-top:9px"><span class="lbl">Oscurecer (solo modo pantalla completa) <span class="val" id="footageDimV">45 %</span></span><input type="range" id="footageDim" min="0" max="85" value="45"></div>
+      <div class="grp"><span class="lbl">Fuente / crédito</span><input type="text" id="insetSrc" placeholder="Fuente: TN · captura propia…"></div>
+      <div class="hint">“Recuadro” embebe la fuente como viñeta (se adapta a la proporción del video). Zoom + Encuadre sirven para enfocar a una persona dentro de la imagen. El nombre, el cargo y el visualizador se reacomodan solos alrededor del recuadro.</div>
     </div></div>
 
     <div class="card collapsed"><div class="body">
@@ -328,6 +352,7 @@ let words=[];          // [{text,start,end}] en segundos
 let loaded=false, rafId=null, dur=0;
 let photo=null, level=0, viz='sphere';
 let liveMode=false, liveT=0, liveT0=0, liveWS=null, liveCtx=null, liveStream=null, liveProc=null, liveRAF=null, liveFinal=[], liveTurn=[], liveVid=null, footageActive=false;
+let insetRect=null, vizDX=0;
 let audioCtx=null, analyser=null, srcNode=null, freqData=null, timeData=null, recDest=null;
 let recorder=null, recChunks=[];
 
@@ -607,8 +632,14 @@ async function ensureFont(){ try{ const fam=fontStack().split(',')[0].replace(/"
 $('fontSel').addEventListener('change', ensureFont);
 
 /* ---- controles → redibujo ---- */
-['kicker','title','speaker','role','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','revealSel','dateTxt','dateOn','spkSz','crgSz','blockY','nightMode','footageOn','footageDim'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
+['kicker','title','speaker','role','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','revealSel','dateTxt','dateOn','spkSz','crgSz','blockY','nightMode','footageDim','videoMode','insetPos','insetAR','insetSz','insetZoom','insetX','insetY','insetSrc'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
 $('footageDim').addEventListener('input',()=>$('footageDimV').textContent=$('footageDim').value+' %');
+$('insetSz').addEventListener('input',()=>$('insetSzV').textContent=$('insetSz').value+' %');
+$('insetZoom').addEventListener('input',()=>$('insetZoomV').textContent=$('insetZoom').value+' %');
+$('insetX').addEventListener('input',()=>$('insetXV').textContent=$('insetX').value);
+$('insetY').addEventListener('input',()=>$('insetYV').textContent=$('insetY').value);
+function syncVideoMode(){ const m=$('videoMode').value; $('insetCtrls').style.display=(m==='inset')?'block':'none'; }
+$('videoMode').addEventListener('change', syncVideoMode); syncVideoMode();
 $('react').addEventListener('input',()=>$('reactV').textContent=$('react').value+' %');
 $('logoSz').addEventListener('input',()=>$('logoSzV').textContent=$('logoSz').value+' %');
 $('spkSz').addEventListener('input',()=>$('spkSzV').textContent=$('spkSz').value+' %');
@@ -646,17 +677,26 @@ function draw(){
   const FF=fontStack();
   paintBg(W,H,bg,bg2);
 
-  // fondo con la imagen del video (footage): transmisión en vivo o archivo subido, con velo para leer
-  let onFootage=false;
-  if($('footageOn')&&$('footageOn').checked) onFootage=drawFootage(W,H);
+  // video de origen: pantalla completa (fondo) o recuadro (viñeta). Se calcula el rect del recuadro
+  // ANTES de dibujar para poder correr el visualizador y no pisarlo.
+  const vmode = $('videoMode') ? $('videoMode').value : 'none';
+  let onFootage=false; insetRect=null; vizDX=0;
+  if(vmode==='full') onFootage=drawFootage(W,H);
   footageActive=onFootage;
   if(onFootage){ ink='#ffffff'; spokenC='#ffffff'; }   // texto claro sobre el video
+  if(vmode==='inset'){
+    insetRect=computeInsetRect(W,H);
+    if(insetRect && (insetRect.pos==='bl'||insetRect.pos==='br')){   // recuadro abajo → correr el visualizador al hueco libre
+      const freeCX = insetRect.pos==='bl' ? (insetRect.x+insetRect.w + W)/2 : (insetRect.x)/2;
+      vizDX = freeCX - W/2;
+    }
+  }
 
   const t = liveMode ? liveT : (med.currentTime||0);
   const lvl = (analyser && (liveMode || !med.paused)) ? readLevel() : level*0.9;
   const react=parseFloat($('react').value)/100;
 
-  if($('layout').value==='perplexity'){ drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,spokenC,upcomingC,FF); drawLogo(W,H); drawDate(W,H,ink,FF); return; }
+  if($('layout').value==='perplexity'){ drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,spokenC,upcomingC,FF); if(insetRect) drawVideoInset(W,H,ink,FF); drawLogo(W,H); drawDate(W,H,ink,FF); return; }
 
   // kicker (volanta, sin itálica)
   ctx.textAlign='center'; ctx.textBaseline='alphabetic';
@@ -705,9 +745,49 @@ function draw(){
   if(sp){ ctx.fillStyle=ink; ctx.textAlign='center'; ctx.font=`700 ${nameFs2}px ${FF}`; ctx.fillText(sp, W/2, nameY2); }
   if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.62; ctx.textAlign='center'; ctx.font=`500 ${roleFs2}px ${FF}`; ctx.fillText(rl, W/2, nameY2 + nameFs2*0.7 + H*0.028); ctx.globalAlpha=1; }
 
+  if(insetRect) drawVideoInset(W,H,ink,FF);
   drawLogo(W,H);
   drawDate(W,H,ink,FF);
 }
+/* rect del recuadro de video (viñeta): posición, tamaño y proporción, sin dibujar aún */
+function computeInsetRect(W,H){
+  const v=currentVideoEl(); if(!v||!v.videoWidth) return null;
+  const pos=($('insetPos')||{}).value||'bl', ar=($('insetAR')||{}).value||'original';
+  const sz=(parseFloat($('insetSz').value)||34)/100;
+  const w=W*sz; let h;
+  if(ar==='original') h=w*(v.videoHeight/v.videoWidth);
+  else { const p=ar.split(':').map(Number); h=w*(p[1]/p[0]); }
+  h=Math.min(h, H*0.5);
+  const m=W*0.055;
+  let x,y;
+  if(pos==='bl'){ x=m; y=H*0.80-h; }
+  else if(pos==='br'){ x=W-w-m; y=H*0.80-h; }
+  else if(pos==='tl'){ x=m; y=H*0.11; }
+  else { x=W-w-m; y=H*0.11; }
+  return {x,y,w,h,pos};
+}
+/* dibuja el recuadro de video con zoom/encuadre + crédito de fuente */
+function drawVideoInset(W,H,ink,FF){
+  const v=currentVideoEl(); if(!v||!v.videoWidth||!insetRect) return;
+  const {x,y,w,h}=insetRect, r=W*0.02;
+  const zoom=(parseFloat($('insetZoom').value)||100)/100;
+  const panX=(parseFloat($('insetX').value)||0)/100, panY=(parseFloat($('insetY').value)||0)/100;
+  ctx.save();
+  roundRectPath(x,y,w,h,r); ctx.clip();
+  const base=Math.max(w/v.videoWidth, h/v.videoHeight)*zoom, iw=v.videoWidth*base, ih=v.videoHeight*base;
+  const cx=x+w/2 + panX*Math.max(0,(iw-w))/2, cy=y+h/2 + panY*Math.max(0,(ih-h))/2;
+  try{ ctx.drawImage(v, cx-iw/2, cy-ih/2, iw, ih); }catch(e){}
+  ctx.restore();
+  ctx.save(); roundRectPath(x,y,w,h,r); ctx.lineWidth=Math.max(1,W*0.003); ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.stroke(); ctx.restore();
+  const src=($('insetSrc').value||'').trim();
+  if(src){
+    ctx.save(); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.font=`500 ${W*0.016}px ${FF}`;
+    const ty=y+h+W*0.028, tw=ctx.measureText(src).width;
+    ctx.fillStyle='rgba(0,0,0,.55)'; rr(x, ty-W*0.022, tw+W*0.022, W*0.032, W*0.006);
+    ctx.fillStyle='#fff'; ctx.fillText(src, x+W*0.011, ty); ctx.restore();
+  }
+}
+function roundRectPath(x,y,w,h,r){ r=Math.min(r,Math.abs(w)/2,Math.abs(h)/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 function drawLogo(W,H){
   if(!logoImg) return;
   const box=W*(parseFloat($('logoSz').value)/100), mx=W*0.05, my=H*0.03;
@@ -1000,6 +1080,10 @@ function rr(x,y,w,h,r){ r=Math.min(r,Math.abs(w)/2,Math.abs(h)/2); ctx.beginPath
 
 /* dispatcher de visualizadores */
 function drawViz(W,H,cy,color,amp){
+  if(vizDX){ ctx.save(); ctx.translate(vizDX,0); const rv=drawVizInner(W,H,cy,color,amp); ctx.restore(); return rv; }
+  return drawVizInner(W,H,cy,color,amp);
+}
+function drawVizInner(W,H,cy,color,amp){
   switch(viz){
     case 'band':  return drawBand(W,H,cy,color,amp);
     case 'bars':  return drawBars(W,H,cy,color,amp);
@@ -1220,13 +1304,15 @@ $('aiCopy').onclick =()=>{ const v=$('aiOut').value||''; if(navigator.clipboard&
 $('aiToTitle').onclick=()=>{ const v=($('aiOut').value||'').trim(); if(!v){aiStat('No hay texto para usar.','err');return;} $('title').value=v.split('\n')[0].slice(0,140); draw(); aiStat('Cargado como título.','ok'); };
 
 /* ===================== CONFIGURACIÓN DEL EQUIPO (an_cfg) ===================== */
-const CFG_FIELDS=['kicker','title','speaker','role','spkSz','crgSz','blockY','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','vizSel','vizSz','react','fmt','fontSel','layout','revealSel','logoPos','logoSz','photoOn','dateTxt','dateOn','nightMode','footageOn','footageDim'];
+const CFG_FIELDS=['kicker','title','speaker','role','spkSz','crgSz','blockY','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','vizSel','vizSz','react','fmt','fontSel','layout','revealSel','logoPos','logoSz','photoOn','dateTxt','dateOn','nightMode','footageDim','videoMode','insetPos','insetAR','insetSz','insetZoom','insetX','insetY','insetSrc'];
 function collectCfg(){ const o={}; CFG_FIELDS.forEach(id=>{ const el=$(id); if(!el) return; o[id]=(el.type==='checkbox')?el.checked:el.value; }); return o; }
 function applyCfg(o){
   if(!o) return;
   CFG_FIELDS.forEach(id=>{ if(!(id in o)) return; const el=$(id); if(!el) return; if(el.type==='checkbox') el.checked=!!o[id]; else el.value=o[id]; });
   viz=$('vizSel').value;
-  ['spkSz','crgSz','blockY','react','logoSz','vizSz'].forEach(id=>{ const v=$(id+'V'); if(v) v.textContent=$(id).value+' %'; });
+  ['spkSz','crgSz','blockY','react','logoSz','vizSz','insetSz','insetZoom','footageDim'].forEach(id=>{ const v=$(id+'V'); if(v) v.textContent=$(id).value+' %'; });
+  ['insetX','insetY'].forEach(id=>{ const v=$(id+'V'); if(v) v.textContent=$(id).value; });
+  if($('syncVideoMode')) {} try{ syncVideoMode(); }catch(e){}
   ensureFont();
 }
 $('cfgSave').onclick=()=>{ try{ localStorage.setItem('an_cfg', JSON.stringify(collectCfg())); setStat('cfgStat','Configuración guardada en este navegador.','ok'); }catch(e){ setStat('cfgStat','No se pudo guardar: '+e.message,'err'); } };

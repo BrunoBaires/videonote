@@ -224,6 +224,14 @@ video.src{display:none}
           <input type="range" id="ofH" min="-30" max="30" value="0">
           <div class="hint">Subí el zoom si el cronista se filmó lejos, y corré el encuadre para centrar el rostro.</div>
         </div>
+        <div class="grp">
+          <span class="lbl">Encaje del video</span>
+          <select id="vfit">
+            <option value="cover" selected>Rellenar (recorta los costados)</option>
+            <option value="contain">Completo (muestra todo el 16:9)</option>
+          </select>
+          <div class="hint">Usá “Completo” cuando el video es 16:9 y hay gente o datos en los costados: entra entero, con bandas arriba y abajo.</div>
+        </div>
         <div class="grp" id="trimGrp" hidden style="border-top:1px solid var(--line);padding-top:12px">
           <span class="lbl">Recorte del video (in / out) <span class="val" id="trimV">—</span></span>
           <div class="tl" id="tl">
@@ -1512,10 +1520,12 @@ function draw(){
     if(fA !== 'none') ctx.filter = fA;
     const vw=vid.videoWidth||1, vh=vid.videoHeight||1;
     const zoom=parseFloat($('zoom').value)/100;
-    const side=rr*2, scale=Math.max(side/vw, side/vh)*zoom;
+    const fit = $('vfit') ? $('vfit').value : 'cover';
+    const side=rr*2, scale=(fit==='contain'?Math.min(side/vw, side/vh):Math.max(side/vw, side/vh))*zoom;
     const dw=vw*scale, dh=vh*scale;
     const off = dh*(parseFloat($('of').value)/100);
     const offX = dw*(parseFloat($('ofH').value)/100);
+    if(fit==='contain'){ ctx.fillStyle='#0b0b0d'; ctx.fillRect(cx-rr, cy-rr, rr*2, rr*2); }  // bandas para el 16:9 completo
     if(vid.readyState>=2) ctx.drawImage(vid, cx-dw/2+offX, cy-dh/2+off, dw, dh);
     ctx.restore();
   };
@@ -2293,7 +2303,7 @@ $('restart').onclick=()=>{
   if(rafId===null) loop();
 };
 
-const CTRLS = ['fmt','bg','mg','sz','of','zoom','ofH','ring','ringC','trackC','ringOn','shape','rad',
+const CTRLS = ['fmt','bg','mg','sz','of','zoom','ofH','vfit','ring','ringC','trackC','ringOn','shape','rad',
   'name','nameSz','place','placeSz','ctx','ctxSz','gap','timerOn','timerDown',
   'logoOn','logoPos','signOn','dateOn','dateTxt','brandMode','txtMode','ctxMode',
   'signCustom','signC','dateCustom','dateC',

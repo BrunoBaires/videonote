@@ -111,18 +111,18 @@ audio,video.src{display:none}
       <div class="grp" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
         <span class="lbl">…o pegá un link (X o YouTube)</span>
         <input type="text" id="mediaUrl" placeholder="https://x.com/…/status/…  o  https://youtu.be/…">
-        <button type="button" class="mini go" id="linkBtn">Traer audio del link</button>
-        <div class="hint">Para YouTube largo, marcá Inicio y Fin abajo: se baja solo ese fragmento (no el video entero).</div>
+        <div class="row" style="margin-top:8px">
+          <div><span class="lbl">Inicio (in)</span><input type="text" id="clipInT" placeholder="0:00"></div>
+          <div><span class="lbl">Fin (out)</span><input type="text" id="clipOutT" placeholder="fin"></div>
+        </div>
+        <button type="button" class="mini go" id="linkBtn">Traer del link (con el recorte)</button>
+        <div class="hint">Pegá el link, poné <b>Inicio</b> y <b>Fin</b> (m:ss, ej. 1:30) y tocá Traer: de YouTube se baja solo ese fragmento. Dejá Fin vacío para el video entero.</div>
       </div>
       <div class="grp" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
-        <span class="lbl">Recorte — extraer un fragmento (opcional)</span>
-        <div class="row">
-          <div><span class="lbl">Inicio</span><input type="text" id="clipInT" placeholder="0:00"></div>
-          <div><span class="lbl">Fin</span><input type="text" id="clipOutT" placeholder="fin"></div>
-        </div>
-        <div class="seg" style="margin-top:7px"><button type="button" class="mini" id="markIn" style="margin-top:0">Marcar inicio acá</button><button type="button" class="mini" id="markOut" style="margin-top:0">Marcar fin acá</button></div>
+        <span class="lbl">¿Ya cargaste un archivo o un X? Recortalo con el mismo Inicio/Fin</span>
+        <div class="seg"><button type="button" class="mini" id="markIn" style="margin-top:0">Marcar inicio acá</button><button type="button" class="mini" id="markOut" style="margin-top:0">Marcar fin acá</button></div>
         <button type="button" class="mini" id="applyClip">Recortar el audio ya cargado</button>
-        <div class="hint">Formato m:ss (ej. 1:30) o segundos. Con un <b>link de YouTube</b>, el recorte se baja del servidor. Con un <b>archivo o X ya cargado</b>, recorta acá con “Recortar el audio ya cargado”.</div>
+        <div class="hint">Con un archivo/X ya cargado: marcá los tiempos desde el reproductor (o escribilos arriba) y recortá el fragmento acá.</div>
       </div>
     </div></div>
 

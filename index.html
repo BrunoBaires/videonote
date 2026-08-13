@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v22 · tramas + drag</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v23 · subs al frente</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1776,9 +1776,9 @@ function draw(){
   drawBrand(W, H, fullVid ? true : (bm==='light' ? true : (bm==='dark' ? false : light)));
   }
 
-  if(!bakingFondo) drawSubs(W, H);
   drawZocalo(W, H); drawElement(W, H);   // zócalo, elementos y efectos también en modo pantalla completa
-  drawTrama(W, H);                        // grano / líneas de TV, sobre todo lo demás
+  drawTrama(W, H);                        // grano / líneas de TV, sobre la imagen…
+  if(!bakingFondo) drawSubs(W, H);        // …pero el subtítulo SIEMPRE al frente (nada por encima)
 }
 /* tramas: grano de film (se mueve) y líneas de TV (scanlines) */
 let grainCv=null;

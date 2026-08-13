@@ -128,6 +128,7 @@ audio,video.src{display:none}
       <div class="grp"><span class="lbl">Tamaño nombre <span class="val" id="spkSzV">100 %</span></span><input type="range" id="spkSz" min="60" max="240" value="100"></div>
       <div class="grp"><span class="lbl">Rol / cargo</span><input type="text" id="role" value="Conductora" placeholder="Host, cronista, testimonio…"></div>
       <div class="grp"><span class="lbl">Tamaño cargo <span class="val" id="crgSzV">100 %</span></span><input type="range" id="crgSz" min="60" max="240" value="100"></div>
+      <div class="grp"><span class="lbl">Posición vertical (nombre + rol) <span class="val" id="blockYV">90 %</span></span><input type="range" id="blockY" min="66" max="96" value="90"></div>
       <div class="grp">
         <span class="lbl">Foto del hablante</span>
         <div class="seg"><button type="button" id="photoPick" class="mini" style="margin-top:0">Subir foto</button><button type="button" id="photoClear" class="mini" style="margin-top:0" disabled>Quitar</button></div>
@@ -152,11 +153,20 @@ audio,video.src{display:none}
 
     <div class="card"><div class="body">
       <h2>Visualizador de audio</h2>
-      <div class="seg" style="margin-bottom:12px">
-        <button type="button" class="viz on" data-viz="sphere">Esfera</button>
-        <button type="button" class="viz" data-viz="band">Banda</button>
-        <button type="button" class="viz" data-viz="none">Ninguno</button>
+      <div class="grp"><span class="lbl">Tipo</span>
+        <select id="vizSel">
+          <option value="sphere">Esfera de partículas</option>
+          <option value="bars">Barras (ecualizador)</option>
+          <option value="ring">Anillo (ecualizador radial)</option>
+          <option value="wave">Onda</option>
+          <option value="pulse">Pulso (círculos)</option>
+          <option value="dots">Puntos que rebotan</option>
+          <option value="band">Banda fina (Atlantic)</option>
+          <option value="none">Ninguno</option>
+        </select>
       </div>
+      <div class="grp"><span class="lbl">Tamaño <span class="val" id="vizSzV">100 %</span></span>
+        <input type="range" id="vizSz" min="40" max="200" value="100"></div>
       <div class="grp"><span class="lbl">Reactividad al audio <span class="val" id="reactV">100 %</span></span>
         <input type="range" id="react" min="0" max="200" value="100"></div>
       <div class="grp"><span class="lbl">Color del visualizador</span><input type="color" id="vizC" value="#2b8a8f"></div>
@@ -193,6 +203,7 @@ audio,video.src{display:none}
       <div class="grp" style="margin-top:9px"><span class="lbl">Formato</span>
         <select id="fmt"><option value="1:1">1:1 · 1080×1080</option><option value="4:5">4:5 · 1080×1350</option><option value="9:16">9:16 · 1080×1920</option></select>
       </div>
+      <label class="chk"><input type="checkbox" id="nightMode"> Noche (invierte: fondo oscuro, texto claro)</label>
       <div class="hint">La palabra ya dicha va con un color y la que todavía no, con otro (no tiene por qué ser verde). Cambiá tipografía y colores a gusto.</div>
     </div></div>
 
@@ -232,9 +243,9 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   if(which==='video'){ window.location.href='index.html'; }
   else if(which==='fondos'){ window.location.href='index.html#fondos'; }
 }));
-document.querySelectorAll('.viz').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('.viz').forEach(x=>x.classList.toggle('on',x===b)); viz=b.dataset.viz;
-}));
+viz = $('vizSel').value;
+$('vizSel').addEventListener('change',()=>{ viz=$('vizSel').value; draw(); });
+$('vizSz').addEventListener('input',()=>{ $('vizSzV').textContent=$('vizSz').value+' %'; draw(); });
 
 /* ---- carga de audio/video ---- */
 $('drop').onclick=()=>$('file').click();
@@ -379,11 +390,12 @@ async function ensureFont(){ try{ const fam=fontStack().split(',')[0].replace(/"
 $('fontSel').addEventListener('change', ensureFont);
 
 /* ---- controles → redibujo ---- */
-['kicker','title','speaker','role','bgC','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','dateTxt','dateOn','spkSz','crgSz'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
+['kicker','title','speaker','role','bgC','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','dateTxt','dateOn','spkSz','crgSz','blockY','nightMode'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
 $('react').addEventListener('input',()=>$('reactV').textContent=$('react').value+' %');
 $('logoSz').addEventListener('input',()=>$('logoSzV').textContent=$('logoSz').value+' %');
 $('spkSz').addEventListener('input',()=>$('spkSzV').textContent=$('spkSz').value+' %');
 $('crgSz').addEventListener('input',()=>$('crgSzV').textContent=$('crgSz').value+' %');
+$('blockY').addEventListener('input',()=>$('blockYV').textContent=$('blockY').value+' %');
 
 /* ---- reproducción ---- */
 $('play').onclick=async()=>{
@@ -410,8 +422,9 @@ function wrap(text,maxW){ const out=[]; for(const para of text.split('\n')){ con
 
 function draw(){
   const [W,H]=DIMS[$('fmt').value]; if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
-  const bg=$('bgC').value, ink=$('inkC').value;
-  const spokenC=$('spokenC').value, upcomingC=$('upcomingC').value;
+  let bg=$('bgC').value, ink=$('inkC').value;
+  let spokenC=$('spokenC').value, upcomingC=$('upcomingC').value;
+  if($('nightMode').checked){ bg='#111318'; ink='#f4f1e9'; spokenC='#f4f1e9'; }   // noche: invierte
   const FF=fontStack();
   ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
 
@@ -458,18 +471,14 @@ function draw(){
   drawTranscript(W,H, y, vizTop, t, spokenC, upcomingC, FF);
 
   // visualizador
-  if(viz!=='none'){
-    const vc=$('vizC').value;
-    const cyV=H*0.785;
-    if(viz==='band') drawBand(W,H,cyV,vc,lvl*react);
-    else drawSphere(W,H,cyV,vc,lvl*react);
-  }
+  if(viz!=='none') drawViz(W,H,H*0.785,$('vizC').value,lvl*react);
 
-  // hablante + rol
+  // hablante + rol (posición y separación configurables)
   const sp=$('speaker').value.trim(), rl=$('role').value.trim();
   const spk2=(parseFloat($('spkSz').value)||100)/100, crg2=(parseFloat($('crgSz').value)||100)/100;
-  if(sp){ ctx.fillStyle=ink; ctx.textAlign='center'; ctx.font=`600 ${W*0.024*spk2}px ${FF}`; ctx.fillText(letterspace(sp.toUpperCase()), W/2, H*0.928); }
-  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.font=`500 ${W*0.017*crg2}px var(--mono, monospace)`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, H*0.955); ctx.globalAlpha=1; }
+  const byN2=(parseFloat($('blockY').value)||90)/100, nameFs2=W*0.024*spk2, nameY2=H*byN2;
+  if(sp){ ctx.fillStyle=ink; ctx.textAlign='center'; ctx.font=`600 ${nameFs2}px ${FF}`; ctx.fillText(letterspace(sp.toUpperCase()), W/2, nameY2); }
+  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.textAlign='center'; ctx.font=`500 ${W*0.017*crg2}px var(--mono, monospace)`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, nameY2+Math.max(H*0.026,nameFs2*0.95)); ctx.globalAlpha=1; }
 
   drawLogo(W,H);
   drawDate(W,H,ink,FF);
@@ -546,22 +555,20 @@ function drawPerplexity(W,H,t,lvl,react,bg,ink,FF){
     // fundido de las líneas viejas al tope (solo cuando ya scrollea)
     if(scrolling){
       const [r,g,b]=hex2rgb(bg);
-      const grad=ctx.createLinearGradient(0,topY-lh*0.4,0,topY+lh*1.6);
+      const grad=ctx.createLinearGradient(0,topY,0,topY+lh*1.5);
       grad.addColorStop(0,`rgba(${r},${g},${b},1)`); grad.addColorStop(1,`rgba(${r},${g},${b},0)`);
-      ctx.fillStyle=grad; ctx.fillRect(0,0,W,topY+lh*1.6);
+      ctx.fillStyle=grad; ctx.fillRect(0,topY,W,lh*1.5);   // el fundido arranca en topY: no tapa el título
     }
   }
-  // esfera (o banda) abajo, centrada
-  if(viz!=='none'){
-    const vc=$('vizC').value, cyV=H*0.73;
-    if(viz==='band') drawBand(W,H,cyV,vc,lvl*react); else drawSphere(W,H,cyV,vc,lvl*react);
-  }
-  // hablante + rol, abajo centrado (con tamaño configurable)
+  // visualizador abajo, centrado
+  if(viz!=='none') drawViz(W,H,H*0.73,$('vizC').value,lvl*react);
+  // hablante + rol (posición y separación configurables)
   const sp=$('speaker').value.trim(), rl=$('role').value.trim();
   const spk=(parseFloat($('spkSz').value)||100)/100, crg=(parseFloat($('crgSz').value)||100)/100;
+  const byN=(parseFloat($('blockY').value)||90)/100, nameFs=W*0.022*spk, nameY=H*byN;
   ctx.textAlign='center';
-  if(sp){ ctx.fillStyle=ink; ctx.font=`600 ${W*0.022*spk}px ${FF}`; ctx.fillText(letterspace(sp.toUpperCase()), W/2, H*0.905); }
-  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.font=`500 ${W*0.016*crg}px var(--mono, monospace)`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, H*0.93); ctx.globalAlpha=1; }
+  if(sp){ ctx.fillStyle=ink; ctx.font=`600 ${nameFs}px ${FF}`; ctx.fillText(letterspace(sp.toUpperCase()), W/2, nameY); }
+  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.font=`500 ${W*0.016*crg}px var(--mono, monospace)`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, nameY+Math.max(H*0.024,nameFs*0.95)); ctx.globalAlpha=1; }
   ctx.textAlign='left';
 }
 function letterspace(s){return s.split('').join('  ');}
@@ -618,7 +625,7 @@ function drawBand(W,H,cy,color,lvl){
     if(timeData&&!med.paused){ const idx=Math.floor(p*timeData.length); a=Math.abs(timeData[idx]-128)/128; }
     else a=0.06;
     const env=Math.sin(p*Math.PI); // más alto en el centro
-    const h=Math.max(W*0.004, (0.02+a*0.9)*env*H*0.05*(0.4+lvl*1.6));
+    const h=Math.max(W*0.004, (0.02+a*0.9)*env*H*0.05*vizScale()*(0.4+lvl*1.6));
     ctx.beginPath(); ctx.moveTo(x,cy-h); ctx.lineTo(x,cy+h); ctx.stroke();
   }
 }
@@ -630,7 +637,7 @@ function drawSphere(W,H,cy,color,lvl){
   if(!SPH)SPH=sphere(560);
   const t=performance.now()/1000;
   const ay=t*0.5, ax=Math.sin(t*0.25)*0.35;
-  const R=W*0.100*(1+lvl*0.24);
+  const R=W*0.100*vizScale()*(1+lvl*0.24);
   const cx=W/2, focal=2.6;
   const cay=Math.cos(ay),say=Math.sin(ay),cax=Math.cos(ax),sax=Math.sin(ax);
   const [cr,cg,cb]=hex2rgb(color);
@@ -653,6 +660,81 @@ function drawSphere(W,H,cy,color,lvl){
   ctx.globalAlpha=1;
 }
 function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return[n>>16&255,n>>8&255,n&255];}
+function vizScale(){ return (parseFloat($('vizSz').value)||100)/100; }
+function rr(x,y,w,h,r){ r=Math.min(r,Math.abs(w)/2,Math.abs(h)/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill(); }
+
+/* dispatcher de visualizadores */
+function drawViz(W,H,cy,color,amp){
+  switch(viz){
+    case 'band':  return drawBand(W,H,cy,color,amp);
+    case 'bars':  return drawBars(W,H,cy,color,amp);
+    case 'ring':  return drawRing(W,H,cy,color,amp);
+    case 'wave':  return drawWave(W,H,cy,color,amp);
+    case 'pulse': return drawPulse(W,H,cy,color,amp);
+    case 'dots':  return drawDots(W,H,cy,color,amp);
+    default:      return drawSphere(W,H,cy,color,amp);
+  }
+}
+function freqAt(p){ const n=freqData?freqData.length:0; if(!n||med.paused) return null; const idx=Math.min(n-1,Math.floor(p*(n*0.55))+2); return (freqData[idx]||0)/255; }
+
+/* barras (ecualizador), simétricas sobre la línea */
+function drawBars(W,H,cy,color,amp){
+  const sc=vizScale(), N=42, bw=W*0.62*Math.min(1.4,sc), x0=(W-bw)/2, gap=bw/N;
+  const [r,g,b]=hex2rgb(color); ctx.fillStyle=`rgb(${r},${g},${b})`;
+  for(let i=0;i<N;i++){
+    const v=freqAt(i/N); const val=(v==null)?(0.04+0.03*Math.sin(i*0.6+performance.now()/400)):v;
+    const hh=Math.max(W*0.004,(0.03+val*0.95)*H*0.11*sc*(0.5+amp*1.5));
+    rr(x0+i*gap+gap*0.16, cy-hh, gap*0.68, hh*2, gap*0.34);
+  }
+}
+/* anillo (ecualizador radial) */
+function drawRing(W,H,cy,color,amp){
+  const sc=vizScale(), cx=W/2, R=W*0.075*sc, N=72, [r,g,b]=hex2rgb(color);
+  ctx.strokeStyle=`rgb(${r},${g},${b})`; ctx.lineCap='round'; ctx.lineWidth=Math.max(2,W*0.006*sc);
+  for(let i=0;i<N;i++){
+    const ang=(i/N)*Math.PI*2 - Math.PI/2;
+    const v=freqAt(i/N); const val=(v==null)?0.08:v;
+    const len=R*(0.12+val*1.15*(0.4+amp*1.4));
+    ctx.beginPath(); ctx.moveTo(cx+Math.cos(ang)*R, cy+Math.sin(ang)*R); ctx.lineTo(cx+Math.cos(ang)*(R+len), cy+Math.sin(ang)*(R+len)); ctx.stroke();
+  }
+  ctx.globalAlpha=.4; ctx.lineWidth=Math.max(1,W*0.002); ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.stroke(); ctx.globalAlpha=1;
+}
+/* onda continua */
+function drawWave(W,H,cy,color,amp){
+  const sc=vizScale(), bw=W*0.72*Math.min(1.3,sc), x0=(W-bw)/2, N=170, am=H*0.055*sc*(0.5+amp*1.5);
+  if(analyser&&!med.paused) analyser.getByteTimeDomainData(timeData);
+  const [r,g,b]=hex2rgb(color); ctx.strokeStyle=`rgb(${r},${g},${b})`; ctx.lineWidth=Math.max(2,W*0.004*sc); ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath();
+  for(let i=0;i<=N;i++){
+    const p=i/N, x=x0+p*bw, env=Math.sin(p*Math.PI);
+    let v; if(timeData&&!med.paused){ const idx=Math.floor(p*timeData.length); v=(timeData[idx]-128)/128; } else v=0.08*Math.sin(p*22+performance.now()/300);
+    const y=cy+v*am*env; if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+}
+/* pulso: círculos concéntricos que respiran */
+function drawPulse(W,H,cy,color,amp){
+  const sc=vizScale(), cx=W/2, [r,g,b]=hex2rgb(color), base=W*0.055*sc, t=performance.now()/1000;
+  for(let k=0;k<3;k++){
+    const ph=((t*0.6)+k/3)%1, rad=base*(0.6+ph*2.4)*(0.7+amp*0.9);
+    ctx.globalAlpha=(1-ph)*0.5; ctx.strokeStyle=`rgb(${r},${g},${b})`; ctx.lineWidth=Math.max(1.5,W*0.004*sc);
+    ctx.beginPath(); ctx.arc(cx,cy,rad,0,7); ctx.stroke();
+  }
+  ctx.globalAlpha=.92; ctx.fillStyle=`rgb(${r},${g},${b})`;
+  ctx.beginPath(); ctx.arc(cx,cy,base*(0.5+amp*0.9),0,7); ctx.fill(); ctx.globalAlpha=1;
+}
+/* puntos que rebotan (fila) */
+function drawDots(W,H,cy,color,amp){
+  const sc=vizScale(), N=26, bw=W*0.55*Math.min(1.4,sc), x0=(W-bw)/2, gap=bw/(N-1), [r,g,b]=hex2rgb(color);
+  ctx.fillStyle=`rgb(${r},${g},${b})`;
+  for(let i=0;i<N;i++){
+    const v=freqAt(i/N); const val=(v==null)?0.08:v;
+    const off=(0.05+val)*H*0.045*sc*(0.5+amp*1.5), x=x0+i*gap, rad=Math.max(1.5,W*0.0055*sc);
+    ctx.globalAlpha=1; ctx.beginPath(); ctx.arc(x, cy-off, rad,0,7); ctx.fill();
+    ctx.globalAlpha=.3; ctx.beginPath(); ctx.arc(x, cy+off, rad,0,7); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
 
 /* ---- grabar muestra (canvas + audio) a webm ---- */
 /* export mp4: graba mp4 nativo si el navegador puede; si no, webm + conversión ffmpeg (cuando la página está servida con COOP/COEP) */

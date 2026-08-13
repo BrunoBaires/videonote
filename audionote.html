@@ -36,7 +36,11 @@ h1 span{color:var(--rojo)}
 .col{display:flex;flex-direction:column;gap:12px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .card > .body{padding:15px}
-.card h2{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);font-weight:400;margin-bottom:12px}
+.card h2{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);font-weight:400;margin-bottom:12px;cursor:pointer;user-select:none;position:relative;padding-right:16px}
+.card h2::after{content:'▾';position:absolute;right:0;top:-1px;font-size:9px;color:var(--dim)}
+.card.collapsed h2{margin-bottom:0}
+.card.collapsed h2::after{content:'▸'}
+.card.collapsed .body > :not(h2){display:none}
 .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);display:block;margin-bottom:6px}
 .val{font-family:var(--mono);font-size:10.5px;color:var(--dim);float:right;text-transform:none;letter-spacing:0}
 .grp{margin-bottom:14px}
@@ -113,6 +117,19 @@ audio,video.src{display:none}
     </div></div>
 
     <div class="card"><div class="body">
+      <h2>En vivo (tiempo real)</h2>
+      <div class="grp"><span class="lbl">Fuente de audio</span>
+        <select id="liveSrc">
+          <option value="tab">Pestaña / pantalla (transmisión)</option>
+          <option value="mic">Micrófono</option>
+        </select>
+      </div>
+      <button type="button" class="go mini" id="liveBtn">Empezar en vivo</button>
+      <div class="stat" id="liveStat"></div>
+      <div class="hint">Transcribe en español a medida que se habla (modelo multilingüe de AssemblyAI). Para captar una transmisión —por ejemplo un discurso— elegí “Pestaña/pantalla” y al compartir tildá <b>“Compartir audio de la pestaña”</b>. Necesita la app servida (Vercel) y tu API key de AssemblyAI.</div>
+    </div></div>
+
+    <div class="card"><div class="body">
       <h2>Transcripción (palabras sincronizadas)</h2>
       <span class="lbl">API key de AssemblyAI <span class="val" id="aaiState">no cargada</span></span>
       <input type="password" id="aaiKey" placeholder="clave de AssemblyAI" autocomplete="off">
@@ -130,11 +147,13 @@ audio,video.src{display:none}
       <div class="hint">Para sincronía real usá AssemblyAI. “Estimar tiempos” reparte las palabras a lo largo del audio: sirve para bosquejar el efecto al toque.</div>
     </div></div>
 
-    <div class="card"><div class="body">
+    <div class="card collapsed"><div class="body">
       <h2>Herramientas editoriales (IA)</h2>
       <span class="lbl">API key de OpenAI <span class="val" id="oaiState">no cargada</span></span>
       <input type="password" id="oaiKey" placeholder="clave de OpenAI (sk-…)" autocomplete="off">
       <div class="hint">La misma key de “Crear con IA” de Video Note. Trabajan sobre el texto de la transcripción de arriba.</div>
+      <button type="button" class="mini go" id="transBtn">Traducir al español (desde el idioma original)</button>
+      <div class="hint">Traduce el texto transcripto al español y lo aplica a la placa (re-sincroniza los tiempos). Ideal para declaraciones en otro idioma.</div>
       <div class="seg" style="margin-top:10px"><button type="button" class="mini" id="epiBtn" style="margin-top:0">Extraer epígrafe</button><button type="button" class="mini" id="notaBtn" style="margin-top:0">Nota breve</button></div>
       <button type="button" class="mini" id="dataBtn">Estructurar datos del hablante</button>
       <div id="aiBox" hidden style="margin-top:10px">
@@ -185,7 +204,7 @@ audio,video.src{display:none}
       </div>
     </div></div>
 
-    <div class="card"><div class="body">
+    <div class="card collapsed"><div class="body">
       <h2>Visualizador de audio</h2>
       <div class="grp"><span class="lbl">Tipo</span>
         <select id="vizSel">
@@ -206,7 +225,7 @@ audio,video.src{display:none}
       <div class="grp"><span class="lbl">Color del visualizador</span><input type="color" id="vizC" value="#D60019"></div>
     </div></div>
 
-    <div class="card"><div class="body">
+    <div class="card collapsed"><div class="body">
       <h2>Estilo</h2>
       <div class="grp"><span class="lbl">Modo</span>
         <select id="layout">
@@ -257,7 +276,7 @@ audio,video.src{display:none}
       <div class="hint">La palabra ya dicha va con un color y la que todavía no, con otro (no tiene por qué ser verde). Cambiá tipografía y colores a gusto.</div>
     </div></div>
 
-    <div class="card"><div class="body">
+    <div class="card collapsed"><div class="body">
       <h2>Configuración del equipo</h2>
       <div class="hint">Guardá el estilo (colores, tipografía, formato, visualizador, placa) para reusarlo. Se guarda en este navegador y podés exportarlo para compartirlo con el equipo.</div>
       <div class="seg" style="margin-top:10px"><button type="button" class="mini go" id="cfgSave" style="margin-top:0">Guardar</button><button type="button" class="mini" id="cfgLoad" style="margin-top:0">Restaurar</button></div>
@@ -293,6 +312,7 @@ const DIMS={'4:5':[1080,1350],'9:16':[1080,1920],'1:1':[1080,1080]};
 let words=[];          // [{text,start,end}] en segundos
 let loaded=false, rafId=null, dur=0;
 let photo=null, level=0, viz='sphere';
+let liveMode=false, liveT=0, liveT0=0, liveWS=null, liveCtx=null, liveStream=null, liveProc=null, liveRAF=null, liveFinal=[], liveTurn=[];
 let audioCtx=null, analyser=null, srcNode=null, freqData=null, timeData=null, recDest=null;
 let recorder=null, recChunks=[];
 
@@ -304,6 +324,11 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 }));
 viz = $('vizSel').value;
 $('vizSel').addEventListener('change',()=>{ viz=$('vizSel').value; draw(); });
+
+/* secciones colapsables: clic en el título abre/cierra */
+document.querySelectorAll('.card > .body > h2').forEach(h=>{
+  h.addEventListener('click',()=>{ h.closest('.card').classList.toggle('collapsed'); });
+});
 $('vizSz').addEventListener('input',()=>{ $('vizSzV').textContent=$('vizSz').value+' %'; draw(); });
 
 /* ---- carga de audio/video ---- */
@@ -441,8 +466,9 @@ function buildSpeakers(){
   const next={}; order.forEach(sp=>{ next[sp]=speakerInfo[sp]||{name:'',role:''}; });
   speakerInfo=next;
   const box=$('spkBox'), list=$('spkList'); list.innerHTML='';
-  if(order.length<=1){ box.hidden=true; return; }   // una sola voz: se usa el campo manual de siempre
+  if(order.length===0){ box.hidden=true; return; }   // texto pegado sin diarización
   box.hidden=false;
+  if(order.length===1){ list.innerHTML='<div class="hint" style="margin:0">Se detectó una sola voz. Se usan el nombre y el cargo del campo “Quién habla”.</div>'; return; }
   order.forEach((sp,i)=>{
     const wrap=document.createElement('div'); wrap.className='grp'; wrap.style.marginBottom='9px';
     const lab=document.createElement('span'); lab.className='lbl'; lab.textContent='Hablante '+sp+' · voz '+(i+1);
@@ -563,8 +589,8 @@ function draw(){
   const FF=fontStack();
   paintBg(W,H,bg,bg2);
 
-  const t=med.currentTime||0;
-  const lvl = (analyser && !med.paused) ? readLevel() : level*0.9;
+  const t = liveMode ? liveT : (med.currentTime||0);
+  const lvl = (analyser && (liveMode || !med.paused)) ? readLevel() : level*0.9;
   const react=parseFloat($('react').value)/100;
 
   if($('layout').value==='perplexity'){ drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,spokenC,upcomingC,FF); drawLogo(W,H); drawDate(W,H,ink,FF); return; }
@@ -1044,6 +1070,17 @@ async function runTool(btn, sys, kind, opts, withX){
   catch(e){ aiStat(String(e.message||e),'err'); }
   $(btn).disabled=false;
 }
+const TRANS_SYS='Sos traductor periodístico. Traducí al español rioplatense el texto que te paso, desde el idioma en que esté. Traducción fiel y natural, respetando nombres propios, cifras y el sentido. No resumas, no agregues ni quites información, no aclares nada. Devolvé SOLO la traducción, sin comillas ni comentarios.';
+$('transBtn').onclick = async ()=>{
+  const t=trBody(); if(!t){ aiStat('Primero transcribí o pegá el texto.','err'); return; }
+  $('transBtn').disabled=true; aiStat('<span class="spin"></span>Traduciendo al español…');
+  try{
+    const out=await gptChat([{role:'system',content:TRANS_SYS},{role:'user',content:t}], {model:'gpt-4o', temperature:0.2});
+    $('trText').value=out; resyncFromText();   // aplica a la placa y re-sincroniza los tiempos
+    aiStat('Traducido al español y aplicado a la placa.','ok');
+  }catch(e){ aiStat(String(e.message||e),'err'); }
+  $('transBtn').disabled=false;
+};
 $('epiBtn').onclick =()=>runTool('epiBtn', EPI_SYS, 'Epígrafe', {model:'gpt-4o-mini', temperature:0.4}, false);
 $('notaBtn').onclick=()=>runTool('notaBtn', NOTA_PROMPT, 'Nota breve', {model:'gpt-4o', temperature:0.3}, false);
 $('dataBtn').onclick=()=>runTool('dataBtn', DATA_SYS, 'Datos', {model:'gpt-4o', temperature:0.2}, true);
@@ -1075,6 +1112,85 @@ $('cfgLoad').onclick=()=>{ try{ const raw=localStorage.getItem('an_cfg'); if(!ra
 $('cfgExport').onclick=()=>{ const blob=new Blob([JSON.stringify(collectCfg(),null,2)],{type:'application/json'}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download='audionote-config.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1000); setStat('cfgStat','Archivo exportado: compartilo con el equipo.','ok'); };
 $('cfgImport').onclick=()=>$('cfgFile').click();
 $('cfgFile').onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ applyCfg(JSON.parse(rd.result)); setStat('cfgStat','Configuración importada.','ok'); }catch(err){ setStat('cfgStat','Archivo inválido.','err'); } }; rd.readAsText(f); $('cfgFile').value=''; };
+
+/* ===================== EN VIVO (streaming AssemblyAI) ===================== */
+function downsampleTo16k(buf, from){
+  const to=16000; if(to>=from) return buf;
+  const ratio=from/to, len=Math.floor(buf.length/ratio), out=new Float32Array(len);
+  let bi=0;
+  for(let oi=0;oi<len;oi++){ const next=Math.floor((oi+1)*ratio); let sum=0,c=0; for(let i=bi;i<next&&i<buf.length;i++){sum+=buf[i];c++;} out[oi]=c?sum/c:0; bi=next; }
+  return out;
+}
+function floatToPCM16(f){ const b=new ArrayBuffer(f.length*2), v=new DataView(b); for(let i=0;i<f.length;i++){ let s=Math.max(-1,Math.min(1,f[i])); v.setInt16(i*2, s<0?s*0x8000:s*0x7fff, true);} return b; }
+async function getLiveToken(key){
+  try{
+    const r=await fetch('/api/aai-token?expires=300',{headers:{'x-aai-key':key}});
+    if(r.ok){ const j=await r.json(); if(j&&j.token) return j.token; }
+  }catch(e){}
+  // sin proxy: intento directo (puede fallar por CORS → ahí hace falta api/aai-token.js servido)
+  const r2=await fetch('https://streaming.assemblyai.com/v3/token?expires_in_seconds=300',{headers:{authorization:key}});
+  if(!r2.ok) throw new Error('token '+r2.status+' — subí api/aai-token.js a Vercel');
+  const j2=await r2.json(); return j2.token||j2;
+}
+function liveHandle(data){
+  let m; try{ m=JSON.parse(data); }catch(e){ return; }
+  if(m.type==='Begin'){ liveT0=performance.now(); return; }
+  if(m.type==='Turn'){
+    const tw=(m.words||[]).map(w=>({text:w.text, start:w.start/1000, end:w.end/1000, speaker:w.speaker||null}));
+    if(m.end_of_turn){ liveFinal=liveFinal.concat(tw); liveTurn=[]; } else { liveTurn=tw; }
+    words=liveFinal.concat(liveTurn);
+    activeSegment._cache=null;
+    $('trText').value=words.map(w=>w.text).join(' ');
+  }
+}
+function liveLoop(){ if(!liveMode) return; liveT=(performance.now()-(liveT0||performance.now()))/1000; draw(); liveRAF=requestAnimationFrame(liveLoop); }
+async function liveStart(){
+  const key=$('aaiKey').value.trim()||aaiGet();
+  if(!key){ setStat('liveStat','Falta la API key de AssemblyAI (cargala en Transcripción).','err'); return; }
+  $('liveBtn').disabled=true; setStat('liveStat','<span class="spin"></span>Conectando…');
+  let token; try{ token=await getLiveToken(key); }
+  catch(e){ setStat('liveStat','No se pudo obtener el token: '+(e.message||e),'err'); $('liveBtn').disabled=false; return; }
+  let stream;
+  try{
+    if($('liveSrc').value==='tab') stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+    else stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  }catch(e){ setStat('liveStat','No se pudo capturar el audio: '+(e.message||e),'err'); $('liveBtn').disabled=false; return; }
+  if(!stream.getAudioTracks().length){ setStat('liveStat','No hay audio. Al compartir la pestaña tenés que tildar “Compartir audio”.','err'); stream.getTracks().forEach(t=>t.stop()); $('liveBtn').disabled=false; return; }
+  liveStream=stream;
+  const url='wss://streaming.assemblyai.com/v3/ws?sample_rate=16000&encoding=pcm_s16le&format_turns=true&speech_model=universal-streaming-multilingual&token='+encodeURIComponent(token);
+  liveWS=new WebSocket(url); liveWS.binaryType='arraybuffer';
+  liveWS.onopen=()=>{
+    liveCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const src=liveCtx.createMediaStreamSource(stream);
+    analyser=liveCtx.createAnalyser(); analyser.fftSize=2048; analyser.smoothingTimeConstant=0.8;
+    freqData=new Uint8Array(analyser.frequencyBinCount); timeData=new Uint8Array(analyser.fftSize);
+    src.connect(analyser);
+    liveProc=liveCtx.createScriptProcessor(4096,1,1);
+    const mute=liveCtx.createGain(); mute.gain.value=0; src.connect(liveProc); liveProc.connect(mute); mute.connect(liveCtx.destination);
+    liveProc.onaudioprocess=e=>{ if(!liveWS||liveWS.readyState!==1) return; const pcm=floatToPCM16(downsampleTo16k(e.inputBuffer.getChannelData(0), liveCtx.sampleRate)); liveWS.send(pcm); };
+    liveMode=true; liveFinal=[]; liveTurn=[]; words=[]; liveT0=performance.now(); liveLoop();
+    setStat('liveStat','● En vivo — hablá o reproducí la transmisión. Tocá “Detener” para terminar.','ok');
+    $('liveBtn').textContent='Detener'; $('liveBtn').disabled=false; $('recBtn').disabled=false;
+  };
+  liveWS.onmessage=ev=>liveHandle(ev.data);
+  liveWS.onerror=()=>setStat('liveStat','Error de conexión con el streaming.','err');
+  liveWS.onclose=()=>{ if(liveMode) liveStop(true); };
+  // corta si el usuario deja de compartir la pestaña
+  stream.getAudioTracks()[0].addEventListener('ended',()=>{ if(liveMode) liveStop(); });
+}
+function liveStop(fromClose){
+  liveMode=false; if(liveRAF){cancelAnimationFrame(liveRAF);liveRAF=null;}
+  try{ if(!fromClose && liveWS && liveWS.readyState===1){ liveWS.send(JSON.stringify({type:'Terminate'})); } }catch(e){}
+  try{ liveWS && liveWS.close(); }catch(e){} liveWS=null;
+  try{ liveProc && liveProc.disconnect(); }catch(e){} liveProc=null;
+  try{ liveCtx && liveCtx.close(); }catch(e){} liveCtx=null;
+  try{ liveStream && liveStream.getTracks().forEach(t=>t.stop()); }catch(e){} liveStream=null;
+  analyser=null;
+  $('liveBtn').textContent='Empezar en vivo'; $('liveBtn').disabled=false;
+  if($('trText').value.trim()) setStat('liveStat','Listo. El texto quedó cargado: podés editar, traducir o exportar mp4.','ok');
+  draw();
+}
+$('liveBtn').onclick=()=>{ if(liveMode) liveStop(); else liveStart(); };
 
 draw();
 </script>

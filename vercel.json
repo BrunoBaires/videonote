@@ -13,7 +13,7 @@
   },
   "headers": [
     {
-      "source": "/(movil|clarin|montevideo|montevideo-desktop).html",
+      "source": "/(movil|clarin|montevideo|montevideo-desktop|audionote).html",
       "headers": [
         { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
       ]

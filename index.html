@@ -1505,10 +1505,11 @@ function draw(){
     ctx.save(); if(fA!=='none') ctx.filter=fA;
     if(vid.readyState>=2) ctx.drawImage(vid,(W-dw)/2+offX,(H-dh)/2+offY,dw,dh);
     ctx.restore();
-    // velo inferior para que se lean los subtítulos y el logo/fecha
-    const gv=ctx.createLinearGradient(0,H*0.5,0,H);
-    gv.addColorStop(0,'rgba(0,0,0,0)'); gv.addColorStop(1,'rgba(0,0,0,0.5)');
-    ctx.fillStyle=gv; ctx.fillRect(0,H*0.5,W,H*0.5);
+    // velo SOLO en la franja de abajo (queda detrás del subtítulo y del logo/fecha, no tapa el resto del video)
+    const gy=H*0.72;
+    const gv=ctx.createLinearGradient(0,gy,0,H);
+    gv.addColorStop(0,'rgba(0,0,0,0)'); gv.addColorStop(1,'rgba(0,0,0,0.55)');
+    ctx.fillStyle=gv; ctx.fillRect(0,gy,W,H-gy);
   } else drawSubjCut(W,H);
 
   const stroke = parseFloat($('ring').value)*(W/1080)*1.9;
@@ -1749,6 +1750,27 @@ function draw(){
 
   if(!bakingFondo) drawSubs(W, H);
   if(!fullVid){ drawZocalo(W, H); drawElement(W, H); }
+  else if($('ringOn').checked && stroke>0) drawFullRing(W, H, stroke);
+}
+/* anillo de progreso alrededor de toda la placa (modo "publicar tal cual") */
+function drawFullRing(W,H,stroke){
+  const inset = stroke/2 + Math.min(W,H)*0.012;
+  const hw = W/2 - inset, hh = H/2 - inset, ccx=W/2, ccy=H/2, rr2=Math.min(W,H)*0.045;
+  ctx.save(); ctx.lineWidth=stroke; ctx.lineJoin='round';
+  ctx.strokeStyle=$('trackC').value; ctx.beginPath(); shapePath(ctx,ccx,ccy,hw,true,rr2,hh); ctx.stroke();
+  let prog = vid.duration ? (vid.currentTime - segIn())/segDur() : 0;
+  if(finalFrame || vid.ended || prog>0.985) prog=1; prog=Math.min(Math.max(prog,0),1);
+  if(prog>0.0005){
+    ctx.strokeStyle=$('ringC').value; ctx.lineCap = prog>=1?'butt':'round';
+    if(prog>=1){ ctx.beginPath(); shapePath(ctx,ccx,ccy,hw,true,rr2,hh); ctx.stroke(); }
+    else {
+      const pts=shapePoints(ccx,ccy,hw,true,rr2,hh); const target=pts[pts.length-1].d*prog;
+      ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+      for(let i=1;i<pts.length;i++){ if(pts[i].d<=target) ctx.lineTo(pts[i].x,pts[i].y); else { const p0=pts[i-1],p1=pts[i],f=(target-p0.d)/(p1.d-p0.d); ctx.lineTo(p0.x+(p1.x-p0.x)*f,p0.y+(p1.y-p0.y)*f); break; } }
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
 
 /* ---------- subtítulos sincronizados (desde los tiempos por palabra de AssemblyAI) ---------- */

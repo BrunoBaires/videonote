@@ -156,6 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v19 · full sin aro</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1498,23 +1499,15 @@ function draw(){
   // ── PUBLICAR TAL CUAL: el video ocupa toda la placa (sin recuadro), solo subtítulos + logo ──
   const fullVid = ($('fullVid') && $('fullVid').checked && (vid.videoWidth||0) > 0);
   if(fullVid){
-    const strokeF = parseFloat($('ring').value)*(W/1080)*1.9;
-    const ringFull = $('ringOn').checked && strokeF>0;
-    const gap2 = ringFull ? (strokeF + Math.min(W,H)*0.016) : 0;   // margen para el aro en el borde externo
-    const fw=W-gap2*2, fh=H-gap2*2, fcx=W/2, fcy=H/2, rr2 = ringFull ? Math.min(W,H)*0.045 : 0;
-    ctx.save();
-    if(ringFull){ ctx.beginPath(); shapePath(ctx, fcx, fcy, fw/2, true, rr2, fh/2); ctx.clip(); }   // el video entra en la forma del aro: nada queda afuera
     const vw=vid.videoWidth, vh=vid.videoHeight, zoom=parseFloat($('zoom').value)/100;
-    const scale=Math.max(fw/vw,fh/vh)*zoom, dw=vw*scale, dh=vh*scale;
+    const scale=Math.max(W/vw,H/vh)*zoom, dw=vw*scale, dh=vh*scale;
     const offX=dw*(parseFloat($('ofH').value)/100), offY=dh*(parseFloat($('of').value)/100);
     const fA=filtro($('aBri').value,$('aCon').value,$('aExp').value);
     ctx.save(); if(fA!=='none') ctx.filter=fA;
-    if(vid.readyState>=2) ctx.drawImage(vid, fcx-dw/2+offX, fcy-dh/2+offY, dw, dh);
+    if(vid.readyState>=2) ctx.drawImage(vid, (W-dw)/2+offX, (H-dh)/2+offY, dw, dh);
     ctx.restore();
-    // veladura de abajo: responde al control "Veladura" (con un piso para que se lean logo/fecha)
+    // veladura de abajo: responde al control "Veladura" (con un piso para que se lean subtítulo/logo/fecha)
     pintarVeladura(ctx, W, H, Math.max(veilAmt, 0.35), veilRGB, H*0.60);
-    ctx.restore();
-    if(ringFull) drawFullRing(fcx, fcy, fw/2, fh/2, rr2, strokeF);   // aro en el perímetro externo
   } else drawSubjCut(W,H);
 
   const stroke = parseFloat($('ring').value)*(W/1080)*1.9;

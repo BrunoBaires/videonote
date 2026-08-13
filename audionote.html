@@ -89,7 +89,7 @@ audio,video.src{display:none}
 
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span class="badge" title="versión del editor">AudioNote v17 · video opt-in</span>
+  <span class="badge" title="versión del editor">AudioNote v18 · grabar fuente</span>
   <div class="tabs">
     <button type="button" class="tab" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -136,8 +136,9 @@ audio,video.src{display:none}
         </select>
       </div>
       <button type="button" class="go mini" id="liveBtn">Empezar en vivo</button>
+      <button type="button" class="mini" id="srcRecBtn" hidden>Grabar el video de la fuente (para recortar de YouTube)</button>
       <div class="stat" id="liveStat"></div>
-      <div class="hint">Transcribe en español a medida que se habla (modelo multilingüe de AssemblyAI). Para captar una transmisión —por ejemplo un discurso— elegí “Pestaña/pantalla” y al compartir tildá <b>“Compartir audio de la pestaña”</b>. Necesita la app servida (Vercel) y tu API key de AssemblyAI.</div>
+      <div class="hint">Transcribe en español a medida que se habla (modelo multilingüe de AssemblyAI). Para captar una transmisión —por ejemplo un discurso— elegí “Pestaña/pantalla” y al compartir tildá <b>“Compartir audio de la pestaña”</b>. Necesita la app servida (Vercel) y tu API key de AssemblyAI.<br><b>Grabar el video de la fuente</b> guarda el clip crudo (imagen + sonido) de lo que estás capturando: sirve para llevarte un fragmento de un video de YouTube y después editarlo.</div>
     </div></div>
 
     <div class="card"><div class="body">
@@ -1393,6 +1394,7 @@ async function liveStart(){
     liveMode=true; liveFinal=[]; liveTurn=[]; words=[]; liveT0=performance.now(); liveLoop();
     setStat('liveStat','● En vivo — hablá o reproducí la transmisión. Tocá “Detener” para terminar.','ok');
     $('liveBtn').textContent='Detener'; $('liveBtn').disabled=false; $('recBtn').disabled=false;
+    $('srcRecBtn').hidden = !stream.getVideoTracks().length;   // grabar el video crudo si la fuente tiene imagen
   };
   liveWS.onmessage=ev=>liveHandle(ev.data);
   liveWS.onerror=()=>setStat('liveStat','Error de conexión con el streaming.','err');
@@ -1410,11 +1412,34 @@ function liveStop(fromClose){
   try{ if(liveVid){ liveVid.pause(); liveVid.srcObject=null; } }catch(e){} liveVid=null;
   try{ liveStream && liveStream.getTracks().forEach(t=>t.stop()); }catch(e){} liveStream=null;
   analyser=null;
+  try{ if(srcRecorder&&srcRecorder.state==='recording') srcRecorder.stop(); }catch(e){}
+  $('srcRecBtn').hidden=true; $('srcRecBtn').textContent='Grabar el video de la fuente (para recortar de YouTube)';
   $('liveBtn').textContent='Empezar en vivo'; $('liveBtn').disabled=false;
   if($('trText').value.trim()) setStat('liveStat','Listo. El texto quedó cargado: podés editar, traducir o exportar mp4.','ok');
   draw();
 }
 $('liveBtn').onclick=()=>{ if(liveMode) liveStop(); else liveStart(); };
+
+/* ---- grabar el VIDEO crudo de la fuente (para extraer un fragmento de YouTube, etc.) ---- */
+let srcRecorder=null, srcChunks=[];
+$('srcRecBtn').onclick=()=>{
+  if(srcRecorder && srcRecorder.state==='recording'){ srcRecorder.stop(); return; }
+  if(!liveStream || !liveStream.getVideoTracks().length){ setStat('liveStat','No hay video de la fuente. Iniciá el vivo con “Pestaña/pantalla” compartiendo una pestaña con video.','err'); return; }
+  const mime = MP4S.find(m=>MediaRecorder.isTypeSupported(m)) || WEBMS.find(m=>MediaRecorder.isTypeSupported(m)) || '';
+  const isMp4 = mime.indexOf('mp4')>=0;
+  try{ srcRecorder = mime ? new MediaRecorder(liveStream,{mimeType:mime,videoBitsPerSecond:6000000}) : new MediaRecorder(liveStream,{videoBitsPerSecond:6000000}); }
+  catch(e){ setStat('liveStat','No se pudo iniciar la grabación del video: '+((e&&e.message)||e),'err'); return; }
+  srcChunks=[]; srcRecorder.ondataavailable=e=>{ if(e.data&&e.data.size) srcChunks.push(e.data); };
+  srcRecorder.onstop=()=>{
+    if(!srcChunks.length){ setStat('liveStat','No se grabó nada. Probá de nuevo.','err'); return; }
+    const blob=new Blob(srcChunks,{type:isMp4?'video/mp4':'video/webm'});
+    showResult(blob, isMp4?'mp4':'webm');
+    setStat('liveStat','Video de la fuente grabado ✓. Reproducilo o descargalo acá abajo (después lo podés editar en Video Note).','ok');
+    $('srcRecBtn').textContent='Grabar el video de la fuente (para recortar de YouTube)';
+  };
+  srcRecorder.start(100); $('srcRecBtn').textContent='Detener grabación del video';
+  setStat('liveStat','● Grabando el video de la fuente… tocá “Detener grabación del video” al terminar el fragmento.','ok');
+};
 
 draw();
 </script>

@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v20 · full + zócalo</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v21 · full + textos</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1676,12 +1676,13 @@ function draw(){
   if(cmode==='light') ctxLight=true;
   else if(cmode==='dark') ctxLight=false;
   else ctxLight=autoLight;
+  if(fullVid){ light=(mode==='dark')?false:true; ctxLight=(cmode==='dark')?false:true; }   // sobre el video: texto claro salvo que se fuerce oscuro
 
-  // bloque de textos (se ocultan en modo "publicar tal cual")
-  if(!fullVid){
+  // bloque de textos (nombre / asignación / epígrafe). En full screen quedan como lower-third sobre el video.
+  {
   const name=$('name').value.trim(), place=$('place').value.trim();
   const gap = W*(parseFloat($('gap').value)/100);
-  let ty = cy + rV + gap;
+  let ty = fullVid ? H*0.62 : (cy + rV + gap);
   const moveDown = subMode() && $('subHideName').checked;   // al reproducir: baja el nombre/crédito y los deja visibles (clave en videos que loopean)
   const _mf = Math.max(0,Math.min(1,((vid.currentTime||0)-segIn()-0.10)/0.45));
   const lowNameY = H*(parseFloat(($('nameLow')&&$('nameLow').value)||82)/100);   // destino al bajar (ajustable, para no pegarse a los subtítulos)

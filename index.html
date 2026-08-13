@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v21 · full + textos</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v22 · tramas + drag</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -169,7 +169,7 @@ video.src{display:none}
   <!-- ============ COLUMNA IZQUIERDA: ENTRADAS Y AJUSTES ============ -->
   <div class="col">
 
-    <div class="card open">
+    <div class="card">
       <div class="head" data-toggle><h2>Mi configuración</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
         <div class="hint">Guardá tu estilo (subtítulos, zócalo, marca, formato, colores…). Cada video nuevo arranca con esta configuración, sin reajustar.</div>
@@ -191,7 +191,7 @@ video.src{display:none}
       </div>
     </div>
 
-    <div class="card open">
+    <div class="card">
       <div class="head" data-toggle><h2>Animación final</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
         <label class="chk" style="margin-top:0"><input type="checkbox" id="finAnimOn" checked> Sumar animación final</label>
@@ -200,7 +200,7 @@ video.src{display:none}
       </div>
     </div>
 
-    <div class="card open" data-pane="video">
+    <div class="card" data-pane="video">
       <div class="head" data-toggle><h2>Video del cronista</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
         <div class="drop" id="drop">
@@ -276,7 +276,7 @@ video.src{display:none}
     </div>
 
     <!-- Fondo de color · pestaña Fondos -->
-    <div class="card open" data-pane="fondos" hidden>
+    <div class="card" data-pane="fondos" hidden>
       <div class="head" data-toggle><h2>Fondo de color</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
         <label class="chk" style="margin-top:0"><input type="checkbox" id="gradOn" checked> Degradado</label>
@@ -488,6 +488,24 @@ video.src{display:none}
     </div>
 
     <div class="card" data-pane="video">
+      <div class="head" data-toggle><h2>Trama / textura</h2><span class="arrow">▸</span></div>
+      <div class="body collapsible">
+        <span class="lbl">Tipo</span>
+        <select id="trama">
+          <option value="none" selected>Ninguna</option>
+          <option value="grain">Grano (film)</option>
+          <option value="tv">Líneas de TV (scanlines)</option>
+          <option value="both">Grano + TV</option>
+        </select>
+        <div class="grp" style="margin-top:10px">
+          <span class="lbl">Intensidad <span class="val" id="tramaAmtV">50 %</span></span>
+          <input type="range" id="tramaAmt" min="0" max="100" value="50">
+        </div>
+        <div class="hint">Textura de archivo/analógico sobre toda la placa. El grano se mueve; las líneas de TV imitan el barrido del tubo.</div>
+      </div>
+    </div>
+
+    <div class="card" data-pane="video">
       <div class="head" data-toggle><h2>Ajuste · cronista</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
         <div class="grp">
@@ -502,7 +520,7 @@ video.src{display:none}
       </div>
     </div>
 
-    <div class="card open" data-pane="fondos" hidden>
+    <div class="card" data-pane="fondos" hidden>
       <div class="head" data-toggle><h2>Ajuste del fondo</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
         <div class="grp">
@@ -570,7 +588,7 @@ video.src{display:none}
       </div>
     </div>
 
-    <div class="card open" data-pane="video">
+    <div class="card" data-pane="video">
       <div class="head" data-toggle><h2>Formato y calidad</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
         <div class="grp">
@@ -709,7 +727,7 @@ video.src{display:none}
   <!-- ============ COLUMNA DERECHA: TEXTOS ============ -->
   <div class="col">
 
-    <div class="card open" data-pane="video">
+    <div class="card" data-pane="video">
       <div class="head" data-toggle><h2>Cronista</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
         <input type="text" id="name" placeholder="Juan Pérez">
@@ -720,7 +738,7 @@ video.src{display:none}
       </div>
     </div>
 
-    <div class="card open" data-pane="video">
+    <div class="card" data-pane="video">
       <div class="head" data-toggle><h2>Asignación</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
         <input type="text" id="place" placeholder="Desde Egipto">
@@ -731,7 +749,7 @@ video.src{display:none}
       </div>
     </div>
 
-    <div class="card open" data-pane="video">
+    <div class="card" data-pane="video">
       <div class="head" data-toggle><h2>Epígrafe <span class="val" id="ctxV">0</span></h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
         <textarea id="ctx" rows="5" placeholder="Contexto, alineado a la izquierda"></textarea>
@@ -761,7 +779,7 @@ video.src{display:none}
       </div>
     </div>
 
-    <div class="card open" data-pane="fondos" hidden>
+    <div class="card" data-pane="fondos" hidden>
       <div class="head" data-toggle><h2>Zócalo de contexto</h2><span class="arrow">▸</span></div>
       <div class="body collapsible">
         <label class="chk"><input type="checkbox" id="zocOn" checked> Mostrar zócalo</label>
@@ -947,6 +965,7 @@ let ffmpeg=null, ffmpegReady=false;
 let bgImg=null, bgVideo=false, overflow=false, finalFrame=false, brandTouched=false;
 let bgCache=null, bgCacheKey='', hiddenDuringRec=false, recTimer=null;
 let elImg=null, subjCut=null, elFile=null, logoCustom=null, bakingFondo=false, ctxBBox=null, mainVidFile=null;
+let nameFullX=0.5, nameFullY=0.62, nameBBox=null;   // posición libre del nombre en modo pantalla completa
 let trimIn=0, trimOut=0, recFinishing=false;
 let bgTrimIn=0, bgTrimOut=0, btlDragH=null;
 let finAnim = { active:false, theta:0, raf:0, black:false, fade:null };   // cierre "traumótropo" (animación final)
@@ -964,7 +983,12 @@ let subWords=[], subCues=[], seeking=false, subBgCv=null;
 
 /* ---------- paneles plegables ---------- */
 document.querySelectorAll('[data-toggle]').forEach(h =>
-  h.addEventListener('click', () => h.parentElement.classList.toggle('open'))
+  h.addEventListener('click', () => {
+    const card=h.parentElement, wasOpen=card.classList.contains('open');
+    // acordeón: se abre de a una sección por vez (cierra las demás)
+    document.querySelectorAll('.card.open').forEach(c=>{ if(c!==card) c.classList.remove('open'); });
+    card.classList.toggle('open', !wasOpen);
+  })
 );
 
 /* ---------- pestañas Video / Fondos ---------- */
@@ -1682,7 +1706,9 @@ function draw(){
   {
   const name=$('name').value.trim(), place=$('place').value.trim();
   const gap = W*(parseFloat($('gap').value)/100);
-  let ty = fullVid ? H*0.62 : (cy + rV + gap);
+  const bx = fullVid ? W*nameFullX : cx;   // en full: posición libre (arrastrable)
+  let ty = fullVid ? H*nameFullY : (cy + rV + gap);
+  const blockTop = ty; nameBBox=null;
   const moveDown = subMode() && $('subHideName').checked;   // al reproducir: baja el nombre/crédito y los deja visibles (clave en videos que loopean)
   const _mf = Math.max(0,Math.min(1,((vid.currentTime||0)-segIn()-0.10)/0.45));
   const lowNameY = H*(parseFloat(($('nameLow')&&$('nameLow').value)||82)/100);   // destino al bajar (ajustable, para no pegarse a los subtítulos)
@@ -1695,7 +1721,7 @@ function draw(){
     ctx.fillStyle = light ? '#FFFFFF' : '#111111';
     ctx.textAlign='center';
     ctx.save(); ctx.globalAlpha = nameOp;
-    ctx.fillText(name, cx, ty+slideY);
+    ctx.fillText(name, bx, ty+slideY);
     ctx.restore();
     ty += fs*0.92;
   }
@@ -1705,10 +1731,11 @@ function draw(){
     ctx.fillStyle = light ? 'rgba(255,255,255,.88)' : 'rgba(17,17,17,.82)';
     ctx.textAlign='center';
     ctx.save(); ctx.globalAlpha = nameOp;
-    ctx.fillText(place, cx, ty+slideY);
+    ctx.fillText(place, bx, ty+slideY);
     ctx.restore();
     ty += fs*1.3;
   }
+  if(fullVid && (name||place)) nameBBox={ x0:bx-W*0.42, y0:blockTop-W*0.05, x1:bx+W*0.42, y1:ty+W*0.02 };   // zona arrastrable del nombre
 
   const ctxTxt=$('ctx').value.trim();
   ctxBBox=null;
@@ -1751,6 +1778,26 @@ function draw(){
 
   if(!bakingFondo) drawSubs(W, H);
   drawZocalo(W, H); drawElement(W, H);   // zócalo, elementos y efectos también en modo pantalla completa
+  drawTrama(W, H);                        // grano / líneas de TV, sobre todo lo demás
+}
+/* tramas: grano de film (se mueve) y líneas de TV (scanlines) */
+let grainCv=null;
+function drawTrama(W,H){
+  const t=$('trama')?$('trama').value:'none'; if(t==='none') return;
+  const amt=(parseFloat(($('tramaAmt')||{}).value)||0)/100; if(amt<=0) return;
+  if(t==='grain'||t==='both'){
+    if(!grainCv){ grainCv=document.createElement('canvas'); grainCv.width=220; grainCv.height=220; const g=grainCv.getContext('2d'); const id=g.createImageData(220,220); for(let i=0;i<id.data.length;i+=4){ const v=(Math.random()*255)|0; id.data[i]=id.data[i+1]=id.data[i+2]=v; id.data[i+3]=255; } g.putImageData(id,0,0); }
+    ctx.save(); ctx.globalAlpha=0.14*amt; ctx.globalCompositeOperation='overlay';
+    const ox=(Math.random()*220)|0, oy=(Math.random()*220)|0;   // desplaza el grano cada frame → se mueve
+    ctx.translate(-ox,-oy); ctx.fillStyle=ctx.createPattern(grainCv,'repeat'); ctx.fillRect(ox,oy,W,H);
+    ctx.restore();
+  }
+  if(t==='tv'||t==='both'){
+    ctx.save(); ctx.globalAlpha=0.22*amt; ctx.fillStyle='#000';
+    const step=Math.max(2, Math.round(H/600)*2);
+    for(let y=0;y<H;y+=step*2) ctx.fillRect(0,y,W,step);
+    ctx.restore();
+  }
 }
 /* anillo de progreso en el perímetro externo (modo "publicar tal cual") */
 function drawFullRing(cx,cy,hw,hh,rad,stroke){
@@ -2357,7 +2404,7 @@ $('restart').onclick=()=>{
   if(rafId===null) loop();
 };
 
-const CTRLS = ['fmt','bg','mg','sz','of','zoom','ofH','vfit','fullVid','ring','ringC','trackC','ringOn','shape','rad',
+const CTRLS = ['fmt','bg','mg','sz','of','zoom','ofH','vfit','fullVid','trama','tramaAmt','ring','ringC','trackC','ringOn','shape','rad',
   'name','nameSz','place','placeSz','ctx','ctxSz','gap','timerOn','timerDown',
   'logoOn','logoPos','signOn','dateOn','dateTxt','brandMode','txtMode','ctxMode',
   'signCustom','signC','dateCustom','dateC',
@@ -2370,6 +2417,7 @@ const CTRLS = ['fmt','bg','mg','sz','of','zoom','ofH','vfit','fullVid','ring','r
   'bgFx','bgFxSpeed','bgFxOp',
   'finAnimOn','finMusic','subDimName','nameLow'];
 CTRLS.forEach(id => ['input','change'].forEach(ev => $(id).addEventListener(ev, redraw)));
+$('tramaAmt').addEventListener('input',()=>$('tramaAmtV').textContent=$('tramaAmt').value+' %');
 
 /* ---------- animación final: cierre "traumótropo" ---------- */
 function finEndTheta(){
@@ -3239,30 +3287,40 @@ $('dataXCopy').onclick = () => {
 };
 
 /* ---------- arrastrar el epígrafe en el lienzo ---------- */
-let dragCtx=false, dragS=null;
+let dragCtx=false, dragName=false, dragS=null;
 function cvXY(ev){ const r=cv.getBoundingClientRect(); return { x:(ev.clientX-r.left)*(cv.width/r.width), y:(ev.clientY-r.top)*(cv.height/r.height) }; }
+function inName(p){ return nameBBox && p.x>=nameBBox.x0 && p.x<=nameBBox.x1 && p.y>=nameBBox.y0 && p.y<=nameBBox.y1; }
+function inCtx(p){ return ctxBBox && p.y>=ctxBBox.y && p.y<=ctxBBox.y+ctxBBox.h; }
 cv.addEventListener('pointerdown', ev=>{
-  if(!ctxBBox) return;
   const p=cvXY(ev);
-  if(p.y>=ctxBBox.y && p.y<=ctxBBox.y+ctxBBox.h){
+  if(inName(p)){                     // arrastrar el nombre libremente (full screen)
+    dragName=true; dragS={x:p.x,y:p.y};
+    try{ cv.setPointerCapture(ev.pointerId); }catch(e){}
+    cv.style.cursor='grabbing'; return;
+  }
+  if(inCtx(p)){
     dragCtx=true; dragS={x:p.x,y:p.y,dx:parseFloat($('ctxDX').value),dy:parseFloat($('ctxDY').value)};
     try{ cv.setPointerCapture(ev.pointerId); }catch(e){}
     cv.style.cursor='grabbing';
   }
 });
 cv.addEventListener('pointermove', ev=>{
-  if(!dragCtx){
-    if(ctxBBox){ const p=cvXY(ev); cv.style.cursor=(p.y>=ctxBBox.y && p.y<=ctxBBox.y+ctxBBox.h)?'grab':'default'; }
-    return;
-  }
   const p=cvXY(ev);
-  const ndx=Math.max(-40,Math.min(40, dragS.dx + (p.x-dragS.x)/cv.width*100));
-  const ndy=Math.max(-40,Math.min(40, dragS.dy + (p.y-dragS.y)/cv.height*100));
-  $('ctxDX').value=ndx.toFixed(1); $('ctxDXV').textContent=ndx.toFixed(1).replace('.',',')+' %';
-  $('ctxDY').value=ndy.toFixed(1); $('ctxDYV').textContent=ndy.toFixed(1).replace('.',',')+' %';
-  redraw();
+  if(dragName){
+    nameFullX=Math.max(0.05,Math.min(0.95, nameFullX + (p.x-dragS.x)/cv.width));
+    nameFullY=Math.max(0.06,Math.min(0.96, nameFullY + (p.y-dragS.y)/cv.height));
+    dragS.x=p.x; dragS.y=p.y; redraw(); return;
+  }
+  if(dragCtx){
+    const ndx=Math.max(-40,Math.min(40, dragS.dx + (p.x-dragS.x)/cv.width*100));
+    const ndy=Math.max(-40,Math.min(40, dragS.dy + (p.y-dragS.y)/cv.height*100));
+    $('ctxDX').value=ndx.toFixed(1); $('ctxDXV').textContent=ndx.toFixed(1).replace('.',',')+' %';
+    $('ctxDY').value=ndy.toFixed(1); $('ctxDYV').textContent=ndy.toFixed(1).replace('.',',')+' %';
+    redraw(); return;
+  }
+  cv.style.cursor = (inName(p)||inCtx(p)) ? 'grab' : 'default';
 });
-cv.addEventListener('pointerup', ()=>{ dragCtx=false; cv.style.cursor=''; });
+cv.addEventListener('pointerup', ()=>{ dragCtx=false; dragName=false; cv.style.cursor=''; });
 
 /* ---------- ffmpeg ---------- */
 async function initFFmpeg(){

@@ -127,7 +127,7 @@ audio,video.src{display:none}
       <div class="grp"><span class="lbl">Quién habla</span><input type="text" id="speaker" value="Julia Beck" placeholder="Nombre"></div>
       <div class="grp"><span class="lbl">Tamaño nombre <span class="val" id="spkSzV">100 %</span></span><input type="range" id="spkSz" min="60" max="240" value="100"></div>
       <div class="grp"><span class="lbl">Rol / cargo</span><input type="text" id="role" value="Conductora" placeholder="Host, cronista, testimonio…"></div>
-      <div class="grp"><span class="lbl">Tamaño cargo <span class="val" id="crgSzV">100 %</span></span><input type="range" id="crgSz" min="60" max="240" value="100"></div>
+      <div class="grp"><span class="lbl">Tamaño cargo <span class="val" id="crgSzV">100 %</span></span><input type="range" id="crgSz" min="35" max="240" value="100"></div>
       <div class="grp"><span class="lbl">Posición vertical (nombre + rol) <span class="val" id="blockYV">90 %</span></span><input type="range" id="blockY" min="66" max="96" value="90"></div>
       <div class="grp">
         <span class="lbl">Foto del hablante</span>
@@ -196,6 +196,11 @@ audio,video.src{display:none}
         <div><span class="lbl">Fondo</span><input type="color" id="bgC" value="#ffffff"></div>
         <div><span class="lbl">Títulos / marca</span><input type="color" id="inkC" value="#161310"></div>
       </div>
+      <div class="row" style="margin-top:9px">
+        <div><span class="lbl">Fondo 2 (degradado)</span><input type="color" id="bg2C" value="#e9eef4"></div>
+        <div><span class="lbl">Dirección</span><select id="gradDir"><option value="vertical">Vertical</option><option value="diagonal">Diagonal</option><option value="radial">Radial (centro)</option></select></div>
+      </div>
+      <label class="chk"><input type="checkbox" id="gradOn" checked> Fondo con degradado (dos colores, no plano)</label>
       <div class="row" style="margin-top:9px">
         <div><span class="lbl">Palabra dicha</span><input type="color" id="spokenC" value="#161310"></div>
         <div><span class="lbl">Palabra por decir</span><input type="color" id="upcomingC" value="#1f7a3d"></div>
@@ -382,15 +387,15 @@ function fontStack(){ return FONTS[$('fontSel').value]||FONTS.inter; }
 
 /* cambiar de Modo ajusta los defaults (blanco+sans vs crema+serif) */
 $('layout').addEventListener('change',()=>{
-  if($('layout').value==='perplexity'){ $('bgC').value='#ffffff'; $('fontSel').value='inter'; }
-  else { $('bgC').value='#f3efe3'; $('fontSel').value='playfair'; }
+  if($('layout').value==='perplexity'){ $('bgC').value='#ffffff'; $('bg2C').value='#e9eef4'; $('fontSel').value='inter'; }
+  else { $('bgC').value='#f3efe3'; $('bg2C').value='#e6dcc6'; $('fontSel').value='playfair'; }
   ensureFont();
 });
 async function ensureFont(){ try{ const fam=fontStack().split(',')[0].replace(/"/g,''); if(document.fonts&&document.fonts.load){ await document.fonts.load('700 60px "'+fam+'"'); await document.fonts.ready; } }catch(e){} draw(); }
 $('fontSel').addEventListener('change', ensureFont);
 
 /* ---- controles → redibujo ---- */
-['kicker','title','speaker','role','bgC','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','dateTxt','dateOn','spkSz','crgSz','blockY','nightMode'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
+['kicker','title','speaker','role','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','dateTxt','dateOn','spkSz','crgSz','blockY','nightMode'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
 $('react').addEventListener('input',()=>$('reactV').textContent=$('react').value+' %');
 $('logoSz').addEventListener('input',()=>$('logoSzV').textContent=$('logoSz').value+' %');
 $('spkSz').addEventListener('input',()=>$('spkSzV').textContent=$('spkSz').value+' %');
@@ -422,11 +427,11 @@ function wrap(text,maxW){ const out=[]; for(const para of text.split('\n')){ con
 
 function draw(){
   const [W,H]=DIMS[$('fmt').value]; if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
-  let bg=$('bgC').value, ink=$('inkC').value;
+  let bg=$('bgC').value, bg2=$('bg2C').value, ink=$('inkC').value;
   let spokenC=$('spokenC').value, upcomingC=$('upcomingC').value;
-  if($('nightMode').checked){ bg='#111318'; ink='#f4f1e9'; spokenC='#f4f1e9'; }   // noche: invierte
+  if($('nightMode').checked){ bg='#0f1116'; bg2='#1b2233'; ink='#f4f1e9'; spokenC='#f4f1e9'; }   // noche: invierte
   const FF=fontStack();
-  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  paintBg(W,H,bg,bg2);
 
   const t=med.currentTime||0;
   const lvl = (analyser && !med.paused) ? readLevel() : level*0.9;
@@ -476,9 +481,9 @@ function draw(){
   // hablante + rol (posición y separación configurables)
   const sp=$('speaker').value.trim(), rl=$('role').value.trim();
   const spk2=(parseFloat($('spkSz').value)||100)/100, crg2=(parseFloat($('crgSz').value)||100)/100;
-  const byN2=(parseFloat($('blockY').value)||90)/100, nameFs2=W*0.024*spk2, nameY2=H*byN2;
+  const byN2=(parseFloat($('blockY').value)||90)/100, nameFs2=W*0.024*spk2, roleFs2=W*0.017*crg2, nameY2=H*byN2;
   if(sp){ ctx.fillStyle=ink; ctx.textAlign='center'; ctx.font=`600 ${nameFs2}px ${FF}`; ctx.fillText(letterspace(sp.toUpperCase()), W/2, nameY2); }
-  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.textAlign='center'; ctx.font=`500 ${W*0.017*crg2}px var(--mono, monospace)`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, nameY2+Math.max(H*0.026,nameFs2*0.95)); ctx.globalAlpha=1; }
+  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.textAlign='center'; ctx.font=`500 ${roleFs2}px var(--mono, monospace)`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, nameY2 + nameFs2*0.5 + roleFs2*1.25 + H*0.008); ctx.globalAlpha=1; }
 
   drawLogo(W,H);
   drawDate(W,H,ink,FF);
@@ -514,7 +519,7 @@ function drawPerplexity(W,H,t,lvl,react,bg,ink,FF){
   // título (sans)
   const title=$('title').value.trim();
   if(title){
-    ctx.fillStyle=ink; const tf=W*0.044; ctx.font=`700 ${tf}px ${FF}`;
+    ctx.fillStyle=ink; const tf=W*0.053; ctx.font=`800 ${tf}px ${FF}`;   // título más grande y pesado que el cuerpo
     const wds=title.split(/\s+/); let ln=''; const tl=[];
     for(const w of wds){ const tt=ln?ln+' '+w:w; if(ctx.measureText(tt).width>textW && ln){tl.push(ln);ln=w;}else ln=tt; }
     if(ln)tl.push(ln);
@@ -565,10 +570,10 @@ function drawPerplexity(W,H,t,lvl,react,bg,ink,FF){
   // hablante + rol (posición y separación configurables)
   const sp=$('speaker').value.trim(), rl=$('role').value.trim();
   const spk=(parseFloat($('spkSz').value)||100)/100, crg=(parseFloat($('crgSz').value)||100)/100;
-  const byN=(parseFloat($('blockY').value)||90)/100, nameFs=W*0.022*spk, nameY=H*byN;
+  const byN=(parseFloat($('blockY').value)||90)/100, nameFs=W*0.022*spk, roleFs=W*0.016*crg, nameY=H*byN;
   ctx.textAlign='center';
   if(sp){ ctx.fillStyle=ink; ctx.font=`600 ${nameFs}px ${FF}`; ctx.fillText(letterspace(sp.toUpperCase()), W/2, nameY); }
-  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.font=`500 ${W*0.016*crg}px var(--mono, monospace)`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, nameY+Math.max(H*0.024,nameFs*0.95)); ctx.globalAlpha=1; }
+  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.font=`500 ${roleFs}px var(--mono, monospace)`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, nameY + nameFs*0.5 + roleFs*1.25 + H*0.008); ctx.globalAlpha=1; }
   ctx.textAlign='left';
 }
 function letterspace(s){return s.split('').join('  ');}
@@ -660,6 +665,16 @@ function drawSphere(W,H,cy,color,lvl){
   ctx.globalAlpha=1;
 }
 function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return[n>>16&255,n>>8&255,n&255];}
+/* fondo: plano o degradado de dos colores (elegible) */
+function paintBg(W,H,bg,bg2){
+  if(!$('gradOn').checked){ ctx.fillStyle=bg; ctx.fillRect(0,0,W,H); return; }
+  const dir=$('gradDir').value; let g;
+  if(dir==='radial') g=ctx.createRadialGradient(W*0.5,H*0.42,0, W*0.5,H*0.42, Math.max(W,H)*0.78);
+  else if(dir==='diagonal') g=ctx.createLinearGradient(0,0,W,H);
+  else g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,bg); g.addColorStop(1,bg2);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+}
 function vizScale(){ return (parseFloat($('vizSz').value)||100)/100; }
 function rr(x,y,w,h,r){ r=Math.min(r,Math.abs(w)/2,Math.abs(h)/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill(); }
 

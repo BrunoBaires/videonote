@@ -112,7 +112,17 @@ audio,video.src{display:none}
         <span class="lbl">…o pegá un link (X o YouTube)</span>
         <input type="text" id="mediaUrl" placeholder="https://x.com/…/status/…  o  https://youtu.be/…">
         <button type="button" class="mini go" id="linkBtn">Traer audio del link</button>
-        <div class="hint">X usa <code>api/xvideo.js</code> (ya existe). YouTube necesita un endpoint propio (<code>api/ytmedia.js</code>, lo sumamos al integrar). Anda con la app servida, no como archivo local.</div>
+        <div class="hint">Para YouTube largo, marcá Inicio y Fin abajo: se baja solo ese fragmento (no el video entero).</div>
+      </div>
+      <div class="grp" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+        <span class="lbl">Recorte — extraer un fragmento (opcional)</span>
+        <div class="row">
+          <div><span class="lbl">Inicio</span><input type="text" id="clipInT" placeholder="0:00"></div>
+          <div><span class="lbl">Fin</span><input type="text" id="clipOutT" placeholder="fin"></div>
+        </div>
+        <div class="seg" style="margin-top:7px"><button type="button" class="mini" id="markIn" style="margin-top:0">Marcar inicio acá</button><button type="button" class="mini" id="markOut" style="margin-top:0">Marcar fin acá</button></div>
+        <button type="button" class="mini" id="applyClip">Recortar el audio ya cargado</button>
+        <div class="hint">Formato m:ss (ej. 1:30) o segundos. Con un <b>link de YouTube</b>, el recorte se baja del servidor. Con un <b>archivo o X ya cargado</b>, recorta acá con “Recortar el audio ya cargado”.</div>
       </div>
     </div></div>
 
@@ -155,7 +165,7 @@ audio,video.src{display:none}
       <button type="button" class="mini go" id="transBtn">Traducir al español (desde el idioma original)</button>
       <div class="hint">Traduce el texto transcripto al español y lo aplica a la placa (re-sincroniza los tiempos). Ideal para declaraciones en otro idioma.</div>
       <div class="seg" style="margin-top:10px"><button type="button" class="mini" id="epiBtn" style="margin-top:0">Extraer epígrafe</button><button type="button" class="mini" id="notaBtn" style="margin-top:0">Nota breve</button></div>
-      <button type="button" class="mini" id="dataBtn">Estructurar datos del hablante</button>
+      <button type="button" class="mini" id="dataBtn">Estructurar información (extraer datos)</button>
       <div id="aiBox" hidden style="margin-top:10px">
         <span class="lbl">Resultado <span class="val" id="aiKind"></span></span>
         <textarea id="aiOut" rows="6" placeholder="Acá aparece lo que genera la IA."></textarea>
@@ -365,6 +375,44 @@ function loadMediaBlob(blob,name){
   catch(e){ mediaFile=blob; med.src=URL.createObjectURL(blob); med.onloadedmetadata=()=>{ loaded=true; dur=med.duration||0; $('play').disabled=false; $('seek').disabled=false; $('recBtn').disabled=false; draw(); updateTime(); }; }
 }
 
+/* ---- recorte (in/out): marcar tiempos y recortar el audio cargado en el navegador ---- */
+function parseTime(v){ v=(v||'').trim(); if(!v) return null; if(/^\d+(\.\d+)?$/.test(v)) return parseFloat(v); const p=v.split(':').map(Number); if(p.some(isNaN)) return null; return p.length===3 ? p[0]*3600+p[1]*60+p[2] : p[0]*60+p[1]; }
+$('markIn').onclick=()=>{ if(!loaded){setStat('trStat','Primero cargá un audio.','err');return;} $('clipInT').value=fmt(med.currentTime||0); };
+$('markOut').onclick=()=>{ if(!loaded){setStat('trStat','Primero cargá un audio.','err');return;} $('clipOutT').value=fmt(med.currentTime||0); };
+/* codifica un AudioBuffer a WAV PCM16 */
+function bufferToWav(ab){
+  const ch=ab.numberOfChannels, sr=ab.sampleRate, n=ab.length, bytes=n*ch*2;
+  const buf=new ArrayBuffer(44+bytes), v=new DataView(buf);
+  const wr=(o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
+  wr(0,'RIFF'); v.setUint32(4,36+bytes,true); wr(8,'WAVE'); wr(12,'fmt '); v.setUint32(16,16,true);
+  v.setUint16(20,1,true); v.setUint16(22,ch,true); v.setUint32(24,sr,true); v.setUint32(28,sr*ch*2,true);
+  v.setUint16(32,ch*2,true); v.setUint16(34,16,true); wr(36,'data'); v.setUint32(40,bytes,true);
+  let off=44; const chans=[]; for(let c=0;c<ch;c++) chans.push(ab.getChannelData(c));
+  for(let i=0;i<n;i++){ for(let c=0;c<ch;c++){ let s=Math.max(-1,Math.min(1,chans[c][i])); v.setInt16(off, s<0?s*0x8000:s*0x7fff, true); off+=2; } }
+  return new Blob([buf],{type:'audio/wav'});
+}
+$('applyClip').onclick=async()=>{
+  if(!mediaFile){ setStat('trStat','Primero cargá un audio o video.','err'); return; }
+  const inS=parseTime($('clipInT').value), outS=parseTime($('clipOutT').value);
+  const a=Math.max(0,inS||0), b=(outS!=null && outS>a)?outS:(dur||0);
+  if(!(b>a) || b-a<0.3){ setStat('trStat','Marcá un Inicio y un Fin válidos (Fin > Inicio).','err'); return; }
+  $('applyClip').disabled=true; setStat('trStat','<span class="spin"></span>Recortando el fragmento…');
+  try{
+    const arr=await mediaFile.arrayBuffer();
+    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    const audio=await ac.decodeAudioData(arr.slice(0));
+    const sr=audio.sampleRate, s0=Math.floor(a*sr), s1=Math.min(audio.length,Math.floor(b*sr)), len=s1-s0, chs=audio.numberOfChannels;
+    const out=ac.createBuffer(chs,len,sr);
+    for(let c=0;c<chs;c++){ out.getChannelData(c).set(audio.getChannelData(c).subarray(s0,s1)); }
+    const wav=bufferToWav(out); try{ac.close();}catch(e){}
+    words=[]; activeSegment._cache=null;
+    loadMedia(new File([wav],'recorte.wav',{type:'audio/wav'}));
+    $('clipInT').value=''; $('clipOutT').value='';
+    setStat('trStat','Recorte aplicado ('+fmt(a)+'–'+fmt(b)+'). Transcribí ese fragmento.','ok');
+  }catch(e){ setStat('trStat','No se pudo recortar: '+((e&&e.message)||e)+' (probá con un archivo de audio).','err'); }
+  $('applyClip').disabled=false;
+};
+
 /* traer audio desde link de X o YouTube (usa endpoints serverless: api/xvideo.js / api/ytmedia.js) */
 $('linkBtn').onclick=async()=>{
   const url=($('mediaUrl').value||'').trim();
@@ -372,16 +420,19 @@ $('linkBtn').onclick=async()=>{
   const isX=/(twitter\.com|x\.com)\//i.test(url);
   const isYT=/(youtube\.com|youtu\.be)\//i.test(url);
   if(!isX && !isYT){ setStat('trStat','Link no reconocido: tiene que ser de X o de YouTube.','err'); return; }
-  $('linkBtn').disabled=true; setStat('trStat','<span class="spin"></span>Trayendo el audio del link…');
+  const inS=parseTime($('clipInT').value), outS=parseTime($('clipOutT').value);
+  const frag=(inS!=null||outS!=null) ? ('&start='+(inS||0)+(outS!=null?('&end='+outS):'')) : '';
+  $('linkBtn').disabled=true; setStat('trStat','<span class="spin"></span>'+(frag?'Bajando el fragmento…':'Trayendo el audio del link…'));
   try{
-    const endpoint = isX ? ('/api/xvideo?download=1&url='+encodeURIComponent(url)) : ('/api/ytmedia?download=1&url='+encodeURIComponent(url));
+    const endpoint = isX ? ('/api/xvideo?download=1&url='+encodeURIComponent(url)) : ('/api/ytmedia?download=1&url='+encodeURIComponent(url)+frag);
     const r=await fetch(endpoint);
-    if(r.status===404) throw new Error(isYT ? 'Falta el endpoint api/ytmedia.js (YouTube). Lo agregamos al integrar.' : 'No existe /api/xvideo. ¿Estás en la app servida (Vercel)?');
+    if(r.status===404) throw new Error(isYT ? 'Falta el endpoint api/ytmedia.js (YouTube). Subilo a la carpeta api/.' : 'No existe /api/xvideo. ¿Estás en la app servida (Vercel)?');
     if(!r.ok){ let m=''; try{ const j=await r.json(); m=(j&&(j.error||j.message))||''; }catch(e){} throw new Error('servidor '+r.status+(m?' · '+m:'')); }
     const blob=await r.blob();
     if(!blob || !blob.size) throw new Error('el link no devolvió audio/video.');
     loadMediaBlob(blob, isX?'x-video.mp4':'youtube-audio.m4a');
-    setStat('trStat','Audio del link cargado ✓. Ahora transcribí (o pegá texto + Estimar tiempos).','ok');
+    if(frag){ $('clipInT').value=''; $('clipOutT').value=''; }   // el recorte ya vino aplicado
+    setStat('trStat',(frag?'Fragmento':'Audio')+' del link cargado ✓. Ahora transcribí (o pegá texto + Estimar tiempos).','ok');
   }catch(e){ setStat('trStat','No se pudo traer el link: '+((e&&e.message)||e),'err'); }
   $('linkBtn').disabled=false;
 };
@@ -472,26 +523,26 @@ function buildSpeakers(){
   const box=$('spkBox'), list=$('spkList'); list.innerHTML='';
   if(order.length===0){ box.hidden=true; return; }   // texto pegado sin diarización
   box.hidden=false;
-  if(order.length===1){ list.innerHTML='<div class="hint" style="margin:0">Se detectó una sola voz. Se usan el nombre y el cargo del campo “Quién habla”.</div>'; return; }
+  const many=order.length>1;
   order.forEach((sp,i)=>{
     const wrap=document.createElement('div'); wrap.className='grp'; wrap.style.marginBottom='9px';
-    const lab=document.createElement('span'); lab.className='lbl'; lab.textContent='Hablante '+sp+' · voz '+(i+1);
-    const nm=document.createElement('input'); nm.type='text'; nm.placeholder='Nombre del hablante '+(i+1); nm.value=speakerInfo[sp].name||'';
+    const lab=document.createElement('span'); lab.className='lbl'; lab.textContent= many ? ('Hablante '+sp+' · voz '+(i+1)) : 'Nombre del hablante';
+    const nm=document.createElement('input'); nm.type='text'; nm.placeholder= many ? ('Nombre del hablante '+(i+1)) : 'Nombre del hablante'; nm.value=speakerInfo[sp].name||'';
     nm.addEventListener('input',()=>{ speakerInfo[sp].name=nm.value; draw(); });
     const rl=document.createElement('input'); rl.type='text'; rl.placeholder='Cargo / rol (opcional)'; rl.value=speakerInfo[sp].role||''; rl.style.marginTop='5px';
     rl.addEventListener('input',()=>{ speakerInfo[sp].role=rl.value; draw(); });
     wrap.appendChild(lab); wrap.appendChild(nm); wrap.appendChild(rl); list.appendChild(wrap);
   });
 }
-function hasDiar(){ return Object.keys(speakerInfo).length>1; }
-/* nombre + cargo del hablante activo en el instante t (o null si no hay varias voces) */
+/* nombre + cargo del hablante activo en el instante t; null → usar el campo manual “Quién habla” */
 function activeSpeaker(t){
-  if(!hasDiar()) return null;
+  const keys=Object.keys(speakerInfo); if(!keys.length) return null;
   let sp=null; for(const w of words){ if(t>=w.start){ if(w.speaker) sp=w.speaker; } else break; }
   if(!sp && words.length){ for(const w of words){ if(w.speaker){ sp=w.speaker; break; } } }  // antes de empezar: primera voz
-  if(!sp) return null;
-  const info=speakerInfo[sp]||{};
-  return { name:(info.name&&info.name.trim())||('Hablante '+sp), role:(info.role||'').trim() };
+  if(!sp) sp=keys[0];
+  const info=speakerInfo[sp]||{}, named=info.name&&info.name.trim(), multi=keys.length>1;
+  if(!named && !multi) return null;   // una sola voz sin nombre asignado → placa manual
+  return { name: named || ('Hablante '+sp), role:(info.role||'').trim() };
 }
 
 /* ---- foto ---- */
@@ -1120,7 +1171,15 @@ async function gptChat(messages, opts){
 function aiShow(txt, kind, withX){ $('aiOut').value=txt; $('aiKind').textContent=kind||''; $('aiBox').hidden=false; $('xRow').hidden=!withX; }
 const EPI_SYS='Sos editor de un diario. A partir de la transcripción de un audio o video, escribí UNA bajada periodística breve (una o dos frases, máximo ~180 caracteres), en tercera persona, que resuma lo esencial para usar como epígrafe. Sin comillas, sin “el cronista dice”, directo al hecho.';
 const NOTA_PROMPT='Sos redactor de un diario. Convertí esta transcripción en una nota periodística breve, glosada y de lectura fluida, en español rioplatense. Escribí en prosa corrida, con oraciones que se encadenan con conectores naturales, como una crónica que se lee de un tirón. Dos o tres párrafos de varias oraciones cada uno; NO hagas una lista, NO pongas una idea por renglón, NO uses viñetas, guiones, números ni subtítulos. Arrancá por lo más importante y después contextualizá. No inventes ni agregues datos que no estén en el texto, pero podés reordenar y glosar para que fluya. Tercera persona, tono informativo y sobrio. Devolvé solamente la nota: sin título, sin comillas y sin comentarios previos ni posteriores.';
-const DATA_SYS='Sos analista de datos periodísticos. A partir de la transcripción de un audio o video, extraé y estructurá la información del o los hablantes. Devolvé texto plano en español rioplatense con estas secciones, en este orden, y OMITÍ las que queden vacías:\nHABLANTE: quién habla y su rol o cargo si se menciona.\nAFIRMACIONES CLAVE: 3 a 6 afirmaciones o hechos centrales, una por línea con guion.\nCIFRAS Y VALORES: montos, porcentajes, cantidades y plazos con su contexto, una por línea con guion.\nLUGARES: lugares mencionados, separados por coma.\nFECHAS Y PLAZOS: fechas u horizontes temporales mencionados.\nENTIDADES: personas, organizaciones, empresas, leyes o instituciones nombradas.\nNo inventes nada que no esté en el texto. Sé fiel y conciso. Sin markdown ni comentarios extra.';
+const DATA_SYS='Sos analista de datos periodísticos. A partir de la transcripción de un audio, extraé la información en español rioplatense con este formato EXACTO y nada más:\n\n'+
+'Primera línea, tal cual: Información estructurada extraída del audio\n'+
+'Después una línea en blanco.\n'+
+'Después una lista de viñetas, cada una empezando con "- " (guion y espacio):\n'+
+'· Una afirmación, hecho, cifra, monto, porcentaje, fecha, plazo o lugar por viñeta, en oración completa y fiel al texto.\n'+
+'· Incluí las cifras y fechas dentro de la viñeta que corresponda (no en una sección aparte).\n'+
+'· Cuando la viñeta sea una valoración, opinión o descripción subjetiva (no un hecho verificable), empezala con "Valoración: " después del guion.\n'+
+'Después de las viñetas, una línea en blanco y una última línea que empiece con "ENTIDADES: " y liste personas, organizaciones, cargos, leyes o instituciones nombradas, separadas por coma.\n'+
+'NO pongas un encabezado de HABLANTE ni aclares si no se sabe quién habla: si no está claro, simplemente omitilo. No inventes nada. No agregues títulos, comentarios ni negritas: solo la primera línea, las viñetas con guion y la línea ENTIDADES.';
 const X_POST_SYS='Sos community manager de un medio. Con los datos que te paso, escribí UN solo posteo para X (Twitter) en español rioplatense, listo para publicar.\nReglas: máximo 280 caracteres en total; la primera línea es un gancho con el dato más fuerte; una idea o cifra por renglón usando saltos de línea (NO viñetas, NO markdown, NO numeración); las cifras y montos bien visibles; tono informativo y sobrio, sin exagerar ni clickbait; 0 a 2 hashtags relevantes al final como máximo; sin emojis salvo que sumen de verdad. Devolvé SOLO el texto del posteo.';
 const X_THREAD_SYS='Sos community manager de un medio. Con los datos que te paso, escribí un HILO para X (Twitter) en español rioplatense, listo para publicar.\nReglas: el primer tuit es un gancho con el dato más fuerte; los tuits siguientes desglosan un dato, cifra, lugar o fecha por tuit, en orden de importancia; numerá cada tuit como 1/, 2/, 3/…; cada tuit ≤ 280 caracteres; tono informativo y sobrio; sin markdown ni viñetas; 0 a 2 hashtags en el último tuit como máximo. Separá cada tuit con una línea en blanco. Devolvé SOLO el hilo.';
 function trBody(){ return ($('trText').value||'').trim(); }

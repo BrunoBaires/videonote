@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v19 · full sin aro</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v20 · full + zócalo</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1494,9 +1494,7 @@ function draw(){
     if(skyActive()) drawSky(W,H, solarState.starI);
   }
 
-  if(!bakingFondo) drawBgFx(W,H);
-
-  // ── PUBLICAR TAL CUAL: el video ocupa toda la placa (sin recuadro), solo subtítulos + logo ──
+  // ── PUBLICAR TAL CUAL: el video ocupa toda la placa (sin recuadro); el resto de los elementos van encima ──
   const fullVid = ($('fullVid') && $('fullVid').checked && (vid.videoWidth||0) > 0);
   if(fullVid){
     const vw=vid.videoWidth, vh=vid.videoHeight, zoom=parseFloat($('zoom').value)/100;
@@ -1506,9 +1504,13 @@ function draw(){
     ctx.save(); if(fA!=='none') ctx.filter=fA;
     if(vid.readyState>=2) ctx.drawImage(vid, (W-dw)/2+offX, (H-dh)/2+offY, dw, dh);
     ctx.restore();
+    if(!bakingFondo) drawBgFx(W,H);   // efectos de luz sobre el video
     // veladura de abajo: responde al control "Veladura" (con un piso para que se lean subtítulo/logo/fecha)
     pintarVeladura(ctx, W, H, Math.max(veilAmt, 0.35), veilRGB, H*0.60);
-  } else drawSubjCut(W,H);
+  } else {
+    if(!bakingFondo) drawBgFx(W,H);
+    drawSubjCut(W,H);
+  }
 
   const stroke = parseFloat($('ring').value)*(W/1080)*1.9;
   const margin = W*(parseFloat($('mg').value)/100);
@@ -1747,7 +1749,7 @@ function draw(){
   }
 
   if(!bakingFondo) drawSubs(W, H);
-  if(!fullVid){ drawZocalo(W, H); drawElement(W, H); }
+  drawZocalo(W, H); drawElement(W, H);   // zócalo, elementos y efectos también en modo pantalla completa
 }
 /* anillo de progreso en el perímetro externo (modo "publicar tal cual") */
 function drawFullRing(cx,cy,hw,hh,rad,stroke){

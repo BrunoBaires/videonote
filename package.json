@@ -8,6 +8,7 @@
     "test:local": "node test/local-render.js"
   },
   "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
     "@napi-rs/canvas": "^0.1.60",
     "@vercel/blob": "^2.6.1",
     "ffmpeg-static": "^5.2.0"

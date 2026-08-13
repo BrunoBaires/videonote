@@ -1232,17 +1232,19 @@ function filtro(bri, con, exp){
   return `brightness(${(b*e).toFixed(3)}) contrast(${c.toFixed(3)})`;
 }
 
-function shapePath(c, cx, cy, h, isSq, rad){
+function shapePath(c, cx, cy, h, isSq, rad, hh){
+  if(hh==null) hh=h;   // hh = medio-alto (para marco 16:9 el cuadrado se vuelve rectángulo)
   if(!isSq){ c.arc(cx, cy, h, 0, Math.PI*2); c.closePath(); return; }
-  const x=cx-h, y=cy-h, s=h*2, k=Math.min(rad,h);
-  c.moveTo(x+k,y); c.lineTo(x+s-k,y);
-  c.arcTo(x+s,y,x+s,y+k,k); c.lineTo(x+s,y+s-k);
-  c.arcTo(x+s,y+s,x+s-k,y+s,k); c.lineTo(x+k,y+s);
-  c.arcTo(x,y+s,x,y+s-k,k); c.lineTo(x,y+k);
+  const x=cx-h, y=cy-hh, w=h*2, ht=hh*2, k=Math.min(rad,h,hh);
+  c.moveTo(x+k,y); c.lineTo(x+w-k,y);
+  c.arcTo(x+w,y,x+w,y+k,k); c.lineTo(x+w,y+ht-k);
+  c.arcTo(x+w,y+ht,x+w-k,y+ht,k); c.lineTo(x+k,y+ht);
+  c.arcTo(x,y+ht,x,y+ht-k,k); c.lineTo(x,y+k);
   c.arcTo(x,y,x+k,y,k); c.closePath();
 }
 
-function shapePoints(cx, cy, h, isSq, rad){
+function shapePoints(cx, cy, h, isSq, rad, hh){
+  if(hh==null) hh=h;
   const pts=[];
   if(!isSq){
     const N=360;
@@ -1251,7 +1253,7 @@ function shapePoints(cx, cy, h, isSq, rad){
       pts.push({x:cx+h*Math.cos(a), y:cy+h*Math.sin(a)});
     }
   } else {
-    const k=Math.min(rad,h), x0=cx-h, y0=cy-h, x1=cx+h, y1=cy+h;
+    const k=Math.min(rad,h,hh), x0=cx-h, y0=cy-hh, x1=cx+h, y1=cy+hh;
     const arc=(ax,ay,from,steps)=>{ for(let i=1;i<=steps;i++){ const a=from+(i/steps)*(Math.PI/2); pts.push({x:ax+k*Math.cos(a),y:ay+k*Math.sin(a)}); } };
     pts.push({x:cx,y:y0}); pts.push({x:x1-k,y:y0});
     arc(x1-k,y0+k,-Math.PI/2,12); pts.push({x:x1,y:y1-k});
@@ -1494,13 +1496,17 @@ function draw(){
   const margin = W*(parseFloat($('mg').value)/100);
   const szPct = calcularDiametro(W,H);
   const D = (W-margin*2)*(szPct/100);
-  const r = D/2, cx = W/2, cy = margin + r;
+  const r = D/2, cx = W/2;
   const isSq = $('shape').value === 'square';
+  const _fitM = $('vfit') ? $('vfit').value : 'cover';
+  const _containF = (_fitM==='contain' && isSq && (vid.videoWidth||0) > 0);
+  const rV = _containF ? Math.max(r*0.34, r*(vid.videoHeight/vid.videoWidth)) : r;   // marco 16:9: medio-alto según proporción del video
+  const cy = margin + rV;                                                            // marco pegado al margen de arriba
   const rad = isSq ? D*(parseFloat($('rad').value)/100) : r;
 
   if(!bakingFondo){
   // veladura de abajo hacia arriba: cubre desde donde empiezan los textos
-  if(veilAmt > 0) pintarVeladura(ctx, W, H, veilAmt, veilRGB, cy + r - stroke);
+  if(veilAmt > 0) pintarVeladura(ctx, W, H, veilAmt, veilRGB, cy + rV - stroke);
 
   if($('circleOn').checked){
   const _spin = finAnim.active && $('finAnimOn') && $('finAnimOn').checked;
@@ -1510,35 +1516,43 @@ function draw(){
 
   // dibuja el rostro del cronista dentro de la forma. full=true → ocupa el círculo COMPLETO (sin dejar el ancho del anillo)
   const drawCronista = (full) => {
-    const rr = full ? r : (r-stroke);
+    const rrW = full ? r : (r-stroke);
+    const rrV = full ? rV : (rV-stroke);
     const rd = full ? rad : Math.max(0, rad-stroke);
     ctx.save();
     ctx.beginPath();
-    shapePath(ctx, cx, cy, rr, isSq, rd);
+    shapePath(ctx, cx, cy, rrW, isSq, rd, rrV);
     ctx.clip();
     const fA = filtro($('aBri').value, $('aCon').value, $('aExp').value);
     if(fA !== 'none') ctx.filter = fA;
     const vw=vid.videoWidth||1, vh=vid.videoHeight||1;
     const zoom=parseFloat($('zoom').value)/100;
-    const fit = $('vfit') ? $('vfit').value : 'cover';
-    const side=rr*2, scale=(fit==='contain'?Math.min(side/vw, side/vh):Math.max(side/vw, side/vh))*zoom;
+    const bands = (_fitM==='contain' && !_containF);   // círculo o sin video → letterbox con bandas desenfocadas
+    const scale=(bands?Math.min((rrW*2)/vw,(rrV*2)/vh):Math.max((rrW*2)/vw,(rrV*2)/vh))*zoom;
     const dw=vw*scale, dh=vh*scale;
     const off = dh*(parseFloat($('of').value)/100);
     const offX = dw*(parseFloat($('ofH').value)/100);
-    if(fit==='contain'){ ctx.fillStyle='#0b0b0d'; ctx.fillRect(cx-rr, cy-rr, rr*2, rr*2); }  // bandas para el 16:9 completo
+    if(bands && vid.readyState>=2){
+      ctx.save(); ctx.filter='blur('+Math.max(6,Math.round(rrW*2*0.05))+'px)';
+      const cs=Math.max((rrW*2)/vw,(rrV*2)/vh)*zoom, cw=vw*cs, ch=vh*cs;
+      ctx.drawImage(vid, cx-cw/2+offX, cy-ch/2+off, cw, ch);
+      ctx.filter='none'; ctx.fillStyle='rgba(0,0,0,.30)'; ctx.fillRect(cx-rrW, cy-rrV, rrW*2, rrV*2);
+      ctx.restore();
+    }
     if(vid.readyState>=2) ctx.drawImage(vid, cx-dw/2+offX, cy-dh/2+off, dw, dh);
     ctx.restore();
   };
   // dibuja la cara del isotipo (fondo negro + logo blanco chico). full=true → ocupa el círculo COMPLETO
   const drawLogoFace = (full) => {
-    const rr = full ? r : (r-stroke);
+    const rrW = full ? r : (r-stroke);
+    const rrV = full ? rV : (rV-stroke);
     const rd = full ? rad : Math.max(0, rad-stroke);
     ctx.save();
     ctx.beginPath();
-    shapePath(ctx, cx, cy, rr, isSq, rd);
+    shapePath(ctx, cx, cy, rrW, isSq, rd, rrV);
     ctx.clip();
-    ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-r, 2*r, 2*r);
-    if(logoWok){ const box=r*0.82, ar=logoW.width/logoW.height; let lw=box, lh=box; if(ar>=1) lh=box/ar; else lw=box*ar; ctx.drawImage(logoW, cx-lw/2, cy-lh/2, lw, lh); }
+    ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-rV, 2*r, 2*rV);
+    if(logoWok){ const box=Math.min(r,rV)*0.82, ar=logoW.width/logoW.height; let lw=box, lh=box; if(ar>=1) lh=box/ar; else lw=box*ar; ctx.drawImage(logoW, cx-lw/2, cy-lh/2, lw, lh); }
     ctx.restore();
   };
 
@@ -1547,33 +1561,33 @@ function draw(){
   } else if(finAnim.fade!=null){
     // fundido de negro → primer frame del cronista (conecta con el loop)
     ctx.save();
-    ctx.beginPath(); shapePath(ctx, cx, cy, r, isSq, rad); ctx.clip();
+    ctx.beginPath(); shapePath(ctx, cx, cy, r, isSq, rad, rV); ctx.clip();
     if(firstFrameCv){
       const vw=firstFrameCv.width||1, vh=firstFrameCv.height||1, zoom=parseFloat($('zoom').value)/100;
-      const side=r*2, scale=Math.max(side/vw, side/vh)*zoom, dw=vw*scale, dh=vh*scale;
+      const scale=Math.max((r*2)/vw, (rV*2)/vh)*zoom, dw=vw*scale, dh=vh*scale;
       const off=dh*(parseFloat($('of').value)/100), offX=dw*(parseFloat($('ofH').value)/100);
       ctx.drawImage(firstFrameCv, cx-dw/2+offX, cy-dh/2+off, dw, dh);
-    } else { ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-r, 2*r, 2*r); }
-    ctx.fillStyle='rgba(0,0,0,'+(1-finAnim.fade).toFixed(3)+')'; ctx.fillRect(cx-r, cy-r, 2*r, 2*r);   // el negro se desvanece
+    } else { ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-rV, 2*r, 2*rV); }
+    ctx.fillStyle='rgba(0,0,0,'+(1-finAnim.fade).toFixed(3)+')'; ctx.fillRect(cx-r, cy-rV, 2*r, 2*rV);   // el negro se desvanece
     ctx.restore();
   } else if(finAnim.black){
     // corte a negro SOLO en el interior del círculo (el resto de la placa queda igual)
     ctx.save();
-    ctx.beginPath(); shapePath(ctx, cx, cy, r, isSq, rad); ctx.clip();
-    ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-r, 2*r, 2*r);
+    ctx.beginPath(); shapePath(ctx, cx, cy, r, isSq, rad, rV); ctx.clip();
+    ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-rV, 2*r, 2*rV);
     ctx.restore();
   } else {
     // VENTANA FIJA, SIN ANILLO: el contenido ocupa TODO el círculo (lo que era el anillo blanco);
     // el borde queda fijo y adentro el panel (rostro↔logo) gira media vuelta sobre el eje vertical.
     ctx.save();
-    ctx.beginPath(); shapePath(ctx, cx, cy, r, isSq, rad); ctx.clip();   // círculo COMPLETO (sin aro)
-    ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-r, 2*r, 2*r);            // cámara negra detrás del panel
+    ctx.beginPath(); shapePath(ctx, cx, cy, r, isSq, rad, rV); ctx.clip();   // círculo COMPLETO (sin aro)
+    ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-rV, 2*r, 2*rV);            // cámara negra detrás del panel
     ctx.save();
     ctx.translate(cx,cy); ctx.scale(_s,1); ctx.translate(-cx,-cy);
     if(_back) drawLogoFace(true); else drawCronista(true);
-    const edge=1-_s; if(edge>0.02){ ctx.fillStyle='rgba(0,0,0,'+(edge*0.5).toFixed(3)+')'; ctx.fillRect(cx-r,cy-r,2*r,2*r); }
+    const edge=1-_s; if(edge>0.02){ ctx.fillStyle='rgba(0,0,0,'+(edge*0.5).toFixed(3)+')'; ctx.fillRect(cx-r,cy-rV,2*r,2*rV); }
     ctx.restore();
-    if(_s<0.16){ ctx.globalAlpha=(1-_s/0.16)*0.5; ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(2,W*0.004); ctx.beginPath(); ctx.moveTo(cx,cy-r); ctx.lineTo(cx,cy+r); ctx.stroke(); ctx.globalAlpha=1; }
+    if(_s<0.16){ ctx.globalAlpha=(1-_s/0.16)*0.5; ctx.strokeStyle='#fff'; ctx.lineWidth=Math.max(2,W*0.004); ctx.beginPath(); ctx.moveTo(cx,cy-rV); ctx.lineTo(cx,cy+rV); ctx.stroke(); ctx.globalAlpha=1; }
     ctx.restore();
   }
 
@@ -1581,7 +1595,7 @@ function draw(){
   // marco (aro FIJO)
   if(stroke>0){
     ctx.beginPath();
-    shapePath(ctx, cx, cy, r-stroke/2, isSq, Math.max(0, rad-stroke/2));
+    shapePath(ctx, cx, cy, r-stroke/2, isSq, Math.max(0, rad-stroke/2), rV-stroke/2);
     ctx.strokeStyle=$('trackC').value; ctx.lineWidth=stroke; ctx.stroke();
   }
 
@@ -1595,10 +1609,10 @@ function draw(){
     ctx.lineCap = prog>=1 ? 'butt' : 'round';
     if(prog>=1){
       ctx.beginPath();
-      shapePath(ctx, cx, cy, r-stroke/2, isSq, Math.max(0, rad-stroke/2));
+      shapePath(ctx, cx, cy, r-stroke/2, isSq, Math.max(0, rad-stroke/2), rV-stroke/2);
       ctx.stroke();
     } else {
-      const pts=shapePoints(cx,cy,r-stroke/2,isSq,Math.max(0,rad-stroke/2));
+      const pts=shapePoints(cx,cy,r-stroke/2,isSq,Math.max(0,rad-stroke/2),rV-stroke/2);
       const target=pts[pts.length-1].d*prog;
       ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
       for(let i=1;i<pts.length;i++){
@@ -1624,14 +1638,14 @@ function draw(){
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.shadowColor='rgba(0,0,0,.55)'; ctx.shadowBlur=W*0.018;
     ctx.fillStyle='#FFFFFF';
-    ctx.fillText(fmtTime(t), cx, cy+r-stroke-W*0.075);
+    ctx.fillText(fmtTime(t), cx, cy+rV-stroke-W*0.075);
     ctx.shadowBlur=0; ctx.textBaseline='alphabetic';
   }
   }
 
   // color de texto
   const mode=$('txtMode').value;
-  const autoLight = (bgImg||bgVideo) ? isAreaDark(W,H,cy+r,veilAmt,veilRGB) : isDark($('bg').value);
+  const autoLight = (bgImg||bgVideo) ? isAreaDark(W,H,cy+rV,veilAmt,veilRGB) : isDark($('bg').value);
   let light;
   if(mode==='light') light=true;
   else if(mode==='dark') light=false;
@@ -1646,7 +1660,7 @@ function draw(){
   // bloque de textos
   const name=$('name').value.trim(), place=$('place').value.trim();
   const gap = W*(parseFloat($('gap').value)/100);
-  let ty = cy + r + gap;
+  let ty = cy + rV + gap;
   const moveDown = subMode() && $('subHideName').checked;   // al reproducir: baja el nombre/crédito y los deja visibles (clave en videos que loopean)
   const _mf = Math.max(0,Math.min(1,((vid.currentTime||0)-segIn()-0.10)/0.45));
   const lowNameY = H*(parseFloat(($('nameLow')&&$('nameLow').value)||82)/100);   // destino al bajar (ajustable, para no pegarse a los subtítulos)

@@ -89,7 +89,7 @@ audio,video.src{display:none}
 
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span class="badge" title="versión del editor">AudioNote v15 · recuadro fuente</span>
+  <span class="badge" title="versión del editor">AudioNote v17 · video opt-in</span>
   <div class="tabs">
     <button type="button" class="tab" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -291,17 +291,16 @@ audio,video.src{display:none}
       <h2>Fuente / video de origen</h2>
       <div class="grp"><span class="lbl">Cómo mostrar el video</span>
         <select id="videoMode">
-          <option value="none">Sin video (solo placa)</option>
-          <option value="inset" selected>Recuadro (viñeta de la fuente)</option>
+          <option value="none" selected>Sin video (solo placa)</option>
+          <option value="inset">Recuadro (viñeta de la fuente)</option>
           <option value="full">Pantalla completa (fondo)</option>
         </select>
       </div>
       <div id="insetCtrls">
-        <div class="row">
-          <div><span class="lbl">Posición</span><select id="insetPos"><option value="bl" selected>Abajo izq</option><option value="br">Abajo der</option><option value="tl">Arriba izq</option><option value="tr">Arriba der</option></select></div>
-          <div><span class="lbl">Proporción</span><select id="insetAR"><option value="original" selected>Original</option><option value="1:1">1:1</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="4:3">4:3</option></select></div>
-        </div>
-        <div class="grp" style="margin-top:9px"><span class="lbl">Tamaño del recuadro <span class="val" id="insetSzV">34 %</span></span><input type="range" id="insetSz" min="16" max="72" value="34"></div>
+        <div class="grp"><span class="lbl">Proporción</span><select id="insetAR"><option value="original" selected>Original</option><option value="1:1">1:1</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="4:3">4:3</option></select></div>
+        <input type="hidden" id="insetPX" value="0.06"><input type="hidden" id="insetPY" value="0.60">
+        <div class="hint" style="margin-top:6px">📍 <b>Arrastrá el recuadro en la vista previa</b> para ubicarlo. Arrastrá su <b>esquina inferior derecha</b> para agrandarlo o achicarlo.</div>
+        <div class="grp" style="margin-top:9px"><span class="lbl">Tamaño del recuadro <span class="val" id="insetSzV">30 %</span></span><input type="range" id="insetSz" min="14" max="72" value="30"></div>
         <div class="grp"><span class="lbl">Zoom — enfocar un sujeto <span class="val" id="insetZoomV">100 %</span></span><input type="range" id="insetZoom" min="100" max="320" value="100"></div>
         <div class="row">
           <div><span class="lbl">Encuadre ←→ <span class="val" id="insetXV">0</span></span><input type="range" id="insetX" min="-100" max="100" value="0"></div>
@@ -632,7 +631,7 @@ async function ensureFont(){ try{ const fam=fontStack().split(',')[0].replace(/"
 $('fontSel').addEventListener('change', ensureFont);
 
 /* ---- controles → redibujo ---- */
-['kicker','title','speaker','role','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','revealSel','dateTxt','dateOn','spkSz','crgSz','blockY','nightMode','footageDim','videoMode','insetPos','insetAR','insetSz','insetZoom','insetX','insetY','insetSrc'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
+['kicker','title','speaker','role','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','revealSel','dateTxt','dateOn','spkSz','crgSz','blockY','nightMode','footageDim','videoMode','insetAR','insetSz','insetZoom','insetX','insetY','insetSrc'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
 $('footageDim').addEventListener('input',()=>$('footageDimV').textContent=$('footageDim').value+' %');
 $('insetSz').addEventListener('input',()=>$('insetSzV').textContent=$('insetSz').value+' %');
 $('insetZoom').addEventListener('input',()=>$('insetZoomV').textContent=$('insetZoom').value+' %');
@@ -640,6 +639,20 @@ $('insetX').addEventListener('input',()=>$('insetXV').textContent=$('insetX').va
 $('insetY').addEventListener('input',()=>$('insetYV').textContent=$('insetY').value);
 function syncVideoMode(){ const m=$('videoMode').value; $('insetCtrls').style.display=(m==='inset')?'block':'none'; }
 $('videoMode').addEventListener('change', syncVideoMode); syncVideoMode();
+
+/* ---- arrastrar / redimensionar el recuadro directamente en la vista previa ---- */
+let dragMode=null, dragOff={x:0,y:0};
+function cvPt(e){ const r=cv.getBoundingClientRect(); const sx=cv.width/r.width, sy=cv.height/r.height; const t=e.touches&&e.touches[0]; const cx=t?t.clientX:e.clientX, cy=t?t.clientY:e.clientY; return {x:(cx-r.left)*sx, y:(cy-r.top)*sy}; }
+function insetHit(p){ if($('videoMode').value!=='inset'||!insetRect) return null; const {x,y,w,h}=insetRect; const br=(p.x>x+w*0.74 && p.x<x+w+w*0.12 && p.y>y+h*0.74 && p.y<y+h+h*0.12); if(p.x>=x-10&&p.x<=x+w+10&&p.y>=y-10&&p.y<=y+h+10) return br?'resize':'move'; return null; }
+cv.addEventListener('mousemove',e=>{ if(dragMode)return; const hit=insetHit(cvPt(e)); cv.style.cursor = hit==='resize'?'nwse-resize' : hit==='move'?'grab' : 'default'; });
+function startDrag(e){ const p=cvPt(e); const hit=insetHit(p); if(!hit) return; e.preventDefault(); dragMode=hit; dragOff={x:p.x-insetRect.x,y:p.y-insetRect.y}; cv.style.cursor=hit==='resize'?'nwse-resize':'grabbing';
+  window.addEventListener('mousemove',onDrag); window.addEventListener('touchmove',onDrag,{passive:false}); window.addEventListener('mouseup',endDrag); window.addEventListener('touchend',endDrag); }
+function onDrag(e){ if(!dragMode||!insetRect)return; e.preventDefault(); const [W,H]=DIMS[$('fmt').value]; const p=cvPt(e);
+  if(dragMode==='move'){ $('insetPX').value=Math.max(0,Math.min(1,(p.x-dragOff.x)/W)).toFixed(4); $('insetPY').value=Math.max(0,Math.min(1,(p.y-dragOff.y)/H)).toFixed(4); }
+  else { const neww=(p.x-insetRect.x)/W*100; const s=Math.max(14,Math.min(72,neww)); $('insetSz').value=Math.round(s); $('insetSzV').textContent=Math.round(s)+' %'; }
+  draw(); }
+function endDrag(){ dragMode=null; cv.style.cursor='grab'; window.removeEventListener('mousemove',onDrag); window.removeEventListener('touchmove',onDrag); window.removeEventListener('mouseup',endDrag); window.removeEventListener('touchend',endDrag); }
+cv.addEventListener('mousedown',startDrag); cv.addEventListener('touchstart',startDrag,{passive:false});
 $('react').addEventListener('input',()=>$('reactV').textContent=$('react').value+' %');
 $('logoSz').addEventListener('input',()=>$('logoSzV').textContent=$('logoSz').value+' %');
 $('spkSz').addEventListener('input',()=>$('spkSzV').textContent=$('spkSz').value+' %');
@@ -686,9 +699,11 @@ function draw(){
   if(onFootage){ ink='#ffffff'; spokenC='#ffffff'; }   // texto claro sobre el video
   if(vmode==='inset'){
     insetRect=computeInsetRect(W,H);
-    if(insetRect && (insetRect.pos==='bl'||insetRect.pos==='br')){   // recuadro abajo → correr el visualizador al hueco libre
-      const freeCX = insetRect.pos==='bl' ? (insetRect.x+insetRect.w + W)/2 : (insetRect.x)/2;
-      vizDX = freeCX - W/2;
+    if(insetRect){
+      const cxi=insetRect.x+insetRect.w/2, bottomHalf=(insetRect.y+insetRect.h) > H*0.58;
+      if(bottomHalf){   // recuadro en la mitad de abajo → correr el visualizador al hueco libre
+        vizDX = (cxi < W/2) ? (((insetRect.x+insetRect.w + W)/2) - W/2) : ((insetRect.x/2) - W/2);
+      }
     }
   }
 
@@ -739,7 +754,7 @@ function draw(){
 
   // hablante + rol (posición y separación configurables)
   const _live=activeSpeaker(t);
-  const sp=_live?_live.name:$('speaker').value.trim(), rl=_live?_live.role:$('role').value.trim();
+  const sp=_live?_live.name:$('speaker').value.trim(); const rl=(_live&&_live.role)?_live.role:$('role').value.trim();
   const spk2=(parseFloat($('spkSz').value)||100)/100, crg2=(parseFloat($('crgSz').value)||100)/100;
   const byN2=(parseFloat($('blockY').value)||90)/100, nameFs2=W*0.028*spk2, roleFs2=W*0.019*crg2, nameY2=H*byN2;
   if(sp){ ctx.fillStyle=ink; ctx.textAlign='center'; ctx.font=`700 ${nameFs2}px ${FF}`; ctx.fillText(sp, W/2, nameY2); }
@@ -749,22 +764,19 @@ function draw(){
   drawLogo(W,H);
   drawDate(W,H,ink,FF);
 }
-/* rect del recuadro de video (viñeta): posición, tamaño y proporción, sin dibujar aún */
+/* rect del recuadro de video (viñeta): posición libre (draggable), tamaño y proporción */
 function computeInsetRect(W,H){
   const v=currentVideoEl(); if(!v||!v.videoWidth) return null;
-  const pos=($('insetPos')||{}).value||'bl', ar=($('insetAR')||{}).value||'original';
-  const sz=(parseFloat($('insetSz').value)||34)/100;
+  const ar=($('insetAR')||{}).value||'original';
+  const sz=(parseFloat($('insetSz').value)||30)/100;
   const w=W*sz; let h;
   if(ar==='original') h=w*(v.videoHeight/v.videoWidth);
   else { const p=ar.split(':').map(Number); h=w*(p[1]/p[0]); }
-  h=Math.min(h, H*0.5);
-  const m=W*0.055;
-  let x,y;
-  if(pos==='bl'){ x=m; y=H*0.80-h; }
-  else if(pos==='br'){ x=W-w-m; y=H*0.80-h; }
-  else if(pos==='tl'){ x=m; y=H*0.11; }
-  else { x=W-w-m; y=H*0.11; }
-  return {x,y,w,h,pos};
+  let px=parseFloat($('insetPX').value); if(isNaN(px)) px=0.06;
+  let py=parseFloat($('insetPY').value); if(isNaN(py)) py=0.60;
+  let x=W*px, y=H*py;
+  x=Math.max(0,Math.min(W-w,x)); y=Math.max(0,Math.min(H-h,y));
+  return {x,y,w,h};
 }
 /* dibuja el recuadro de video con zoom/encuadre + crédito de fuente */
 function drawVideoInset(W,H,ink,FF){
@@ -833,7 +845,7 @@ function drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,spokenC,upcomingC,FF){
   if(viz!=='none') drawViz(W,H,H*0.73,$('vizC').value,lvl*react);
   // hablante + rol (posición y separación configurables)
   const _live=activeSpeaker(t);
-  const sp=_live?_live.name:$('speaker').value.trim(), rl=_live?_live.role:$('role').value.trim();
+  const sp=_live?_live.name:$('speaker').value.trim(); const rl=(_live&&_live.role)?_live.role:$('role').value.trim();
   const spk=(parseFloat($('spkSz').value)||100)/100, crg=(parseFloat($('crgSz').value)||100)/100;
   const byN=(parseFloat($('blockY').value)||90)/100, nameFs=W*0.026*spk, roleFs=W*0.018*crg, nameY=H*byN;
   ctx.textAlign='center';
@@ -1304,7 +1316,7 @@ $('aiCopy').onclick =()=>{ const v=$('aiOut').value||''; if(navigator.clipboard&
 $('aiToTitle').onclick=()=>{ const v=($('aiOut').value||'').trim(); if(!v){aiStat('No hay texto para usar.','err');return;} $('title').value=v.split('\n')[0].slice(0,140); draw(); aiStat('Cargado como título.','ok'); };
 
 /* ===================== CONFIGURACIÓN DEL EQUIPO (an_cfg) ===================== */
-const CFG_FIELDS=['kicker','title','speaker','role','spkSz','crgSz','blockY','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','vizSel','vizSz','react','fmt','fontSel','layout','revealSel','logoPos','logoSz','photoOn','dateTxt','dateOn','nightMode','footageDim','videoMode','insetPos','insetAR','insetSz','insetZoom','insetX','insetY','insetSrc'];
+const CFG_FIELDS=['kicker','title','speaker','role','spkSz','crgSz','blockY','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','vizSel','vizSz','react','fmt','fontSel','layout','revealSel','logoPos','logoSz','photoOn','dateTxt','dateOn','nightMode','footageDim','videoMode','insetAR','insetSz','insetZoom','insetX','insetY','insetSrc','insetPX','insetPY'];
 function collectCfg(){ const o={}; CFG_FIELDS.forEach(id=>{ const el=$(id); if(!el) return; o[id]=(el.type==='checkbox')?el.checked:el.value; }); return o; }
 function applyCfg(o){
   if(!o) return;

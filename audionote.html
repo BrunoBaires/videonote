@@ -273,7 +273,9 @@ audio,video.src{display:none}
         <select id="fmt"><option value="1:1">1:1 · 1080×1080</option><option value="4:5">4:5 · 1080×1350</option><option value="9:16">9:16 · 1080×1920</option></select>
       </div>
       <label class="chk"><input type="checkbox" id="nightMode"> Noche (invierte: fondo oscuro, texto claro)</label>
-      <div class="hint">La palabra ya dicha va con un color y la que todavía no, con otro (no tiene por qué ser verde). Cambiá tipografía y colores a gusto.</div>
+      <label class="chk"><input type="checkbox" id="footageOn" checked> Fondo con la imagen del video (transmisión en vivo o archivo)</label>
+      <div class="grp" style="margin-top:9px"><span class="lbl">Oscurecer el fondo para leer <span class="val" id="footageDimV">45 %</span></span><input type="range" id="footageDim" min="0" max="85" value="45"></div>
+      <div class="hint">Con “Fondo con la imagen del video” ves al que habla de fondo y el texto/karaoke encima (queda como un video-note). Si el audio no trae imagen, se usa el fondo de color. La palabra ya dicha va con un color y la que todavía no, con otro.</div>
     </div></div>
 
     <div class="card collapsed"><div class="body">
@@ -297,6 +299,8 @@ audio,video.src{display:none}
     </div>
     <div class="bar"><button type="button" class="mini go" id="recBtn" style="width:auto;padding:9px 18px" disabled>Guardar mp4</button></div>
     <div class="note" id="stageNote">Subí un audio o video, transcribí (o pegá texto + “Estimar tiempos”) y dale Reproducir para ver el efecto.</div>
+    <video id="outVid" controls playsinline style="max-width:100%;max-height:38vh;display:none;border-radius:8px;margin-top:4px"></video>
+    <a id="outDl" href="#" style="display:none;font-family:var(--disp);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--rojo);text-decoration:none;margin-top:2px"></a>
   </div>
 </div>
 
@@ -312,7 +316,7 @@ const DIMS={'4:5':[1080,1350],'9:16':[1080,1920],'1:1':[1080,1080]};
 let words=[];          // [{text,start,end}] en segundos
 let loaded=false, rafId=null, dur=0;
 let photo=null, level=0, viz='sphere';
-let liveMode=false, liveT=0, liveT0=0, liveWS=null, liveCtx=null, liveStream=null, liveProc=null, liveRAF=null, liveFinal=[], liveTurn=[];
+let liveMode=false, liveT=0, liveT0=0, liveWS=null, liveCtx=null, liveStream=null, liveProc=null, liveRAF=null, liveFinal=[], liveTurn=[], liveVid=null, footageActive=false;
 let audioCtx=null, analyser=null, srcNode=null, freqData=null, timeData=null, recDest=null;
 let recorder=null, recChunks=[];
 
@@ -551,7 +555,8 @@ async function ensureFont(){ try{ const fam=fontStack().split(',')[0].replace(/"
 $('fontSel').addEventListener('change', ensureFont);
 
 /* ---- controles → redibujo ---- */
-['kicker','title','speaker','role','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','revealSel','dateTxt','dateOn','spkSz','crgSz','blockY','nightMode'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
+['kicker','title','speaker','role','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','revealSel','dateTxt','dateOn','spkSz','crgSz','blockY','nightMode','footageOn','footageDim'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
+$('footageDim').addEventListener('input',()=>$('footageDimV').textContent=$('footageDim').value+' %');
 $('react').addEventListener('input',()=>$('reactV').textContent=$('react').value+' %');
 $('logoSz').addEventListener('input',()=>$('logoSzV').textContent=$('logoSz').value+' %');
 $('spkSz').addEventListener('input',()=>$('spkSzV').textContent=$('spkSz').value+' %');
@@ -588,6 +593,12 @@ function draw(){
   if($('nightMode').checked){ bg='#0f1116'; bg2='#1b2233'; ink='#f4f1e9'; spokenC='#f4f1e9'; }   // noche: invierte
   const FF=fontStack();
   paintBg(W,H,bg,bg2);
+
+  // fondo con la imagen del video (footage): transmisión en vivo o archivo subido, con velo para leer
+  let onFootage=false;
+  if($('footageOn')&&$('footageOn').checked) onFootage=drawFootage(W,H);
+  footageActive=onFootage;
+  if(onFootage){ ink='#ffffff'; spokenC='#ffffff'; }   // texto claro sobre el video
 
   const t = liveMode ? liveT : (med.currentTime||0);
   const lvl = (analyser && (liveMode || !med.paused)) ? readLevel() : level*0.9;
@@ -709,9 +720,14 @@ function buildLines(arr, maxW, space){
 function curWordIdx(seg,t){ let idx=-1; for(let i=0;i<seg.length;i++){ if(t>=seg[i].start) idx=i; } return idx; }
 /* fundido progresivo del tope: repinta el fondo real con alpha decreciente (sin banda dura) */
 function topFade(W,H,topY,lh,bg,bg2){
-  const fill=bgStyle(W,H,bg,bg2), fadeTop=topY, fadeH=lh*2.8, strips=32;
+  const fill = footageActive ? null : bgStyle(W,H,bg,bg2);   // sobre video: velo oscuro, no el color de fondo (evita la banda blanca)
+  const fadeTop=topY, fadeH=lh*2.8, strips=32;
   ctx.save();
-  for(let i=0;i<strips;i++){ const p=i/(strips-1); const a=(p<0.42)?1:Math.pow(1-(p-0.42)/0.58,1.7); ctx.globalAlpha=a; ctx.fillStyle=fill; ctx.fillRect(0,fadeTop+p*fadeH,W,fadeH/strips+1.3); }
+  for(let i=0;i<strips;i++){ const p=i/(strips-1); const a=(p<0.42)?1:Math.pow(1-(p-0.42)/0.58,1.7);
+    if(footageActive){ ctx.globalAlpha=a*0.92; ctx.fillStyle='rgb(8,10,14)'; }
+    else { ctx.globalAlpha=a; ctx.fillStyle=fill; }
+    ctx.fillRect(0,fadeTop+p*fadeH,W,fadeH/strips+1.3);
+  }
   ctx.restore(); ctx.globalAlpha=1;
 }
 function drawRevealText(W,H,t,ml,textW,yTop,fs,lh,ink,spokenC,upcomingC,FF,bg,bg2){
@@ -853,11 +869,11 @@ function activeSegment(t){
 function drawBand(W,H,cy,color,lvl){
   const bw=W*0.62, x0=(W-bw)/2, N=90;
   ctx.strokeStyle=color; ctx.lineWidth=Math.max(1.5,W*0.0022); ctx.lineCap='round';
-  if(analyser&&!med.paused) analyser.getByteTimeDomainData(timeData);
+  if(analyser&&(liveMode||!med.paused)) analyser.getByteTimeDomainData(timeData);
   for(let i=0;i<N;i++){
     const p=i/(N-1), x=x0+p*bw;
     let a;
-    if(timeData&&!med.paused){ const idx=Math.floor(p*timeData.length); a=Math.abs(timeData[idx]-128)/128; }
+    if(timeData&&(liveMode||!med.paused)){ const idx=Math.floor(p*timeData.length); a=Math.abs(timeData[idx]-128)/128; }
     else a=0.06;
     const env=Math.sin(p*Math.PI); // más alto en el centro
     const h=Math.max(W*0.004, (0.02+a*0.9)*env*H*0.05*vizScale()*(0.4+lvl*1.6));
@@ -906,6 +922,27 @@ function bgStyle(W,H,bg,bg2){
   return g;
 }
 function paintBg(W,H,bg,bg2){ ctx.fillStyle=bgStyle(W,H,bg,bg2); ctx.fillRect(0,0,W,H); }
+/* elemento de video disponible para el fondo: en vivo (transmisión) o archivo subido con imagen */
+function currentVideoEl(){
+  if(liveMode && liveVid && liveVid.videoWidth) return liveVid;
+  if(!liveMode && loaded && med && med.videoWidth) return med;
+  return null;
+}
+/* dibuja el video como fondo (cover) + un velo oscuro para que el texto se lea */
+function drawFootage(W,H){
+  const v=currentVideoEl(); if(!v) return false;
+  const vw=v.videoWidth, vh=v.videoHeight; if(!vw||!vh) return false;
+  const s=Math.max(W/vw,H/vh), iw=vw*s, ih=vh*s;
+  try{ ctx.drawImage(v,(W-iw)/2,(H-ih)/2,iw,ih); }catch(e){ return false; }
+  const dim=(parseFloat($('footageDim').value)||0)/100;
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,   `rgba(8,10,14,${Math.min(0.9,dim+0.18)})`);
+  g.addColorStop(0.42,`rgba(8,10,14,${Math.max(0,dim*0.55)})`);
+  g.addColorStop(0.62,`rgba(8,10,14,${Math.max(0,dim*0.55)})`);
+  g.addColorStop(1,   `rgba(8,10,14,${Math.min(0.95,dim+0.28)})`);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  return true;
+}
 function vizScale(){ return (parseFloat($('vizSz').value)||100)/100; }
 function rr(x,y,w,h,r){ r=Math.min(r,Math.abs(w)/2,Math.abs(h)/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill(); }
 
@@ -921,7 +958,7 @@ function drawViz(W,H,cy,color,amp){
     default:      return drawSphere(W,H,cy,color,amp);
   }
 }
-function freqAt(p){ const n=freqData?freqData.length:0; if(!n||med.paused) return null; const idx=Math.min(n-1,Math.floor(p*(n*0.55))+2); return (freqData[idx]||0)/255; }
+function freqAt(p){ const n=freqData?freqData.length:0; if(!n||(!liveMode&&med.paused)) return null; const idx=Math.min(n-1,Math.floor(p*(n*0.55))+2); return (freqData[idx]||0)/255; }
 
 /* barras (ecualizador), simétricas sobre la línea */
 function drawBars(W,H,cy,color,amp){
@@ -948,12 +985,12 @@ function drawRing(W,H,cy,color,amp){
 /* onda continua */
 function drawWave(W,H,cy,color,amp){
   const sc=vizScale(), bw=W*0.72*Math.min(1.3,sc), x0=(W-bw)/2, N=170, am=H*0.055*sc*(0.5+amp*1.5);
-  if(analyser&&!med.paused) analyser.getByteTimeDomainData(timeData);
+  if(analyser&&(liveMode||!med.paused)) analyser.getByteTimeDomainData(timeData);
   const [r,g,b]=hex2rgb(color); ctx.strokeStyle=`rgb(${r},${g},${b})`; ctx.lineWidth=Math.max(2,W*0.004*sc); ctx.lineJoin='round'; ctx.lineCap='round';
   ctx.beginPath();
   for(let i=0;i<=N;i++){
     const p=i/N, x=x0+p*bw, env=Math.sin(p*Math.PI);
-    let v; if(timeData&&!med.paused){ const idx=Math.floor(p*timeData.length); v=(timeData[idx]-128)/128; } else v=0.08*Math.sin(p*22+performance.now()/300);
+    let v; if(timeData&&(liveMode||!med.paused)){ const idx=Math.floor(p*timeData.length); v=(timeData[idx]-128)/128; } else v=0.08*Math.sin(p*22+performance.now()/300);
     const y=cy+v*am*env; if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);
   }
   ctx.stroke();
@@ -998,46 +1035,71 @@ async function anLoadFFmpeg(){
     anFFReady=true; return true;
   }catch(e){ return false; }
 }
-function anDownload(blob,ext){
-  const u=URL.createObjectURL(blob);
+let lastOutUrl=null;
+function showResult(blob,ext){
+  if(lastOutUrl){ try{ URL.revokeObjectURL(lastOutUrl); }catch(e){} }
+  lastOutUrl=URL.createObjectURL(blob);
   const d=new Date(); const hh=String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');
-  const a=document.createElement('a'); a.href=u; a.download='AudioNote '+hh+'.'+ext; a.rel='noopener'; a.click();
-  setTimeout(()=>URL.revokeObjectURL(u),1000);
+  const name='AudioNote '+hh+'.'+ext;
+  // descarga automática (el <a> va al DOM: si no, algunos navegadores no la disparan)
+  const a=document.createElement('a'); a.href=lastOutUrl; a.download=name; a.rel='noopener'; document.body.appendChild(a); a.click(); setTimeout(()=>{try{a.remove();}catch(e){}},0);
+  // previsualización reproducible acá + link de descarga manual (respaldo si el navegador bloquea la automática)
+  const v=$('outVid'); v.src=lastOutUrl; v.style.display='block';
+  const dl=$('outDl'); dl.href=lastOutUrl; dl.download=name; dl.textContent='⬇ Descargar '+name; dl.style.display='inline-block';
 }
 async function anExport(){
   $('recBtn').disabled=false; $('recBtn').textContent='Guardar mp4';
+  if(!recChunks.length){ $('stageNote').textContent='No se grabó nada (0 s). Volvé a intentar dejando correr unos segundos antes de Detener.'; return; }
   const blob=new Blob(recChunks,{type: recordingMp4?'video/mp4':'video/webm'});
-  if(recordingMp4){ anDownload(blob,'mp4'); $('stageNote').textContent='Listo: mp4 guardado.'; return; }
-  $('stageNote').textContent='Convirtiendo a mp4…';
+  if(recordingMp4){ showResult(blob,'mp4'); $('stageNote').textContent='Listo: mp4 grabado. Reproducilo acá abajo o descargalo.'; return; }
+  $('stageNote').textContent='Procesando el video…';
   const ok=await anLoadFFmpeg();
   if(ok){
     try{
       await anFF.writeFile('in.webm', new Uint8Array(await blob.arrayBuffer()));
       await anFF.exec(['-i','in.webm','-c:v','libx264','-preset','veryfast','-crf','24','-pix_fmt','yuv420p','-movflags','+faststart','-c:a','aac','-b:a','160k','out.mp4']);
       const out=await anFF.readFile('out.mp4');
-      anDownload(new Blob([out.buffer],{type:'video/mp4'}),'mp4');
-      $('stageNote').textContent='Listo: mp4 guardado.'; return;
+      showResult(new Blob([out.buffer],{type:'video/mp4'}),'mp4');
+      $('stageNote').textContent='Listo: mp4 grabado. Reproducilo acá abajo o descargalo.'; return;
     }catch(e){}
   }
-  anDownload(blob,'webm');
-  $('stageNote').textContent='Este navegador no graba mp4 nativo y la conversión necesita la app servida (COOP/COEP). Guardé webm; ya integrado en Video Note sale mp4 directo.';
+  showResult(blob,'webm');
+  $('stageNote').textContent='Grabado en webm (este navegador no graba mp4 nativo en esta página). Se reproduce y descarga igual acá abajo.';
 }
 $('recBtn').onclick=async()=>{
-  if(!loaded){ $('stageNote').textContent='Primero subí un audio o video.'; return; }
-  ensureAudioGraph(); if(audioCtx.state==='suspended')await audioCtx.resume();
   if(recorder&&recorder.state==='recording'){ recorder.stop(); return; }
-  const vtrack=cv.captureStream(30).getVideoTracks();
-  const atrack=recDest.stream.getAudioTracks();
-  const stream=new MediaStream([...vtrack,...atrack]);
-  const mime=MP4S.find(m=>MediaRecorder.isTypeSupported(m)) || WEBMS.find(m=>MediaRecorder.isTypeSupported(m)) || 'video/webm';
-  recordingMp4 = mime.indexOf('mp4')>=0;
-  recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:5000000});
-  recChunks=[]; recorder.ondataavailable=e=>{if(e.data.size)recChunks.push(e.data);};
+  let atrack;
+  if(liveMode){
+    // EN VIVO: grabar la placa + el audio que se está capturando (la transmisión / el micrófono)
+    if(!liveStream || !liveStream.getAudioTracks().length){ $('stageNote').textContent='Iniciá el vivo primero.'; return; }
+    atrack=liveStream.getAudioTracks();
+  } else {
+    if(!loaded){ $('stageNote').textContent='Primero subí un audio o video, o usá el modo En vivo.'; return; }
+    ensureAudioGraph(); if(audioCtx.state==='suspended')await audioCtx.resume();
+    atrack=recDest.stream.getAudioTracks();
+  }
+  let stream, mime;
+  try{
+    const vtrack=cv.captureStream(30).getVideoTracks();
+    if(!vtrack.length) throw new Error('el navegador no deja capturar el lienzo');
+    stream=new MediaStream([...vtrack,...atrack]);
+    mime=MP4S.find(m=>MediaRecorder.isTypeSupported(m)) || WEBMS.find(m=>MediaRecorder.isTypeSupported(m)) || '';
+    recordingMp4 = mime.indexOf('mp4')>=0;
+    recorder = mime ? new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:5000000}) : new MediaRecorder(stream,{videoBitsPerSecond:5000000});
+    if(!mime){ recordingMp4 = (recorder.mimeType||'').indexOf('mp4')>=0; }
+  }catch(e){ $('stageNote').textContent='No se pudo iniciar la grabación: '+((e&&e.message)||e); return; }
+  recChunks=[]; recorder.ondataavailable=e=>{if(e.data&&e.data.size)recChunks.push(e.data);};
   recorder.onstop=anExport;
-  med.currentTime=0; med.play(); $('play').textContent='Pausar'; loop();
-  recorder.start(100); $('recBtn').textContent='Detener';
-  $('stageNote').textContent='Grabando'+(recordingMp4?' (mp4)':'')+'… dejá correr hasta el final o tocá “Detener”.';
-  med.onended=()=>{ med.pause(); $('play').textContent='Reproducir'; if(recorder&&recorder.state==='recording')recorder.stop(); };
+  recorder.onerror=()=>{ $('stageNote').textContent='Error de grabación. Probá otra vez.'; };
+  if(liveMode){
+    recorder.start(100); $('recBtn').textContent='Detener';
+    $('stageNote').textContent='Grabando en vivo'+(recordingMp4?' (mp4)':'')+'… tocá “Detener” cuando termine el momento.';
+  } else {
+    med.currentTime=0; med.play(); $('play').textContent='Pausar'; loop();
+    recorder.start(100); $('recBtn').textContent='Detener';
+    $('stageNote').textContent='Grabando'+(recordingMp4?' (mp4)':'')+'… dejá correr hasta el final o tocá “Detener”.';
+    med.onended=()=>{ med.pause(); $('play').textContent='Reproducir'; if(recorder&&recorder.state==='recording')recorder.stop(); };
+  }
 };
 
 /* ===================== HERRAMIENTAS EDITORIALES (OpenAI) ===================== */
@@ -1098,7 +1160,7 @@ $('aiCopy').onclick =()=>{ const v=$('aiOut').value||''; if(navigator.clipboard&
 $('aiToTitle').onclick=()=>{ const v=($('aiOut').value||'').trim(); if(!v){aiStat('No hay texto para usar.','err');return;} $('title').value=v.split('\n')[0].slice(0,140); draw(); aiStat('Cargado como título.','ok'); };
 
 /* ===================== CONFIGURACIÓN DEL EQUIPO (an_cfg) ===================== */
-const CFG_FIELDS=['kicker','title','speaker','role','spkSz','crgSz','blockY','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','vizSel','vizSz','react','fmt','fontSel','layout','revealSel','logoPos','logoSz','photoOn','dateTxt','dateOn','nightMode'];
+const CFG_FIELDS=['kicker','title','speaker','role','spkSz','crgSz','blockY','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','vizSel','vizSz','react','fmt','fontSel','layout','revealSel','logoPos','logoSz','photoOn','dateTxt','dateOn','nightMode','footageOn','footageDim'];
 function collectCfg(){ const o={}; CFG_FIELDS.forEach(id=>{ const el=$(id); if(!el) return; o[id]=(el.type==='checkbox')?el.checked:el.value; }); return o; }
 function applyCfg(o){
   if(!o) return;
@@ -1160,6 +1222,8 @@ async function liveStart(){
   const url='wss://streaming.assemblyai.com/v3/ws?sample_rate=16000&encoding=pcm_s16le&format_turns=true&speech_model=universal-streaming-multilingual&token='+encodeURIComponent(token);
   liveWS=new WebSocket(url); liveWS.binaryType='arraybuffer';
   liveWS.onopen=()=>{
+    // elemento de video oculto para poder pintar la transmisión como fondo (muteado: el audio va aparte)
+    if(stream.getVideoTracks().length){ liveVid=document.createElement('video'); liveVid.muted=true; liveVid.playsInline=true; liveVid.srcObject=stream; liveVid.play().catch(()=>{}); }
     liveCtx=new (window.AudioContext||window.webkitAudioContext)();
     const src=liveCtx.createMediaStreamSource(stream);
     analyser=liveCtx.createAnalyser(); analyser.fftSize=2048; analyser.smoothingTimeConstant=0.8;
@@ -1179,11 +1243,13 @@ async function liveStart(){
   stream.getAudioTracks()[0].addEventListener('ended',()=>{ if(liveMode) liveStop(); });
 }
 function liveStop(fromClose){
+  try{ if(recorder&&recorder.state==='recording') recorder.stop(); }catch(e){}   // cierra la grabación en curso
   liveMode=false; if(liveRAF){cancelAnimationFrame(liveRAF);liveRAF=null;}
   try{ if(!fromClose && liveWS && liveWS.readyState===1){ liveWS.send(JSON.stringify({type:'Terminate'})); } }catch(e){}
   try{ liveWS && liveWS.close(); }catch(e){} liveWS=null;
   try{ liveProc && liveProc.disconnect(); }catch(e){} liveProc=null;
   try{ liveCtx && liveCtx.close(); }catch(e){} liveCtx=null;
+  try{ if(liveVid){ liveVid.pause(); liveVid.srcObject=null; } }catch(e){} liveVid=null;
   try{ liveStream && liveStream.getTracks().forEach(t=>t.stop()); }catch(e){} liveStream=null;
   analyser=null;
   $('liveBtn').textContent='Empezar en vivo'; $('liveBtn').disabled=false;

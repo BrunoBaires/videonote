@@ -208,6 +208,17 @@ audio,video.src{display:none}
           <option value="atlantic">Atlantic (crema, centrado, serif)</option>
         </select>
       </div>
+      <div class="grp"><span class="lbl">Aparición del texto (modo Perplexity)</span>
+        <select id="revealSel">
+          <option value="type" selected>Tipeo — la palabra aparece al decirse</option>
+          <option value="karaoke">Karaoke — muestra el párrafo e ilumina palabra por palabra</option>
+          <option value="spotlight">Foco — la oración en curso, centrada, resalta la palabra</option>
+          <option value="word">Palabra — una palabra grande por vez</option>
+          <option value="line">Línea — teleprompter, sube línea por línea</option>
+          <option value="fade">Fundido — cada palabra entra con un fundido suave</option>
+        </select>
+        <div class="hint">Seis formas de desplegar el texto. En Karaoke y Foco se anticipa el párrafo y se ilumina lo que se va diciendo con el “color palabra por decir”.</div>
+      </div>
       <div class="grp"><span class="lbl">Tipografía</span>
         <select id="fontSel">
           <option value="inter" selected>Inter (sans)</option>
@@ -476,7 +487,7 @@ async function ensureFont(){ try{ const fam=fontStack().split(',')[0].replace(/"
 $('fontSel').addEventListener('change', ensureFont);
 
 /* ---- controles → redibujo ---- */
-['kicker','title','speaker','role','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','dateTxt','dateOn','spkSz','crgSz','blockY','nightMode'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
+['kicker','title','speaker','role','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','fmt','photoOn','react','logoPos','logoSz','layout','revealSel','dateTxt','dateOn','spkSz','crgSz','blockY','nightMode'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,draw)));
 $('react').addEventListener('input',()=>$('reactV').textContent=$('react').value+' %');
 $('logoSz').addEventListener('input',()=>$('logoSzV').textContent=$('logoSz').value+' %');
 $('spkSz').addEventListener('input',()=>$('spkSzV').textContent=$('spkSz').value+' %');
@@ -518,7 +529,7 @@ function draw(){
   const lvl = (analyser && !med.paused) ? readLevel() : level*0.9;
   const react=parseFloat($('react').value)/100;
 
-  if($('layout').value==='perplexity'){ drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,FF); drawLogo(W,H); drawDate(W,H,ink,FF); return; }
+  if($('layout').value==='perplexity'){ drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,spokenC,upcomingC,FF); drawLogo(W,H); drawDate(W,H,ink,FF); return; }
 
   // kicker (volanta, sin itálica)
   ctx.textAlign='center'; ctx.textBaseline='alphabetic';
@@ -564,7 +575,7 @@ function draw(){
   const spk2=(parseFloat($('spkSz').value)||100)/100, crg2=(parseFloat($('crgSz').value)||100)/100;
   const byN2=(parseFloat($('blockY').value)||90)/100, nameFs2=W*0.024*spk2, roleFs2=W*0.017*crg2, nameY2=H*byN2;
   if(sp){ ctx.fillStyle=ink; ctx.textAlign='center'; ctx.font=`600 ${nameFs2}px ${FF}`; ctx.fillText(letterspace(sp.toUpperCase()), W/2, nameY2); }
-  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.textAlign='center'; ctx.font=`500 ${roleFs2}px var(--mono, monospace)`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, nameY2 + nameFs2*0.5 + roleFs2*1.25 + H*0.008); ctx.globalAlpha=1; }
+  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.textAlign='center'; ctx.font=`500 ${roleFs2}px "SF Mono","Menlo","Consolas",monospace`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, nameY2 + nameFs2*0.62 + H*0.034); ctx.globalAlpha=1; }
 
   drawLogo(W,H);
   drawDate(W,H,ink,FF);
@@ -590,7 +601,7 @@ function drawDate(W,H,ink,FF){
 }
 
 /* ===== Modo Perplexity: texto que se tipea, alineado a la izquierda, se funde a blanco arriba, esfera abajo ===== */
-function drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,FF){
+function drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,spokenC,upcomingC,FF){
   const ml=W*0.085, textW=W*0.83;
   ctx.textBaseline='alphabetic'; ctx.textAlign='left';
   let yTop=H*0.075;
@@ -607,53 +618,9 @@ function drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,FF){
     yTop+=tf*0.35; for(const l of tl){ yTop+=tf*1.12; ctx.fillText(l, ml, yTop); }
     yTop+=H*0.015;
   }
-  // transcripción tipeada, más chica
+  // transcripción: modo de aparición del texto (elegible)
   const fs=W*0.038, lh=fs*1.5;
-  ctx.font=`500 ${fs}px ${FF}`;
-  const spoken=words.filter(w=>t>=w.start);
-  if(!spoken.length){
-    ctx.fillStyle=ink; ctx.globalAlpha=.3; ctx.textAlign='left';
-    ctx.fillText(words.length?'…':'(subí audio, transcribí y dale Reproducir)', ml, Math.max(H*0.24,yTop+lh)); ctx.globalAlpha=1;
-  } else {
-    // armar líneas (palabras ya dichas), alineadas a la izquierda
-    const space=ctx.measureText(' ').width;
-    const lines=[[]]; let lw=0;
-    for(const wd of spoken){ const ww=ctx.measureText(wd.text).width; if(lw+ww>textW && lines[lines.length-1].length){lines.push([]);lw=0;} lines[lines.length-1].push(wd); lw+=ww+space; }
-    // texto anclado ARRIBA: aparece de arriba hacia abajo; al llenarse, scrollea y las viejas se funden arriba
-    const topY=Math.max(H*0.12, yTop), botLimit=H*0.60;
-    const maxLines=Math.max(1, Math.floor((botLimit-topY)/lh));
-    const scrolling = lines.length>maxLines;
-    const vis = lines.slice(-maxLines);
-    ctx.fillStyle=ink;
-    for(let k=0;k<vis.length;k++){
-      const ln=vis[k]; const y=topY+(k+1)*lh;
-      const lineAlpha = (scrolling && k===0) ? 0.35 : 1;
-      const isLastLine = (k===vis.length-1);
-      let x=ml;
-      for(let j=0;j<ln.length;j++){
-        const wd=ln[j];
-        let a=lineAlpha;
-        if(isLastLine && j===ln.length-1) a=Math.min(lineAlpha, Math.max(0.12,Math.min(1,(t-wd.start)/0.16))); // fade-in de la palabra nueva (tipeo)
-        ctx.globalAlpha=a; ctx.fillText(wd.text, x, y); x+=ctx.measureText(wd.text).width+space;
-      }
-    }
-    ctx.globalAlpha=1;
-    // fundido progresivo de las líneas viejas al tope (solo cuando ya scrollea)
-    // repinta el FONDO REAL (respeta el degradado y los colores oscuros) con alpha decreciente:
-    // arriba tapa del todo la línea vieja, y se disuelve suave hacia abajo — sin banda ni corte.
-    if(scrolling){
-      const fill=bgStyle(W,H,bg,bg2);
-      const fadeTop=topY, fadeH=lh*2.8, strips=32;
-      ctx.save();
-      for(let i=0;i<strips;i++){
-        const p=i/(strips-1);                                   // 0 arriba → 1 abajo
-        const a=(p<0.42)?1:Math.pow(1-(p-0.42)/0.58,1.7);       // opaco sobre la 1ª línea, luego ramp suave
-        ctx.globalAlpha=a; ctx.fillStyle=fill;
-        ctx.fillRect(0, fadeTop+p*fadeH, W, fadeH/strips+1.3);
-      }
-      ctx.restore(); ctx.globalAlpha=1;
-    }
-  }
+  drawRevealText(W,H,t,ml,textW,yTop,fs,lh,ink,spokenC,upcomingC,FF,bg,bg2);
   // visualizador abajo, centrado
   if(viz!=='none') drawViz(W,H,H*0.73,$('vizC').value,lvl*react);
   // hablante + rol (posición y separación configurables)
@@ -662,10 +629,91 @@ function drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,FF){
   const byN=(parseFloat($('blockY').value)||90)/100, nameFs=W*0.022*spk, roleFs=W*0.016*crg, nameY=H*byN;
   ctx.textAlign='center';
   if(sp){ ctx.fillStyle=ink; ctx.font=`600 ${nameFs}px ${FF}`; ctx.fillText(letterspace(sp.toUpperCase()), W/2, nameY); }
-  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.font=`500 ${roleFs}px var(--mono, monospace)`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, nameY + nameFs*0.5 + roleFs*1.25 + H*0.008); ctx.globalAlpha=1; }
+  if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.6; ctx.font=`500 ${roleFs}px "SF Mono","Menlo","Consolas",monospace`; ctx.fillText(letterspace(rl.toUpperCase()), W/2, nameY + nameFs*0.62 + H*0.034); ctx.globalAlpha=1; }
   ctx.textAlign='left';
 }
 function letterspace(s){return s.split('').join('  ');}
+
+/* ===== seis modos de aparición del texto (modo Perplexity) ===== */
+function buildLines(arr, maxW, space){
+  const lines=[[]]; let lw=0;
+  for(const wd of arr){ const ww=ctx.measureText(wd.text).width; if(lw+ww>maxW && lines[lines.length-1].length){lines.push([]);lw=0;} lines[lines.length-1].push(wd); lw+=ww+space; }
+  return lines;
+}
+function curWordIdx(seg,t){ let idx=-1; for(let i=0;i<seg.length;i++){ if(t>=seg[i].start) idx=i; } return idx; }
+/* fundido progresivo del tope: repinta el fondo real con alpha decreciente (sin banda dura) */
+function topFade(W,H,topY,lh,bg,bg2){
+  const fill=bgStyle(W,H,bg,bg2), fadeTop=topY, fadeH=lh*2.8, strips=32;
+  ctx.save();
+  for(let i=0;i<strips;i++){ const p=i/(strips-1); const a=(p<0.42)?1:Math.pow(1-(p-0.42)/0.58,1.7); ctx.globalAlpha=a; ctx.fillStyle=fill; ctx.fillRect(0,fadeTop+p*fadeH,W,fadeH/strips+1.3); }
+  ctx.restore(); ctx.globalAlpha=1;
+}
+function drawRevealText(W,H,t,ml,textW,yTop,fs,lh,ink,spokenC,upcomingC,FF,bg,bg2){
+  const mode=($('revealSel')&&$('revealSel').value)||'type';
+  const topY=Math.max(H*0.12,yTop), botLimit=H*0.60;
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.font=`500 ${fs}px ${FF}`;
+  const space=ctx.measureText(' ').width;
+  if(!words.length){ ctx.fillStyle=ink; ctx.globalAlpha=.3; ctx.fillText('(subí audio, transcribí y dale Reproducir)', ml, Math.max(H*0.24,topY+lh)); ctx.globalAlpha=1; return; }
+  const said=words.filter(w=>t>=w.start);
+
+  /* --- modos por oración activa: anticipan el párrafo --- */
+  if(mode==='karaoke' || mode==='spotlight'){
+    const seg=activeSegment(t); if(!seg.length) return;
+    const big = mode==='spotlight' ? fs*1.14 : fs;
+    ctx.font=`500 ${big}px ${FF}`; const sp2=ctx.measureText(' ').width;
+    const lines=buildLines(seg,textW,sp2), llh=big*1.5, blockH=lines.length*llh;
+    const ci=curWordIdx(seg,t), prog=ci<0?0:(ci+1)/seg.length;
+    let yStart;
+    if(mode==='spotlight'){ yStart=(topY+botLimit)/2 - blockH/2 + big; }
+    else { yStart = topY + big; if(blockH > (botLimit-topY)) yStart -= prog*(blockH-(botLimit-topY)); }
+    let gi=0, y=yStart;
+    for(const ln of lines){
+      let x=ml;
+      for(const wd of ln){
+        const isSaid=t>=wd.start, isCur=(gi===ci);
+        if(isCur){ ctx.fillStyle=upcomingC; ctx.globalAlpha=1; }
+        else if(isSaid){ ctx.fillStyle=(mode==='spotlight')?ink:spokenC; ctx.globalAlpha=(mode==='spotlight')?1:0.95; }
+        else { ctx.fillStyle=ink; ctx.globalAlpha=0.26; }
+        ctx.fillText(wd.text,x,y); x+=ctx.measureText(wd.text).width+sp2; gi++;
+      }
+      y+=llh;
+    }
+    ctx.globalAlpha=1;
+    if(mode==='karaoke') topFade(W,H,topY,lh,bg,bg2);
+    return;
+  }
+
+  /* --- una palabra grande por vez --- */
+  if(mode==='word'){
+    if(!said.length){ ctx.fillStyle=ink; ctx.globalAlpha=.3; ctx.fillText('…',ml,topY+lh); ctx.globalAlpha=1; return; }
+    const cur=said[said.length-1], big=fs*1.9, midY=(topY+botLimit)/2;
+    if(said.length>1){ const prev=said[said.length-2]; ctx.globalAlpha=0.16; ctx.fillStyle=ink; ctx.font=`500 ${fs*1.05}px ${FF}`; ctx.fillText(prev.text, ml, midY-big*0.9); }
+    const a=Math.max(0.15,Math.min(1,(t-cur.start)/0.18));
+    ctx.globalAlpha=a; ctx.fillStyle=ink; ctx.font=`700 ${big}px ${FF}`; ctx.fillText(cur.text, ml, midY);
+    ctx.globalAlpha=1; return;
+  }
+
+  /* --- acumulativos: tipeo / fundido / línea --- */
+  if(!said.length){ ctx.fillStyle=ink; ctx.globalAlpha=.3; ctx.fillText('…',ml,topY+lh); ctx.globalAlpha=1; return; }
+  const lines=buildLines(said,textW,space);
+  const maxLines=Math.max(1,Math.floor((botLimit-topY)/lh));
+  const scrolling=lines.length>maxLines, vis=lines.slice(-maxLines), nVis=vis.length;
+  for(let k=0;k<nVis;k++){
+    const ln=vis[k], y=topY+(k+1)*lh, isLast=(k===nVis-1);
+    let baseA=1;
+    if(mode==='line') baseA=isLast?1:(0.32+0.5*(k/Math.max(1,nVis-1)));
+    else if(scrolling && k===0) baseA=0.35;
+    let x=ml;
+    for(let j=0;j<ln.length;j++){
+      const wd=ln[j]; let a=baseA;
+      if(mode==='type'){ if(isLast && j===ln.length-1) a=Math.min(baseA,Math.max(0.12,Math.min(1,(t-wd.start)/0.16))); }
+      else if(mode==='fade'){ a=Math.min(baseA,Math.max(0.05,Math.min(1,(t-wd.start)/0.5))); }
+      ctx.globalAlpha=a; ctx.fillStyle=ink; ctx.fillText(wd.text,x,y); x+=ctx.measureText(wd.text).width+space;
+    }
+  }
+  ctx.globalAlpha=1;
+  if(scrolling) topFade(W,H,topY,lh,bg,bg2);
+}
 
 /* transcripción con palabras iluminadas (ventana = oración activa) */
 function drawTranscript(W,H, top, bottom, t, spokenC, upcomingC, FF){
@@ -916,7 +964,7 @@ async function gptChat(messages, opts){
 }
 function aiShow(txt, kind, withX){ $('aiOut').value=txt; $('aiKind').textContent=kind||''; $('aiBox').hidden=false; $('xRow').hidden=!withX; }
 const EPI_SYS='Sos editor de un diario. A partir de la transcripción de un audio o video, escribí UNA bajada periodística breve (una o dos frases, máximo ~180 caracteres), en tercera persona, que resuma lo esencial para usar como epígrafe. Sin comillas, sin “el cronista dice”, directo al hecho.';
-const NOTA_PROMPT='Convertí este texto en una crónica breve, escrita en frases cortas y separadas por párrafos. No resumas ni agregues información. Ordená los hechos cronológicamente y hacé que cada párrafo contenga una sola idea o dato relevante. Usá un lenguaje coloquial pero periodístico, natural para un video o un post informativo. Evitá subtítulos, bullets, tablas y conectores innecesarios. Cada párrafo debe poder leerse como una unidad de información independiente. Devolvé solamente la crónica: sin título, sin comillas y sin comentarios previos ni posteriores.';
+const NOTA_PROMPT='Sos redactor de un diario. Convertí esta transcripción en una nota periodística breve, glosada y de lectura fluida, en español rioplatense. Escribí en prosa corrida, con oraciones que se encadenan con conectores naturales, como una crónica que se lee de un tirón. Dos o tres párrafos de varias oraciones cada uno; NO hagas una lista, NO pongas una idea por renglón, NO uses viñetas, guiones, números ni subtítulos. Arrancá por lo más importante y después contextualizá. No inventes ni agregues datos que no estén en el texto, pero podés reordenar y glosar para que fluya. Tercera persona, tono informativo y sobrio. Devolvé solamente la nota: sin título, sin comillas y sin comentarios previos ni posteriores.';
 const DATA_SYS='Sos analista de datos periodísticos. A partir de la transcripción de un audio o video, extraé y estructurá la información del o los hablantes. Devolvé texto plano en español rioplatense con estas secciones, en este orden, y OMITÍ las que queden vacías:\nHABLANTE: quién habla y su rol o cargo si se menciona.\nAFIRMACIONES CLAVE: 3 a 6 afirmaciones o hechos centrales, una por línea con guion.\nCIFRAS Y VALORES: montos, porcentajes, cantidades y plazos con su contexto, una por línea con guion.\nLUGARES: lugares mencionados, separados por coma.\nFECHAS Y PLAZOS: fechas u horizontes temporales mencionados.\nENTIDADES: personas, organizaciones, empresas, leyes o instituciones nombradas.\nNo inventes nada que no esté en el texto. Sé fiel y conciso. Sin markdown ni comentarios extra.';
 const X_POST_SYS='Sos community manager de un medio. Con los datos que te paso, escribí UN solo posteo para X (Twitter) en español rioplatense, listo para publicar.\nReglas: máximo 280 caracteres en total; la primera línea es un gancho con el dato más fuerte; una idea o cifra por renglón usando saltos de línea (NO viñetas, NO markdown, NO numeración); las cifras y montos bien visibles; tono informativo y sobrio, sin exagerar ni clickbait; 0 a 2 hashtags relevantes al final como máximo; sin emojis salvo que sumen de verdad. Devolvé SOLO el texto del posteo.';
 const X_THREAD_SYS='Sos community manager de un medio. Con los datos que te paso, escribí un HILO para X (Twitter) en español rioplatense, listo para publicar.\nReglas: el primer tuit es un gancho con el dato más fuerte; los tuits siguientes desglosan un dato, cifra, lugar o fecha por tuit, en orden de importancia; numerá cada tuit como 1/, 2/, 3/…; cada tuit ≤ 280 caracteres; tono informativo y sobrio; sin markdown ni viñetas; 0 a 2 hashtags en el último tuit como máximo. Separá cada tuit con una línea en blanco. Devolvé SOLO el hilo.';
@@ -946,7 +994,7 @@ $('aiCopy').onclick =()=>{ const v=$('aiOut').value||''; if(navigator.clipboard&
 $('aiToTitle').onclick=()=>{ const v=($('aiOut').value||'').trim(); if(!v){aiStat('No hay texto para usar.','err');return;} $('title').value=v.split('\n')[0].slice(0,140); draw(); aiStat('Cargado como título.','ok'); };
 
 /* ===================== CONFIGURACIÓN DEL EQUIPO (an_cfg) ===================== */
-const CFG_FIELDS=['kicker','title','speaker','role','spkSz','crgSz','blockY','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','vizSel','vizSz','react','fmt','fontSel','layout','logoPos','logoSz','photoOn','dateTxt','dateOn','nightMode'];
+const CFG_FIELDS=['kicker','title','speaker','role','spkSz','crgSz','blockY','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','vizSel','vizSz','react','fmt','fontSel','layout','revealSel','logoPos','logoSz','photoOn','dateTxt','dateOn','nightMode'];
 function collectCfg(){ const o={}; CFG_FIELDS.forEach(id=>{ const el=$(id); if(!el) return; o[id]=(el.type==='checkbox')?el.checked:el.value; }); return o; }
 function applyCfg(o){
   if(!o) return;

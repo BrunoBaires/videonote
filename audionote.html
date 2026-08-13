@@ -75,6 +75,10 @@ canvas{max-width:100%;max-height:70vh;border-radius:8px;background:#e6e9ee;displ
 .time{font-family:var(--mono);font-size:10.5px;color:var(--dim);min-width:82px;text-align:right}
 .note{font-size:10.5px;color:var(--dim);line-height:1.55;text-align:center}
 audio,video.src{display:none}
+.logoGal{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.logoGal .th{width:46px;height:46px;border:1px solid var(--line);border-radius:6px;background:#e9edf2 url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"/>');background-size:contain;background-repeat:no-repeat;background-position:center;cursor:pointer;position:relative;flex:0 0 auto}
+.logoGal .th.on{border-color:var(--rojo);box-shadow:inset 0 0 0 2px var(--rojo)}
+.logoGal .th .x{position:absolute;top:-6px;right:-6px;width:16px;height:16px;line-height:15px;text-align:center;font-size:11px;border-radius:50%;background:var(--rojo);color:#fff;border:none;padding:0;cursor:pointer}
 </style>
 </head>
 <body>
@@ -121,6 +125,28 @@ audio,video.src{display:none}
     </div></div>
 
     <div class="card"><div class="body">
+      <h2>Herramientas editoriales (IA)</h2>
+      <span class="lbl">API key de OpenAI <span class="val" id="oaiState">no cargada</span></span>
+      <input type="password" id="oaiKey" placeholder="clave de OpenAI (sk-…)" autocomplete="off">
+      <div class="hint">La misma key de “Crear con IA” de Video Note. Trabajan sobre el texto de la transcripción de arriba.</div>
+      <div class="seg" style="margin-top:10px"><button type="button" class="mini" id="epiBtn" style="margin-top:0">Extraer epígrafe</button><button type="button" class="mini" id="notaBtn" style="margin-top:0">Nota breve</button></div>
+      <button type="button" class="mini" id="dataBtn">Estructurar datos del hablante</button>
+      <div id="aiBox" hidden style="margin-top:10px">
+        <span class="lbl">Resultado <span class="val" id="aiKind"></span></span>
+        <textarea id="aiOut" rows="6" placeholder="Acá aparece lo que genera la IA."></textarea>
+        <div class="seg" style="margin-top:7px">
+          <button type="button" class="mini" id="aiCopy" style="margin-top:0">Copiar</button>
+          <button type="button" class="mini" id="aiToTitle" style="margin-top:0">Usar como título</button>
+        </div>
+        <div class="seg" style="margin-top:7px" id="xRow" hidden>
+          <button type="button" class="mini" id="xPost" style="margin-top:0">Posteo para X</button>
+          <button type="button" class="mini" id="xThread" style="margin-top:0">Hilo para X</button>
+        </div>
+      </div>
+      <div class="stat" id="aiStat"></div>
+    </div></div>
+
+    <div class="card"><div class="body">
       <h2>Placa</h2>
       <div class="grp"><span class="lbl">Kicker (marca)</span><input type="text" id="kicker" value="Incertis" placeholder="The Atlantic, Incertis…"></div>
       <div class="grp"><span class="lbl">Título</span><textarea id="title" rows="2" placeholder="Título de la nota">Cómo tocar pasto</textarea></div>
@@ -138,7 +164,9 @@ audio,video.src{display:none}
       <div class="grp">
         <span class="lbl">Logo / marca (PNG)</span>
         <div class="seg"><button type="button" id="logoPick" class="mini" style="margin-top:0">Subir logo</button><button type="button" id="logoClear" class="mini" style="margin-top:0" disabled>Quitar</button></div>
-        <input type="file" id="logoFile" accept="image/*" hidden>
+        <input type="file" id="logoFile" accept="image/*" multiple hidden>
+        <div class="logoGal" id="logoGal"></div>
+        <div class="hint" id="logoGalHint" hidden>Tocá un logo para usarlo. Quedan guardados para el equipo en este navegador.</div>
         <div class="row" style="margin-top:8px">
           <div><span class="lbl">Posición</span><select id="logoPos"><option value="tl">Arriba izq</option><option value="tr">Arriba der</option><option value="bl" selected>Abajo izq</option><option value="br">Abajo der</option></select></div>
           <div><span class="lbl">Tamaño <span class="val" id="logoSzV">10 %</span></span><input type="range" id="logoSz" min="4" max="22" value="10"></div>
@@ -210,6 +238,15 @@ audio,video.src{display:none}
       </div>
       <label class="chk"><input type="checkbox" id="nightMode"> Noche (invierte: fondo oscuro, texto claro)</label>
       <div class="hint">La palabra ya dicha va con un color y la que todavía no, con otro (no tiene por qué ser verde). Cambiá tipografía y colores a gusto.</div>
+    </div></div>
+
+    <div class="card"><div class="body">
+      <h2>Configuración del equipo</h2>
+      <div class="hint">Guardá el estilo (colores, tipografía, formato, visualizador, placa) para reusarlo. Se guarda en este navegador y podés exportarlo para compartirlo con el equipo.</div>
+      <div class="seg" style="margin-top:10px"><button type="button" class="mini go" id="cfgSave" style="margin-top:0">Guardar</button><button type="button" class="mini" id="cfgLoad" style="margin-top:0">Restaurar</button></div>
+      <div class="seg" style="margin-top:7px"><button type="button" class="mini" id="cfgExport" style="margin-top:0">Exportar archivo</button><button type="button" class="mini" id="cfgImport" style="margin-top:0">Importar archivo</button></div>
+      <input type="file" id="cfgFile" accept="application/json,.json" hidden>
+      <div class="stat" id="cfgStat"></div>
     </div></div>
 
   </div>
@@ -358,16 +395,60 @@ $('estimateBtn').onclick=()=>{
   setStat('trStat','Tiempos estimados · '+words.length+' palabras (repartidas en '+(Math.round(D*10)/10)+' s).','ok'); draw();
 };
 
+/* editar el texto se refleja en el acto: corrige typos sin perder la sincronía,
+   y si cambia la cantidad de palabras, reparte proporcionalmente en el tramo ya conocido */
+function resyncFromText(){
+  const ws=($('trText').value||'').trim().split(/\s+/).filter(Boolean);
+  if(!ws.length){ words=[]; activeSegment._cache=null; draw(); return; }
+  if(words.length===ws.length){
+    words=words.map((w,i)=>({text:ws[i],start:w.start,end:w.end}));        // sólo cambió el texto: conserva tiempos
+  } else if(words.length){
+    const t0=words[0].start, t1=words[words.length-1].end, span=Math.max(0.5,t1-t0); // reparte en el rango real
+    const totalCh=ws.reduce((a,w)=>a+w.length+1,0)||1;
+    let t=t0; words=ws.map(w=>{const d=(w.length+1)/totalCh*span;const o={text:w,start:t,end:t+d*0.92};t+=d;return o;});
+  } else {
+    const D=dur||Math.max(6,ws.length*0.36);                               // sin tiempos previos: estima sobre la duración
+    const totalCh=ws.reduce((a,w)=>a+w.length+1,0)||1;
+    let t=0; words=ws.map(w=>{const d=(w.length+1)/totalCh*D;const o={text:w,start:t,end:t+d*0.92};t+=d;return o;});
+  }
+  activeSegment._cache=null; draw();
+}
+$('trText').addEventListener('input', resyncFromText);
+
 /* ---- foto ---- */
 $('photoPick').onclick=()=>$('photoFile').click();
 $('photoFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{photo=im;$('photoClear').disabled=false;draw();};im.src=URL.createObjectURL(f);};
 $('photoClear').onclick=()=>{photo=null;$('photoFile').value='';$('photoClear').disabled=true;draw();};
 
-/* ---- logo (como en Video Note) ---- */
-let logoImg=null;
+/* ---- logo + galería (se guardan para el equipo en este navegador) ---- */
+let logoImg=null, logoGal=[], logoActive=-1;
+function galGet(){ try{ return JSON.parse(localStorage.getItem('an_logos')||'[]'); }catch(e){ return []; } }
+function galSet(){ try{ localStorage.setItem('an_logos', JSON.stringify(logoGal)); }catch(e){} }
+function setActiveLogo(i){
+  logoActive=i;
+  if(i<0||!logoGal[i]){ logoImg=null; $('logoClear').disabled=true; renderGal(); draw(); return; }
+  const im=new Image(); im.onload=()=>{ logoImg=im; $('logoClear').disabled=false; renderGal(); draw(); }; im.src=logoGal[i];
+}
+function renderGal(){
+  const box=$('logoGal'); box.innerHTML='';
+  $('logoGalHint').hidden = logoGal.length===0;
+  logoGal.forEach((src,i)=>{
+    const th=document.createElement('div'); th.className='th'+(i===logoActive?' on':''); th.style.backgroundImage='url('+src+')';
+    th.title='Usar este logo'; th.onclick=()=>setActiveLogo(i);
+    const x=document.createElement('button'); x.className='x'; x.textContent='×'; x.title='Borrar de la galería';
+    x.onclick=ev=>{ ev.stopPropagation(); logoGal.splice(i,1); if(logoActive===i){logoActive=-1;logoImg=null;$('logoClear').disabled=true;} else if(logoActive>i){logoActive--;} galSet(); renderGal(); draw(); };
+    th.appendChild(x); box.appendChild(th);
+  });
+}
 $('logoPick').onclick=()=>$('logoFile').click();
-$('logoFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{logoImg=im;$('logoClear').disabled=false;draw();};im.src=URL.createObjectURL(f);};
-$('logoClear').onclick=()=>{logoImg=null;$('logoFile').value='';$('logoClear').disabled=true;draw();};
+$('logoFile').onchange=e=>{
+  const files=[...(e.target.files||[])]; if(!files.length) return;
+  let pending=files.length;
+  files.forEach(f=>{ const rd=new FileReader(); rd.onload=()=>{ logoGal.push(rd.result); pending--; if(pending===0){ galSet(); setActiveLogo(logoGal.length-1); } }; rd.readAsDataURL(f); });
+  $('logoFile').value='';
+};
+$('logoClear').onclick=()=>{ setActiveLogo(-1); };
+logoGal=galGet(); renderGal();
 
 /* ---- tipografía ---- */
 const FONTS={
@@ -437,7 +518,7 @@ function draw(){
   const lvl = (analyser && !med.paused) ? readLevel() : level*0.9;
   const react=parseFloat($('react').value)/100;
 
-  if($('layout').value==='perplexity'){ drawPerplexity(W,H,t,lvl,react,bg,ink,FF); drawLogo(W,H); drawDate(W,H,ink,FF); return; }
+  if($('layout').value==='perplexity'){ drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,FF); drawLogo(W,H); drawDate(W,H,ink,FF); return; }
 
   // kicker (volanta, sin itálica)
   ctx.textAlign='center'; ctx.textBaseline='alphabetic';
@@ -509,7 +590,7 @@ function drawDate(W,H,ink,FF){
 }
 
 /* ===== Modo Perplexity: texto que se tipea, alineado a la izquierda, se funde a blanco arriba, esfera abajo ===== */
-function drawPerplexity(W,H,t,lvl,react,bg,ink,FF){
+function drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,FF){
   const ml=W*0.085, textW=W*0.83;
   ctx.textBaseline='alphabetic'; ctx.textAlign='left';
   let yTop=H*0.075;
@@ -557,12 +638,20 @@ function drawPerplexity(W,H,t,lvl,react,bg,ink,FF){
       }
     }
     ctx.globalAlpha=1;
-    // fundido de las líneas viejas al tope (solo cuando ya scrollea)
+    // fundido progresivo de las líneas viejas al tope (solo cuando ya scrollea)
+    // repinta el FONDO REAL (respeta el degradado y los colores oscuros) con alpha decreciente:
+    // arriba tapa del todo la línea vieja, y se disuelve suave hacia abajo — sin banda ni corte.
     if(scrolling){
-      const [r,g,b]=hex2rgb(bg);
-      const grad=ctx.createLinearGradient(0,topY,0,topY+lh*1.5);
-      grad.addColorStop(0,`rgba(${r},${g},${b},1)`); grad.addColorStop(1,`rgba(${r},${g},${b},0)`);
-      ctx.fillStyle=grad; ctx.fillRect(0,topY,W,lh*1.5);   // el fundido arranca en topY: no tapa el título
+      const fill=bgStyle(W,H,bg,bg2);
+      const fadeTop=topY, fadeH=lh*2.8, strips=32;
+      ctx.save();
+      for(let i=0;i<strips;i++){
+        const p=i/(strips-1);                                   // 0 arriba → 1 abajo
+        const a=(p<0.42)?1:Math.pow(1-(p-0.42)/0.58,1.7);       // opaco sobre la 1ª línea, luego ramp suave
+        ctx.globalAlpha=a; ctx.fillStyle=fill;
+        ctx.fillRect(0, fadeTop+p*fadeH, W, fadeH/strips+1.3);
+      }
+      ctx.restore(); ctx.globalAlpha=1;
     }
   }
   // visualizador abajo, centrado
@@ -666,15 +755,16 @@ function drawSphere(W,H,cy,color,lvl){
 }
 function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return[n>>16&255,n>>8&255,n&255];}
 /* fondo: plano o degradado de dos colores (elegible) */
-function paintBg(W,H,bg,bg2){
-  if(!$('gradOn').checked){ ctx.fillStyle=bg; ctx.fillRect(0,0,W,H); return; }
+function bgStyle(W,H,bg,bg2){
+  if(!$('gradOn').checked) return bg;
   const dir=$('gradDir').value; let g;
   if(dir==='radial') g=ctx.createRadialGradient(W*0.5,H*0.42,0, W*0.5,H*0.42, Math.max(W,H)*0.78);
   else if(dir==='diagonal') g=ctx.createLinearGradient(0,0,W,H);
   else g=ctx.createLinearGradient(0,0,0,H);
   g.addColorStop(0,bg); g.addColorStop(1,bg2);
-  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  return g;
 }
+function paintBg(W,H,bg,bg2){ ctx.fillStyle=bgStyle(W,H,bg,bg2); ctx.fillRect(0,0,W,H); }
 function vizScale(){ return (parseFloat($('vizSz').value)||100)/100; }
 function rr(x,y,w,h,r){ r=Math.min(r,Math.abs(w)/2,Math.abs(h)/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill(); }
 
@@ -808,6 +898,68 @@ $('recBtn').onclick=async()=>{
   $('stageNote').textContent='Grabando'+(recordingMp4?' (mp4)':'')+'… dejá correr hasta el final o tocá “Detener”.';
   med.onended=()=>{ med.pause(); $('play').textContent='Reproducir'; if(recorder&&recorder.state==='recording')recorder.stop(); };
 };
+
+/* ===================== HERRAMIENTAS EDITORIALES (OpenAI) ===================== */
+function oaiGet(){ try{ return localStorage.getItem('vn_oai')||''; }catch(e){ return ''; } }
+(function(){ const k=oaiGet(); if(k){ $('oaiKey').value=k; $('oaiState').textContent='cargada'; } })();
+$('oaiKey').addEventListener('change',()=>{ const v=$('oaiKey').value.trim(); try{ localStorage.setItem('vn_oai',v); }catch(e){} $('oaiState').textContent=v?'cargada':'no cargada'; });
+function aiStat(t,c){ setStat('aiStat',t,c); }
+async function gptChat(messages, opts){
+  const key=$('oaiKey').value.trim()||oaiGet();
+  if(!key) throw new Error('Falta la API key de OpenAI (la misma de “Crear con IA” de Video Note).');
+  const r=await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST', headers:{ 'Authorization':'Bearer '+key, 'content-type':'application/json' },
+    body:JSON.stringify({ model:(opts&&opts.model)||'gpt-4o-mini', temperature:(opts&&opts.temperature!=null)?opts.temperature:0.4, messages })
+  });
+  if(!r.ok){ let m=''; try{ const j=await r.json(); m=(j.error&&j.error.message)||''; }catch(e){} throw new Error('OpenAI '+r.status+(m?' · '+m:'')); }
+  const d=await r.json(); return (d.choices[0].message.content||'').trim();
+}
+function aiShow(txt, kind, withX){ $('aiOut').value=txt; $('aiKind').textContent=kind||''; $('aiBox').hidden=false; $('xRow').hidden=!withX; }
+const EPI_SYS='Sos editor de un diario. A partir de la transcripción de un audio o video, escribí UNA bajada periodística breve (una o dos frases, máximo ~180 caracteres), en tercera persona, que resuma lo esencial para usar como epígrafe. Sin comillas, sin “el cronista dice”, directo al hecho.';
+const NOTA_PROMPT='Convertí este texto en una crónica breve, escrita en frases cortas y separadas por párrafos. No resumas ni agregues información. Ordená los hechos cronológicamente y hacé que cada párrafo contenga una sola idea o dato relevante. Usá un lenguaje coloquial pero periodístico, natural para un video o un post informativo. Evitá subtítulos, bullets, tablas y conectores innecesarios. Cada párrafo debe poder leerse como una unidad de información independiente. Devolvé solamente la crónica: sin título, sin comillas y sin comentarios previos ni posteriores.';
+const DATA_SYS='Sos analista de datos periodísticos. A partir de la transcripción de un audio o video, extraé y estructurá la información del o los hablantes. Devolvé texto plano en español rioplatense con estas secciones, en este orden, y OMITÍ las que queden vacías:\nHABLANTE: quién habla y su rol o cargo si se menciona.\nAFIRMACIONES CLAVE: 3 a 6 afirmaciones o hechos centrales, una por línea con guion.\nCIFRAS Y VALORES: montos, porcentajes, cantidades y plazos con su contexto, una por línea con guion.\nLUGARES: lugares mencionados, separados por coma.\nFECHAS Y PLAZOS: fechas u horizontes temporales mencionados.\nENTIDADES: personas, organizaciones, empresas, leyes o instituciones nombradas.\nNo inventes nada que no esté en el texto. Sé fiel y conciso. Sin markdown ni comentarios extra.';
+const X_POST_SYS='Sos community manager de un medio. Con los datos que te paso, escribí UN solo posteo para X (Twitter) en español rioplatense, listo para publicar.\nReglas: máximo 280 caracteres en total; la primera línea es un gancho con el dato más fuerte; una idea o cifra por renglón usando saltos de línea (NO viñetas, NO markdown, NO numeración); las cifras y montos bien visibles; tono informativo y sobrio, sin exagerar ni clickbait; 0 a 2 hashtags relevantes al final como máximo; sin emojis salvo que sumen de verdad. Devolvé SOLO el texto del posteo.';
+const X_THREAD_SYS='Sos community manager de un medio. Con los datos que te paso, escribí un HILO para X (Twitter) en español rioplatense, listo para publicar.\nReglas: el primer tuit es un gancho con el dato más fuerte; los tuits siguientes desglosan un dato, cifra, lugar o fecha por tuit, en orden de importancia; numerá cada tuit como 1/, 2/, 3/…; cada tuit ≤ 280 caracteres; tono informativo y sobrio; sin markdown ni viñetas; 0 a 2 hashtags en el último tuit como máximo. Separá cada tuit con una línea en blanco. Devolvé SOLO el hilo.';
+function trBody(){ return ($('trText').value||'').trim(); }
+async function runTool(btn, sys, kind, opts, withX){
+  const t=trBody();
+  if(!t){ aiStat('Primero transcribí o pegá el texto.','err'); return; }
+  $(btn).disabled=true; aiStat('<span class="spin"></span>Procesando…');
+  try{ const out=await gptChat([{role:'system',content:sys},{role:'user',content:t}], opts); aiShow(out, kind, withX); aiStat(kind+' listo.','ok'); }
+  catch(e){ aiStat(String(e.message||e),'err'); }
+  $(btn).disabled=false;
+}
+$('epiBtn').onclick =()=>runTool('epiBtn', EPI_SYS, 'Epígrafe', {model:'gpt-4o-mini', temperature:0.4}, false);
+$('notaBtn').onclick=()=>runTool('notaBtn', NOTA_PROMPT, 'Nota breve', {model:'gpt-4o', temperature:0.3}, false);
+$('dataBtn').onclick=()=>runTool('dataBtn', DATA_SYS, 'Datos', {model:'gpt-4o', temperature:0.2}, true);
+async function makeX(sys, label, btn){
+  const base=($('aiOut').value||'').trim() || trBody();
+  if(!base){ aiStat('Primero estructurá los datos o transcribí.','err'); return; }
+  $(btn).disabled=true; aiStat('<span class="spin"></span>Armando '+label+' para X…');
+  try{ const out=await gptChat([{role:'system',content:sys},{role:'user',content:base}], {model:'gpt-4o', temperature:0.6}); aiShow(out, label.charAt(0).toUpperCase()+label.slice(1)+' para X', true); aiStat(label+' listo para X.','ok'); }
+  catch(e){ aiStat(String(e.message||e),'err'); }
+  $(btn).disabled=false;
+}
+$('xPost').onclick  =()=>makeX(X_POST_SYS,'posteo','xPost');
+$('xThread').onclick=()=>makeX(X_THREAD_SYS,'hilo','xThread');
+$('aiCopy').onclick =()=>{ const v=$('aiOut').value||''; if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(v).catch(()=>{}); } else { $('aiOut').select(); try{document.execCommand('copy');}catch(e){} } aiStat('Copiado.','ok'); };
+$('aiToTitle').onclick=()=>{ const v=($('aiOut').value||'').trim(); if(!v){aiStat('No hay texto para usar.','err');return;} $('title').value=v.split('\n')[0].slice(0,140); draw(); aiStat('Cargado como título.','ok'); };
+
+/* ===================== CONFIGURACIÓN DEL EQUIPO (an_cfg) ===================== */
+const CFG_FIELDS=['kicker','title','speaker','role','spkSz','crgSz','blockY','bgC','bg2C','gradDir','gradOn','inkC','spokenC','upcomingC','vizC','vizSel','vizSz','react','fmt','fontSel','layout','logoPos','logoSz','photoOn','dateTxt','dateOn','nightMode'];
+function collectCfg(){ const o={}; CFG_FIELDS.forEach(id=>{ const el=$(id); if(!el) return; o[id]=(el.type==='checkbox')?el.checked:el.value; }); return o; }
+function applyCfg(o){
+  if(!o) return;
+  CFG_FIELDS.forEach(id=>{ if(!(id in o)) return; const el=$(id); if(!el) return; if(el.type==='checkbox') el.checked=!!o[id]; else el.value=o[id]; });
+  viz=$('vizSel').value;
+  ['spkSz','crgSz','blockY','react','logoSz','vizSz'].forEach(id=>{ const v=$(id+'V'); if(v) v.textContent=$(id).value+' %'; });
+  ensureFont();
+}
+$('cfgSave').onclick=()=>{ try{ localStorage.setItem('an_cfg', JSON.stringify(collectCfg())); setStat('cfgStat','Configuración guardada en este navegador.','ok'); }catch(e){ setStat('cfgStat','No se pudo guardar: '+e.message,'err'); } };
+$('cfgLoad').onclick=()=>{ try{ const raw=localStorage.getItem('an_cfg'); if(!raw){ setStat('cfgStat','No hay ninguna configuración guardada todavía.','err'); return; } applyCfg(JSON.parse(raw)); setStat('cfgStat','Configuración restaurada.','ok'); }catch(e){ setStat('cfgStat','No se pudo restaurar: '+e.message,'err'); } };
+$('cfgExport').onclick=()=>{ const blob=new Blob([JSON.stringify(collectCfg(),null,2)],{type:'application/json'}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download='audionote-config.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1000); setStat('cfgStat','Archivo exportado: compartilo con el equipo.','ok'); };
+$('cfgImport').onclick=()=>$('cfgFile').click();
+$('cfgFile').onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ applyCfg(JSON.parse(rd.result)); setStat('cfgStat','Configuración importada.','ok'); }catch(err){ setStat('cfgStat','Archivo inválido.','err'); } }; rd.readAsText(f); $('cfgFile').value=''; };
 
 draw();
 </script>

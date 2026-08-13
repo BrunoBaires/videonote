@@ -213,6 +213,10 @@ video.src{display:none}
           <button type="button" class="genbtn" id="xFetch" style="margin-top:8px">Traer video de X</button>
           <div class="genstat" id="xStat"></div>
         </div>
+        <div class="grp" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+          <label class="chk" style="margin-top:0"><input type="checkbox" id="fullVid"> Publicar el video tal cual (pantalla completa)</label>
+          <div class="hint">El video ocupa toda la placa —sin el recuadro— y se le suman <b>subtítulos + logo</b>. Elegí el formato de salida en “Formato y calidad” (1:1, 4:5, 9:16 o 16:9). El zoom y el encuadre sirven para reencuadrar si el video no coincide con el formato elegido.</div>
+        </div>
         <div class="grp" style="margin-top:13px">
           <span class="lbl">Encuadre vertical <span class="val" id="ofV">0 %</span></span>
           <input type="range" id="of" min="-30" max="30" value="0">
@@ -576,6 +580,7 @@ video.src{display:none}
             <option value="9:16">9:16 · 1080×1920</option>
             <option value="1:1" selected>1:1 · 1080×1080</option>
             <option value="4:5">4:5 · 1080×1350</option>
+            <option value="16:9">16:9 · 1920×1080 (apaisado)</option>
           </select>
         </div>
         <div class="grp">
@@ -927,7 +932,7 @@ catch(e){ document.getElementById('pass').focus(); }
 
 const $ = id => document.getElementById(id);
 const cv = $('cv'), ctx = cv.getContext('2d'), vid = $('vid'), vidBg = $('vidBg');
-const DIMS = { '1:1.22':[1080,1320], '1:1.5':[1080,1620], '9:16':[1080,1920], '1:1':[1080,1080], '4:5':[1080,1350] };
+const DIMS = { '1:1.22':[1080,1320], '1:1.5':[1080,1620], '9:16':[1080,1920], '1:1':[1080,1080], '4:5':[1080,1350], '16:9':[1920,1080] };
 const NAME_FONT = '"Franklin Gothic Medium","Franklin Gothic","ITC Franklin Gothic","Helvetica Neue",Helvetica,Arial,sans-serif';
 const QUAL = {
   wa:  { rec: 1000000, crf:'32', preset:'veryfast', w:720,  ab:'96k',  nota:'El más liviano para WhatsApp (~4–5 MB por minuto).' },
@@ -1490,7 +1495,21 @@ function draw(){
 
   if(!bakingFondo) drawBgFx(W,H);
 
-  drawSubjCut(W,H);
+  // ── PUBLICAR TAL CUAL: el video ocupa toda la placa (sin recuadro), solo subtítulos + logo ──
+  const fullVid = ($('fullVid') && $('fullVid').checked && (vid.videoWidth||0) > 0);
+  if(fullVid){
+    const vw=vid.videoWidth, vh=vid.videoHeight, zoom=parseFloat($('zoom').value)/100;
+    const scale=Math.max(W/vw,H/vh)*zoom, dw=vw*scale, dh=vh*scale;
+    const offX=dw*(parseFloat($('ofH').value)/100), offY=dh*(parseFloat($('of').value)/100);
+    const fA=filtro($('aBri').value,$('aCon').value,$('aExp').value);
+    ctx.save(); if(fA!=='none') ctx.filter=fA;
+    if(vid.readyState>=2) ctx.drawImage(vid,(W-dw)/2+offX,(H-dh)/2+offY,dw,dh);
+    ctx.restore();
+    // velo inferior para que se lean los subtítulos y el logo/fecha
+    const gv=ctx.createLinearGradient(0,H*0.5,0,H);
+    gv.addColorStop(0,'rgba(0,0,0,0)'); gv.addColorStop(1,'rgba(0,0,0,0.5)');
+    ctx.fillStyle=gv; ctx.fillRect(0,H*0.5,W,H*0.5);
+  } else drawSubjCut(W,H);
 
   const stroke = parseFloat($('ring').value)*(W/1080)*1.9;
   const margin = W*(parseFloat($('mg').value)/100);
@@ -1506,9 +1525,9 @@ function draw(){
 
   if(!bakingFondo){
   // veladura de abajo hacia arriba: cubre desde donde empiezan los textos
-  if(veilAmt > 0) pintarVeladura(ctx, W, H, veilAmt, veilRGB, cy + rV - stroke);
+  if(veilAmt > 0 && !fullVid) pintarVeladura(ctx, W, H, veilAmt, veilRGB, cy + rV - stroke);
 
-  if($('circleOn').checked){
+  if($('circleOn').checked && !fullVid){
   const _spin = finAnim.active && $('finAnimOn') && $('finAnimOn').checked;
   const _c = _spin ? Math.cos(finAnim.theta) : 1;
   const _s = _spin ? Math.max(Math.abs(_c), 0.0001) : 1;
@@ -1657,7 +1676,8 @@ function draw(){
   else if(cmode==='dark') ctxLight=false;
   else ctxLight=autoLight;
 
-  // bloque de textos
+  // bloque de textos (se ocultan en modo "publicar tal cual")
+  if(!fullVid){
   const name=$('name').value.trim(), place=$('place').value.trim();
   const gap = W*(parseFloat($('gap').value)/100);
   let ty = cy + rV + gap;
@@ -1721,14 +1741,14 @@ function draw(){
   }
 
   overflow = ty > H - H*0.07;
+  }
 
   const bm=$('brandMode').value;
-  drawBrand(W, H, bm==='light' ? true : (bm==='dark' ? false : light));
+  drawBrand(W, H, fullVid ? true : (bm==='light' ? true : (bm==='dark' ? false : light)));
   }
 
   if(!bakingFondo) drawSubs(W, H);
-  drawZocalo(W, H);
-  drawElement(W, H);
+  if(!fullVid){ drawZocalo(W, H); drawElement(W, H); }
 }
 
 /* ---------- subtítulos sincronizados (desde los tiempos por palabra de AssemblyAI) ---------- */
@@ -2230,7 +2250,7 @@ function loop(){
     rafId=null;
     if(!busy){
       $('play').textContent='Previsualizar'; if(atEnd) seeking=false;
-      if(justEnded && atEnd && $('finAnimOn') && $('finAnimOn').checked && $('circleOn').checked && !finAnim.active){
+      if(justEnded && atEnd && $('finAnimOn') && $('finAnimOn').checked && $('circleOn').checked && !($('fullVid')&&$('fullVid').checked) && !finAnim.active){
         finalFrame=true; playClosing(()=>{ cancelClosing(); finalFrame=false; try{ vid.currentTime=segIn(); }catch(e){} draw(); });   // cierre en la previsualización; al terminar queda en el primer frame (como el loop)
       } else {
         draw();   // al final: reposo (vuelven nombre/zócalo/epígrafe)
@@ -2266,7 +2286,7 @@ function finishRec(){
   try{ vid.pause(); }catch(e){}
   finalFrame=true;
   stopRecLoop();
-  if($('finAnimOn') && $('finAnimOn').checked && $('circleOn').checked){
+  if($('finAnimOn') && $('finAnimOn').checked && $('circleOn').checked && !($('fullVid')&&$('fullVid').checked)){
     // cierre traumótropo: se dibuja dentro del canvas mientras el recorder sigue grabando
     playClosing(()=>{ if(recorder && recorder.state==='recording') recorder.stop(); });
   } else {
@@ -2317,7 +2337,7 @@ $('restart').onclick=()=>{
   if(rafId===null) loop();
 };
 
-const CTRLS = ['fmt','bg','mg','sz','of','zoom','ofH','vfit','ring','ringC','trackC','ringOn','shape','rad',
+const CTRLS = ['fmt','bg','mg','sz','of','zoom','ofH','vfit','fullVid','ring','ringC','trackC','ringOn','shape','rad',
   'name','nameSz','place','placeSz','ctx','ctxSz','gap','timerOn','timerDown',
   'logoOn','logoPos','signOn','dateOn','dateTxt','brandMode','txtMode','ctxMode',
   'signCustom','signC','dateCustom','dateC',

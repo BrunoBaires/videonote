@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v23 · subs al frente</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v24 · trama+cierre full</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1536,6 +1536,9 @@ function draw(){
     drawSubjCut(W,H);
   }
 
+  // trama SOLO sobre el video/imagen de fondo, debajo de todo el texto y gráficos (nunca tapa el nombre)
+  if(!bakingFondo) drawTrama(W, H);
+
   const stroke = parseFloat($('ring').value)*(W/1080)*1.9;
   const margin = W*(parseFloat($('mg').value)/100);
   const szPct = calcularDiametro(W,H);
@@ -1777,8 +1780,33 @@ function draw(){
   }
 
   drawZocalo(W, H); drawElement(W, H);   // zócalo, elementos y efectos también en modo pantalla completa
-  drawTrama(W, H);                        // grano / líneas de TV, sobre la imagen…
-  if(!bakingFondo) drawSubs(W, H);        // …pero el subtítulo SIEMPRE al frente (nada por encima)
+  if(!bakingFondo) drawSubs(W, H);        // …y el subtítulo SIEMPRE al frente (nada por encima)
+  if(fullVid && finAnim.active && $('finAnimOn') && $('finAnimOn').checked) drawFullClosing(W, H);   // cierre traumótropo en pantalla completa
+}
+/* cierre "traumótropo" para pantalla completa: isotipo que gira en el centro, luego negro y fundido al primer frame */
+function drawFullClosing(W,H){
+  const cx=W/2, cy=H/2;
+  if(finAnim.black){ ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H); return; }
+  if(finAnim.fade!=null){
+    if(firstFrameCv){
+      const vw=firstFrameCv.width||1, vh=firstFrameCv.height||1, zoom=parseFloat($('zoom').value)/100;
+      const scale=Math.max(W/vw,H/vh)*zoom, dw=vw*scale, dh=vh*scale;
+      const offX=dw*(parseFloat($('ofH').value)/100), offY=dh*(parseFloat($('of').value)/100);
+      ctx.drawImage(firstFrameCv,(W-dw)/2+offX,(H-dh)/2+offY,dw,dh);
+    } else { ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H); }
+    ctx.fillStyle='rgba(0,0,0,'+(1-finAnim.fade).toFixed(3)+')'; ctx.fillRect(0,0,W,H);
+    return;
+  }
+  const R=Math.min(W,H)*0.17;
+  const c=Math.cos(finAnim.theta), s=Math.max(Math.abs(c),0.0001);
+  ctx.save();
+  ctx.translate(cx,cy); ctx.scale(s,1); ctx.translate(-cx,-cy);
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.closePath();
+  ctx.save(); ctx.clip(); ctx.fillStyle='#000'; ctx.fillRect(cx-R,cy-R,2*R,2*R);
+  if(logoWok){ const box=R*1.4, ar=logoW.width/logoW.height; let lw=box,lh=box; if(ar>=1) lh=box/ar; else lw=box*ar; ctx.drawImage(logoW,cx-lw/2,cy-lh/2,lw,lh); }
+  ctx.restore();
+  ctx.lineWidth=Math.max(2,R*0.03); ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.stroke();
+  ctx.restore();
 }
 /* tramas: grano de film (se mueve) y líneas de TV (scanlines) */
 let grainCv=null;
@@ -2317,7 +2345,7 @@ function loop(){
     rafId=null;
     if(!busy){
       $('play').textContent='Previsualizar'; if(atEnd) seeking=false;
-      if(justEnded && atEnd && $('finAnimOn') && $('finAnimOn').checked && $('circleOn').checked && !($('fullVid')&&$('fullVid').checked) && !finAnim.active){
+      if(justEnded && atEnd && $('finAnimOn') && $('finAnimOn').checked && (($('fullVid')&&$('fullVid').checked) || $('circleOn').checked) && !finAnim.active){
         finalFrame=true; playClosing(()=>{ cancelClosing(); finalFrame=false; try{ vid.currentTime=segIn(); }catch(e){} draw(); });   // cierre en la previsualización; al terminar queda en el primer frame (como el loop)
       } else {
         draw();   // al final: reposo (vuelven nombre/zócalo/epígrafe)
@@ -2353,7 +2381,7 @@ function finishRec(){
   try{ vid.pause(); }catch(e){}
   finalFrame=true;
   stopRecLoop();
-  if($('finAnimOn') && $('finAnimOn').checked && $('circleOn').checked && !($('fullVid')&&$('fullVid').checked)){
+  if($('finAnimOn') && $('finAnimOn').checked && (($('fullVid')&&$('fullVid').checked) || $('circleOn').checked)){
     // cierre traumótropo: se dibuja dentro del canvas mientras el recorder sigue grabando
     playClosing(()=>{ if(recorder && recorder.state==='recording') recorder.stop(); });
   } else {

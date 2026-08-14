@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v25 · cierre full negro+logo</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v26 · trama+logo+nombre</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1738,7 +1738,7 @@ function draw(){
     ctx.restore();
     ty += fs*1.3;
   }
-  if(fullVid && (name||place)) nameBBox={ x0:bx-W*0.42, y0:blockTop-W*0.05, x1:bx+W*0.42, y1:ty+W*0.02 };   // zona arrastrable del nombre
+  if(fullVid && (name||place)) nameBBox={ x0:bx-W*0.42, y0:blockTop+slideY-W*0.06, x1:bx+W*0.42, y1:ty+slideY+W*0.03 };   // zona arrastrable del nombre (sigue al nombre aunque baje al reproducir)
 
   const ctxTxt=$('ctx').value.trim();
   ctxBBox=null;
@@ -1786,6 +1786,13 @@ function draw(){
 /* cierre "traumótropo" para pantalla completa: isotipo que gira en el centro, luego negro y fundido al primer frame */
 function drawFullClosing(W,H){
   const cx=W/2, cy=H/2;
+  // usa el logo cargado por el usuario (puede ser SIN aro); si no hay, el isotipo por defecto
+  const L = logoCustom || (logoWok ? logoW : null);
+  const drawLogo = (alpha, s) => {
+    if(!L) return;
+    const box=Math.min(W,H)*0.28, ar=L.width/L.height; let lw=box,lh=box; if(ar>=1) lh=box/ar; else lw=box*ar;
+    ctx.save(); ctx.globalAlpha=alpha; ctx.translate(cx,cy); ctx.scale(s,1); ctx.drawImage(L,-lw/2,-lh/2,lw,lh); ctx.restore();
+  };
   if(finAnim.fade!=null){
     // fundido final de negro → primer frame del video (conecta el loop)
     if(firstFrameCv){
@@ -1795,26 +1802,24 @@ function drawFullClosing(W,H){
       ctx.drawImage(firstFrameCv,(W-dw)/2+offX,(H-dh)/2+offY,dw,dh);
     } else { ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H); }
     ctx.fillStyle='rgba(0,0,0,'+(1-finAnim.fade).toFixed(3)+')'; ctx.fillRect(0,0,W,H);
+    drawLogo(1-finAnim.fade, 1);   // el logo se desvanece mientras vuelve la imagen congelada
     return;
   }
   // funde RÁPIDO a negro y el logo gira solo, sin ningún anillo
   const k = finAnim.black ? 1 : Math.min(1, finAnim.theta/0.6);   // negro casi inmediato
   ctx.fillStyle='rgba(0,0,0,'+k.toFixed(3)+')'; ctx.fillRect(0,0,W,H);
-  const s=Math.max(Math.abs(Math.cos(finAnim.theta)),0.0001);   // gira sobre el eje vertical
-  if(logoWok){
-    const box=Math.min(W,H)*0.28, ar=logoW.width/logoW.height; let lw=box,lh=box; if(ar>=1) lh=box/ar; else lw=box*ar;
-    ctx.save(); ctx.globalAlpha=k; ctx.translate(cx,cy); ctx.scale(s,1); ctx.drawImage(logoW,-lw/2,-lh/2,lw,lh); ctx.restore();
-  }
+  drawLogo(k, Math.max(Math.abs(Math.cos(finAnim.theta)),0.0001));   // gira sobre el eje vertical
 }
 /* tramas: grano de film (se mueve) y líneas de TV (scanlines) */
-let grainCv=null;
+let grainCv=null, grainOx=0, grainOy=0;
 function drawTrama(W,H){
   const t=$('trama')?$('trama').value:'none'; if(t==='none') return;
   const amt=(parseFloat(($('tramaAmt')||{}).value)||0)/100; if(amt<=0) return;
   if(t==='grain'||t==='both'){
-    if(!grainCv){ grainCv=document.createElement('canvas'); grainCv.width=220; grainCv.height=220; const g=grainCv.getContext('2d'); const id=g.createImageData(220,220); for(let i=0;i<id.data.length;i+=4){ const v=(Math.random()*255)|0; id.data[i]=id.data[i+1]=id.data[i+2]=v; id.data[i+3]=255; } g.putImageData(id,0,0); }
-    ctx.save(); ctx.globalAlpha=0.14*amt; ctx.globalCompositeOperation='overlay';
-    const ox=(Math.random()*220)|0, oy=(Math.random()*220)|0;   // desplaza el grano cada frame → se mueve
+    if(!grainCv){ grainCv=document.createElement('canvas'); grainCv.width=220; grainCv.height=220; const g=grainCv.getContext('2d'); const id=g.createImageData(220,220); for(let i=0;i<id.data.length;i+=4){ const v=(128+(Math.random()*2-1)*70)|0; id.data[i]=id.data[i+1]=id.data[i+2]=v; id.data[i+3]=255; } g.putImageData(id,0,0); }   // ruido centrado en gris medio: no altera el brillo general (no "palpita")
+    ctx.save(); ctx.globalAlpha=0.12*amt; ctx.globalCompositeOperation='overlay';
+    grainOx=(grainOx+(Math.random()*6-3)+220)%220; grainOy=(grainOy+(Math.random()*6-3)+220)%220;   // deriva suave (sin saltos bruscos = no palpita)
+    const ox=grainOx|0, oy=grainOy|0;
     ctx.translate(-ox,-oy); ctx.fillStyle=ctx.createPattern(grainCv,'repeat'); ctx.fillRect(ox,oy,W,H);
     ctx.restore();
   }

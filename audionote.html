@@ -89,7 +89,7 @@ audio,video.src{display:none}
 
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span class="badge" title="versión del editor">AudioNote v19 · plantillas equipo</span>
+  <span class="badge" title="versión del editor">AudioNote v20 · voces color + orden</span>
   <div class="tabs">
     <button type="button" class="tab" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -127,7 +127,25 @@ audio,video.src{display:none}
       </div>
     </div></div>
 
-    <div class="card"><div class="body">
+    <div class="card collapsed"><div class="body">
+      <h2>Plantillas del equipo</h2>
+      <div class="hint">Guardá el estilo (colores, tipografía, formato, visualizador, placa) para reusarlo. Se guarda en este navegador y podés exportarlo para compartirlo con el equipo.</div>
+      <div class="seg" style="margin-top:10px"><button type="button" class="mini go" id="cfgSave" style="margin-top:0">Guardar</button><button type="button" class="mini" id="cfgLoad" style="margin-top:0">Restaurar</button></div>
+      <div class="seg" style="margin-top:7px"><button type="button" class="mini" id="cfgExport" style="margin-top:0">Exportar archivo</button><button type="button" class="mini" id="cfgImport" style="margin-top:0">Importar archivo</button></div>
+      <input type="file" id="cfgFile" accept="application/json,.json" hidden>
+      <div class="stat" id="cfgStat"></div>
+
+      <div id="anTplBlock" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+        <div class="hint" style="font-style:normal;margin-top:0"><strong style="color:var(--ink)">Biblioteca compartida</strong><br>Guardá este estilo con un nombre y lo ve todo el equipo, desde cualquier dispositivo. Elegí una para aplicarla al toque.</div>
+        <select id="anTplSel" style="margin-top:8px;width:100%"><option value="">— Elegí una plantilla —</option></select>
+        <div class="seg" style="margin-top:8px"><button type="button" class="mini go" id="anTplApply" style="margin-top:0">Aplicar</button><button type="button" class="mini" id="anTplDelete" style="margin-top:0">Borrar</button></div>
+        <input type="text" id="anTplName" placeholder="Nombre (ej. Placa política)" style="margin-top:8px;width:100%">
+        <button type="button" class="mini" id="anTplSave" style="margin-top:8px;width:100%">Guardar como plantilla del equipo</button>
+        <div class="stat" id="anTplStat"></div>
+      </div>
+    </div></div>
+
+    <div class="card collapsed"><div class="body">
       <h2>En vivo (tiempo real)</h2>
       <div class="grp"><span class="lbl">Fuente de audio</span>
         <select id="liveSrc">
@@ -141,7 +159,7 @@ audio,video.src{display:none}
       <div class="hint">Transcribe en español a medida que se habla (modelo multilingüe de AssemblyAI). Para captar una transmisión —por ejemplo un discurso— elegí “Pestaña/pantalla” y al compartir tildá <b>“Compartir audio de la pestaña”</b>. Necesita la app servida (Vercel) y tu API key de AssemblyAI.<br><b>Grabar el video de la fuente</b> guarda el clip crudo (imagen + sonido) de lo que estás capturando: sirve para llevarte un fragmento de un video de YouTube y después editarlo.</div>
     </div></div>
 
-    <div class="card"><div class="body">
+    <div class="card collapsed"><div class="body">
       <h2>Transcripción (palabras sincronizadas)</h2>
       <span class="lbl">API key de AssemblyAI <span class="val" id="aaiState">no cargada</span></span>
       <input type="password" id="aaiKey" placeholder="clave de AssemblyAI" autocomplete="off">
@@ -183,7 +201,7 @@ audio,video.src{display:none}
       <div class="stat" id="aiStat"></div>
     </div></div>
 
-    <div class="card"><div class="body">
+    <div class="card collapsed"><div class="body">
       <h2>Placa</h2>
       <div class="grp"><span class="lbl">Kicker (marca)</span><input type="text" id="kicker" value="Incertis" placeholder="The Atlantic, Incertis…"></div>
       <div class="grp"><span class="lbl">Título</span><textarea id="title" rows="2" placeholder="Título de la nota">Cómo tocar pasto</textarea></div>
@@ -288,7 +306,7 @@ audio,video.src{display:none}
       <div class="hint">Con “Fondo con la imagen del video” ves al que habla de fondo y el texto/karaoke encima (queda como un video-note). Si el audio no trae imagen, se usa el fondo de color. La palabra ya dicha va con un color y la que todavía no, con otro.</div>
     </div></div>
 
-    <div class="card"><div class="body">
+    <div class="card collapsed"><div class="body">
       <h2>Fuente / video de origen</h2>
       <div class="grp"><span class="lbl">Cómo mostrar el video</span>
         <select id="videoMode">
@@ -313,23 +331,6 @@ audio,video.src{display:none}
       <div class="hint">“Recuadro” embebe la fuente como viñeta (se adapta a la proporción del video). Zoom + Encuadre sirven para enfocar a una persona dentro de la imagen. El nombre, el cargo y el visualizador se reacomodan solos alrededor del recuadro.</div>
     </div></div>
 
-    <div class="card collapsed"><div class="body">
-      <h2>Configuración del equipo</h2>
-      <div class="hint">Guardá el estilo (colores, tipografía, formato, visualizador, placa) para reusarlo. Se guarda en este navegador y podés exportarlo para compartirlo con el equipo.</div>
-      <div class="seg" style="margin-top:10px"><button type="button" class="mini go" id="cfgSave" style="margin-top:0">Guardar</button><button type="button" class="mini" id="cfgLoad" style="margin-top:0">Restaurar</button></div>
-      <div class="seg" style="margin-top:7px"><button type="button" class="mini" id="cfgExport" style="margin-top:0">Exportar archivo</button><button type="button" class="mini" id="cfgImport" style="margin-top:0">Importar archivo</button></div>
-      <input type="file" id="cfgFile" accept="application/json,.json" hidden>
-      <div class="stat" id="cfgStat"></div>
-
-      <div id="anTplBlock" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
-        <div class="hint" style="font-style:normal;margin-top:0"><strong style="color:var(--ink)">Plantillas del equipo</strong><br>Guardá este estilo con un nombre y lo ve todo el equipo, desde cualquier dispositivo. Elegí una para aplicarla al toque.</div>
-        <select id="anTplSel" style="margin-top:8px;width:100%"><option value="">— Elegí una plantilla —</option></select>
-        <div class="seg" style="margin-top:8px"><button type="button" class="mini go" id="anTplApply" style="margin-top:0">Aplicar</button><button type="button" class="mini" id="anTplDelete" style="margin-top:0">Borrar</button></div>
-        <input type="text" id="anTplName" placeholder="Nombre (ej. Placa política)" style="margin-top:8px;width:100%">
-        <button type="button" class="mini" id="anTplSave" style="margin-top:8px;width:100%">Guardar como plantilla del equipo</button>
-        <div class="stat" id="anTplStat"></div>
-      </div>
-    </div></div>
 
   </div>
 
@@ -376,7 +377,7 @@ $('vizSel').addEventListener('change',()=>{ viz=$('vizSel').value; draw(); });
 
 /* secciones colapsables: clic en el título abre/cierra */
 document.querySelectorAll('.card > .body > h2').forEach(h=>{
-  h.addEventListener('click',()=>{ h.closest('.card').classList.toggle('collapsed'); });
+  h.addEventListener('click',()=>{ const card=h.closest('.card'); const willOpen=card.classList.contains('collapsed'); if(willOpen){ document.querySelectorAll('.card').forEach(c=>{ if(c!==card) c.classList.add('collapsed'); }); } card.classList.toggle('collapsed'); });
 });
 $('vizSz').addEventListener('input',()=>{ $('vizSzV').textContent=$('vizSz').value+' %'; draw(); });
 
@@ -550,10 +551,11 @@ function resyncFromText(){
 $('trText').addEventListener('input', resyncFromText);
 
 /* ---- varias voces (diarización): nombre + cargo por hablante ---- */
-let speakerInfo={};   // { 'A':{name,role}, 'B':{...} }
+let speakerInfo={};   // { 'A':{name,role,color}, 'B':{...} }
+const SPK_COLORS=['#d64545','#2f6fb0','#3a9d6e','#c98a1b','#8a5cc9','#c05a9e'];   // color por defecto de cada hablante
 function buildSpeakers(){
   const order=[]; for(const w of words){ if(w.speaker && !order.includes(w.speaker)) order.push(w.speaker); }
-  const next={}; order.forEach(sp=>{ next[sp]=speakerInfo[sp]||{name:'',role:''}; });
+  const next={}; order.forEach((sp,i)=>{ next[sp]=speakerInfo[sp]||{name:'',role:'',color:SPK_COLORS[i%SPK_COLORS.length]}; if(!next[sp].color) next[sp].color=SPK_COLORS[i%SPK_COLORS.length]; });
   speakerInfo=next;
   const box=$('spkBox'), list=$('spkList'); list.innerHTML='';
   if(order.length===0){ box.hidden=true; return; }   // texto pegado sin diarización
@@ -566,7 +568,15 @@ function buildSpeakers(){
     nm.addEventListener('input',()=>{ speakerInfo[sp].name=nm.value; draw(); });
     const rl=document.createElement('input'); rl.type='text'; rl.placeholder='Cargo / rol (opcional)'; rl.value=speakerInfo[sp].role||''; rl.style.marginTop='5px';
     rl.addEventListener('input',()=>{ speakerInfo[sp].role=rl.value; draw(); });
-    wrap.appendChild(lab); wrap.appendChild(nm); wrap.appendChild(rl); list.appendChild(wrap);
+    wrap.appendChild(lab); wrap.appendChild(nm); wrap.appendChild(rl);
+    if(many){
+      const cr=document.createElement('div'); cr.style.cssText='display:flex;align-items:center;gap:7px;margin-top:6px';
+      const cl=document.createElement('span'); cl.className='lbl'; cl.style.margin='0'; cl.textContent='Color';
+      const co=document.createElement('input'); co.type='color'; co.value=speakerInfo[sp].color||SPK_COLORS[i%SPK_COLORS.length];
+      co.addEventListener('input',()=>{ speakerInfo[sp].color=co.value; draw(); });
+      cr.appendChild(cl); cr.appendChild(co); wrap.appendChild(cr);
+    }
+    list.appendChild(wrap);
   });
 }
 /* nombre + cargo del hablante activo en el instante t; null → usar el campo manual “Quién habla” */
@@ -577,7 +587,7 @@ function activeSpeaker(t){
   if(!sp) sp=keys[0];
   const info=speakerInfo[sp]||{}, named=info.name&&info.name.trim(), multi=keys.length>1;
   if(!named && !multi) return null;   // una sola voz sin nombre asignado → placa manual
-  return { name: named || ('Hablante '+sp), role:(info.role||'').trim() };
+  return { name: named || ('Hablante '+sp), role:(info.role||'').trim(), color: info.color||null };
 }
 
 /* ---- foto ---- */
@@ -767,7 +777,7 @@ function draw(){
   const sp=_live?_live.name:$('speaker').value.trim(); const rl=(_live&&_live.role)?_live.role:$('role').value.trim();
   const spk2=(parseFloat($('spkSz').value)||100)/100, crg2=(parseFloat($('crgSz').value)||100)/100;
   const byN2=(parseFloat($('blockY').value)||90)/100, nameFs2=W*0.028*spk2, roleFs2=W*0.019*crg2, nameY2=H*byN2;
-  if(sp){ ctx.fillStyle=ink; ctx.textAlign='center'; ctx.font=`700 ${nameFs2}px ${FF}`; ctx.fillText(sp, W/2, nameY2); }
+  if(sp){ ctx.fillStyle=(_live&&_live.color)?_live.color:ink; ctx.textAlign='center'; ctx.font=`700 ${nameFs2}px ${FF}`; ctx.fillText(sp, W/2, nameY2); }
   if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.62; ctx.textAlign='center'; ctx.font=`500 ${roleFs2}px ${FF}`; ctx.fillText(rl, W/2, nameY2 + nameFs2*0.7 + H*0.028); ctx.globalAlpha=1; }
 
   if(insetRect) drawVideoInset(W,H,ink,FF);
@@ -859,7 +869,7 @@ function drawPerplexity(W,H,t,lvl,react,bg,bg2,ink,spokenC,upcomingC,FF){
   const spk=(parseFloat($('spkSz').value)||100)/100, crg=(parseFloat($('crgSz').value)||100)/100;
   const byN=(parseFloat($('blockY').value)||90)/100, nameFs=W*0.026*spk, roleFs=W*0.018*crg, nameY=H*byN;
   ctx.textAlign='center';
-  if(sp){ ctx.fillStyle=ink; ctx.font=`700 ${nameFs}px ${FF}`; ctx.fillText(sp, W/2, nameY); }
+  if(sp){ ctx.fillStyle=(_live&&_live.color)?_live.color:ink; ctx.font=`700 ${nameFs}px ${FF}`; ctx.fillText(sp, W/2, nameY); }
   if(rl){ ctx.fillStyle=ink; ctx.globalAlpha=.62; ctx.font=`500 ${roleFs}px ${FF}`; ctx.fillText(rl, W/2, nameY + nameFs*0.7 + H*0.028); ctx.globalAlpha=1; }
   ctx.textAlign='left';
 }

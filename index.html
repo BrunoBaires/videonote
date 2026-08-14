@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v24 · trama+cierre full</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v25 · cierre full negro+logo</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1786,8 +1786,8 @@ function draw(){
 /* cierre "traumótropo" para pantalla completa: isotipo que gira en el centro, luego negro y fundido al primer frame */
 function drawFullClosing(W,H){
   const cx=W/2, cy=H/2;
-  if(finAnim.black){ ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H); return; }
   if(finAnim.fade!=null){
+    // fundido final de negro → primer frame del video (conecta el loop)
     if(firstFrameCv){
       const vw=firstFrameCv.width||1, vh=firstFrameCv.height||1, zoom=parseFloat($('zoom').value)/100;
       const scale=Math.max(W/vw,H/vh)*zoom, dw=vw*scale, dh=vh*scale;
@@ -1797,16 +1797,14 @@ function drawFullClosing(W,H){
     ctx.fillStyle='rgba(0,0,0,'+(1-finAnim.fade).toFixed(3)+')'; ctx.fillRect(0,0,W,H);
     return;
   }
-  const R=Math.min(W,H)*0.17;
-  const c=Math.cos(finAnim.theta), s=Math.max(Math.abs(c),0.0001);
-  ctx.save();
-  ctx.translate(cx,cy); ctx.scale(s,1); ctx.translate(-cx,-cy);
-  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.closePath();
-  ctx.save(); ctx.clip(); ctx.fillStyle='#000'; ctx.fillRect(cx-R,cy-R,2*R,2*R);
-  if(logoWok){ const box=R*1.4, ar=logoW.width/logoW.height; let lw=box,lh=box; if(ar>=1) lh=box/ar; else lw=box*ar; ctx.drawImage(logoW,cx-lw/2,cy-lh/2,lw,lh); }
-  ctx.restore();
-  ctx.lineWidth=Math.max(2,R*0.03); ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.stroke();
-  ctx.restore();
+  // funde RÁPIDO a negro y el logo gira solo, sin ningún anillo
+  const k = finAnim.black ? 1 : Math.min(1, finAnim.theta/0.6);   // negro casi inmediato
+  ctx.fillStyle='rgba(0,0,0,'+k.toFixed(3)+')'; ctx.fillRect(0,0,W,H);
+  const s=Math.max(Math.abs(Math.cos(finAnim.theta)),0.0001);   // gira sobre el eje vertical
+  if(logoWok){
+    const box=Math.min(W,H)*0.28, ar=logoW.width/logoW.height; let lw=box,lh=box; if(ar>=1) lh=box/ar; else lw=box*ar;
+    ctx.save(); ctx.globalAlpha=k; ctx.translate(cx,cy); ctx.scale(s,1); ctx.drawImage(logoW,-lw/2,-lh/2,lw,lh); ctx.restore();
+  }
 }
 /* tramas: grano de film (se mueve) y líneas de TV (scanlines) */
 let grainCv=null;

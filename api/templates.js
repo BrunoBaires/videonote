@@ -1,108 +1,100 @@
-// api/templates.js — Biblioteca compartida de plantillas de estilo (Video Note).
-// Guarda todas las plantillas del equipo como un único JSON en Vercel Blob.
-// Métodos:
-//   GET                → { templates: [...] }
-//   POST { name, cfg } → crea o actualiza (por id, o por nombre si no hay id). Devuelve { template, templates }
-//   DELETE ?id=...     → borra una plantilla. Devuelve { templates }
+// Biblioteca de plantillas del equipo — persistida en Vercel Blob.
+// GET    -> { templates: [...] }
+// POST   { name, cfg, id? } -> { templates, template:{id,name} }
+// DELETE ?id=<id>           -> { templates }
 //
-// Requiere BLOB_READ_WRITE_TOKEN en las variables de entorno de Vercel
-// (el mismo store de Blob que ya usa render.js / upload.js).
-
+// Requiere un Blob store conectado al proyecto (Vercel -> Storage -> Blob),
+// que inyecta la env var BLOB_READ_WRITE_TOKEN. Si no está, responde 501
+// (el editor lo muestra como "Biblioteca no configurada todavía", sin romper).
 import { put, list } from '@vercel/blob';
 
-const PATH = 'videonote/templates.json';
-
-async function readAll() {
-  try {
-    const { blobs } = await list({ prefix: PATH, limit: 1 });
-    if (!blobs.length) return [];
-    // cache:no-store + querystring para evitar que el CDN devuelva una versión vieja tras sobrescribir.
-    const r = await fetch(blobs[0].url + '?ts=' + Date.now(), { cache: 'no-store' });
-    if (!r.ok) return [];
-    const data = await r.json();
-    return Array.isArray(data) ? data : [];
-  } catch (e) {
-    return [];
-  }
+// Cada app (videonote / audionote) guarda sus plantillas en su propio archivo,
+// así los dos formatos de configuración no se mezclan. Sin ?app= => videonote
+// (compatibilidad con lo ya guardado).
+function keyFor(app) {
+  const a = String(app || 'videonote').toLowerCase().replace(/[^a-z0-9-]/g, '');
+  return (a || 'videonote') + '/templates.json';
 }
 
-async function writeAll(arr) {
-  await put(PATH, JSON.stringify(arr), {
+async function readAll(token, key) {
+  const { blobs } = await list({ prefix: key, token });
+  const b = blobs.find(x => x.pathname === key);
+  if (!b) return [];
+  // cache-buster para no leer una versión vieja del CDN tras sobrescribir
+  const r = await fetch(b.url + '?ts=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) return [];
+  const d = await r.json().catch(() => null);
+  if (Array.isArray(d)) return d;
+  if (d && Array.isArray(d.templates)) return d.templates;
+  return [];
+}
+
+async function writeAll(templates, token, key) {
+  await put(key, JSON.stringify(templates), {
     access: 'public',
+    token,
     contentType: 'application/json',
-    addRandomSuffix: false,
-    allowOverwrite: true,
+    addRandomSuffix: false,   // pathname estable, para poder sobrescribir
+    allowOverwrite: true      // sin esto, put() tira 500 si el archivo ya existe
   });
 }
 
 function newId() {
-  return 't_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
-}
-
-function readBody(req) {
-  if (req.body == null) return {};
-  if (typeof req.body === 'string') {
-    try { return JSON.parse(req.body || '{}'); } catch (e) { return {}; }
-  }
-  return req.body;
+  return 'tpl_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'content-type');
-  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
-
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    res.status(501).json({ error: 'blob_not_configured' });
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    res.status(501).json({ error: 'Blob store no configurado en el servidor.' });
     return;
   }
-
   try {
     if (req.method === 'GET') {
-      const templates = await readAll();
+      const key = keyFor(req.query && req.query.app);
+      const templates = await readAll(token, key);
+      res.setHeader('Cache-Control', 'no-store');
       res.status(200).json({ templates });
       return;
     }
 
     if (req.method === 'POST') {
-      const body = readBody(req);
-      const name = (body.name || '').toString().trim().slice(0, 60);
-      const cfg = body.cfg && typeof body.cfg === 'object' ? body.cfg : null;
-      if (!name || !cfg) { res.status(400).json({ error: 'bad_request' }); return; }
+      let body = req.body;
+      if (typeof body === 'string') { try { body = JSON.parse(body || '{}'); } catch { body = {}; } }
+      if (!body || typeof body !== 'object') body = {};
+      const name = String(body.name || '').trim();
+      if (!name) { res.status(400).json({ error: 'Falta el nombre de la plantilla.' }); return; }
+      const cfg = (body.cfg && typeof body.cfg === 'object') ? body.cfg : {};
+      const key = keyFor(body.app);
 
-      const arr = await readAll();
-      let t = null;
-      if (body.id) t = arr.find(x => x.id === body.id) || null;
-      if (!t) t = arr.find(x => (x.name || '').toLowerCase() === name.toLowerCase()) || null;
-
-      const now = Date.now();
-      if (t) {
-        t.name = name;
-        t.cfg = cfg;
-        t.updatedAt = now;
+      let templates = await readAll(token, key);
+      let id = body.id;
+      if (id) {
+        const i = templates.findIndex(t => t.id === id);
+        if (i >= 0) templates[i] = { ...templates[i], name, cfg };
+        else templates.push({ id, name, cfg });
       } else {
-        t = { id: newId(), name, cfg, createdAt: now, updatedAt: now };
-        arr.push(t);
+        id = newId();
+        templates.push({ id, name, cfg });
       }
-      arr.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es'));
-      await writeAll(arr);
-      res.status(200).json({ template: t, templates: arr });
+      await writeAll(templates, token, key);
+      res.status(200).json({ templates, template: { id, name } });
       return;
     }
 
     if (req.method === 'DELETE') {
-      const id = (req.query && req.query.id ? req.query.id : '').toString();
-      if (!id) { res.status(400).json({ error: 'no_id' }); return; }
-      let arr = await readAll();
-      arr = arr.filter(x => x.id !== id);
-      await writeAll(arr);
-      res.status(200).json({ templates: arr });
+      const id = req.query && req.query.id;
+      if (!id) { res.status(400).json({ error: 'Falta el id de la plantilla.' }); return; }
+      const key = keyFor(req.query && req.query.app);
+      let templates = await readAll(token, key);
+      templates = templates.filter(t => t.id !== id);
+      await writeAll(templates, token, key);
+      res.status(200).json({ templates });
       return;
     }
 
-    res.status(405).json({ error: 'method_not_allowed' });
+    res.status(405).json({ error: 'Método no permitido.' });
   } catch (e) {
-    res.status(500).json({ error: String((e && e.message) || e) });
+    res.status(500).json({ error: String((e && e.message) || e).slice(0, 300) });
   }
 }

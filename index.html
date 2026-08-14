@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v26 · trama+logo+nombre</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v27 · galería logos</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -875,6 +875,20 @@ video.src{display:none}
         <button type="button" class="mini-btn" id="logoClear" hidden>Quitar marca</button>
         <input type="file" id="logoFile" accept="image/*" hidden>
         <div class="hint" id="logoNote"></div>
+
+        <div id="lgBlock" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+          <div class="hint" style="font-style:normal;margin-top:0"><strong style="color:var(--ink)">Galería de logos del equipo</strong><br>Subí logos y agrupalos por marca. Los ve todo el equipo. Tocá uno para usarlo.</div>
+          <select id="lgGroup" style="margin-top:8px;width:100%"></select>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button type="button" class="mini-btn" id="lgAddGroup" style="margin-top:0;flex:1;width:auto;padding:6px 4px">+ Grupo</button>
+            <button type="button" class="mini-btn" id="lgRenGroup" style="margin-top:0;flex:1;width:auto;padding:6px 4px">Renombrar</button>
+            <button type="button" class="mini-btn" id="lgDelGroup" style="margin-top:0;flex:1;width:auto;padding:6px 4px">Borrar</button>
+          </div>
+          <div id="lgGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+          <button type="button" class="genbtn" id="lgUpload" style="margin-top:8px">Subir logo a este grupo</button>
+          <input type="file" id="lgFile" accept="image/*" hidden>
+          <div class="genstat" id="lgStat"></div>
+        </div>
         <div class="grp" style="margin-top:10px">
           <span class="lbl">Tamaño de la marca <span class="val" id="logoSzV">10,5 %</span></span>
           <input type="range" id="logoSz" min="4" max="24" value="10.5" step="0.5">
@@ -3058,10 +3072,46 @@ $('logoFile').onchange = e => {
 $('logoClear').onclick = () => { logoCustom=null; try{ localStorage.removeItem('vn_logo'); }catch(e){} $('logoFile').value=''; $('logoClear').hidden=true; $('logoNote').textContent=''; redraw(); };
 function setLogo(dataUrl){
   const img=new Image();
+  if(/^https?:/.test(dataUrl)) img.crossOrigin='anonymous';   // logos de la galería (Blob): CORS para no tintar el canvas al exportar
   img.onload=()=>{ logoCustom=img; $('logoClear').hidden=false; $('logoOn').checked=true; redraw(); };
   img.src=dataUrl;
 }
 (function initLogo(){ try{ const d=localStorage.getItem('vn_logo'); if(d){ setLogo(d); $('logoNote').textContent='Marca guardada ✓'; } }catch(e){} })();
+
+/* ---------- galería de logos del equipo, agrupados por marca (servidor / Vercel Blob) ---------- */
+(function lgLib(){
+  const API='/api/logos';
+  const sel=$('lgGroup'), grid=$('lgGrid');
+  if(!sel||!grid) return;
+  let DATA={groups:[],items:[]};
+  function stat(t,c){ const e=$('lgStat'); if(e){ e.textContent=t; e.className='genstat'+(c?' '+c:''); } }
+  function esc(s){ return String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+  function fillGroups(){ const cur=sel.value; sel.innerHTML=DATA.groups.map(g=>'<option>'+esc(g)+'</option>').join(''); if(cur && DATA.groups.includes(cur)) sel.value=cur; }
+  function renderGrid(){
+    const g=sel.value, items=DATA.items.filter(x=>x.group===g);
+    grid.innerHTML='';
+    if(!items.length){ grid.innerHTML='<div class="hint" style="margin:0">Sin logos en este grupo todavía.</div>'; return; }
+    items.forEach(it=>{
+      const th=document.createElement('div');
+      th.style.cssText='width:52px;height:52px;border:1px solid var(--line);border-radius:6px;background:#fff center/contain no-repeat;cursor:pointer;position:relative';
+      th.style.backgroundImage='url('+it.url+')'; th.title=it.name;
+      th.onclick=()=>{ setLogo(it.url); stat('Logo aplicado: '+it.name+' ✓','ok'); };
+      const x=document.createElement('button'); x.textContent='×';
+      x.style.cssText='position:absolute;top:-6px;right:-6px;width:16px;height:16px;line-height:14px;border-radius:50%;border:none;background:#b0000f;color:#fff;cursor:pointer;font-size:11px;padding:0';
+      x.onclick=async ev=>{ ev.stopPropagation(); if(!confirm('¿Borrar el logo "'+it.name+'" para todo el equipo?')) return; stat('Borrando…'); try{ const r=await fetch(API+'?id='+encodeURIComponent(it.id),{method:'DELETE'}); DATA=await r.json(); fillGroups(); renderGrid(); stat('Logo borrado.','ok'); }catch(e){ stat('No se pudo borrar.','err'); } };
+      th.appendChild(x); grid.appendChild(th);
+    });
+  }
+  async function post(payload){ const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)}); if(r.status===501){ stat('Galería no configurada en el servidor todavía.','err'); return null; } if(!r.ok) throw new Error('HTTP '+r.status); return await r.json(); }
+  async function load(){ stat('Cargando galería…'); try{ const r=await fetch(API,{cache:'no-store'}); if(r.status===501){ stat('Galería no configurada en el servidor todavía.','err'); return; } DATA=await r.json(); fillGroups(); renderGrid(); stat(DATA.items.length+' logo'+(DATA.items.length===1?'':'s')+' · '+DATA.groups.length+' grupos.','ok'); }catch(e){ stat('No se pudo cargar la galería.','err'); } }
+  sel.onchange=renderGrid;
+  $('lgAddGroup').onclick=async()=>{ const n=(prompt('Nombre del grupo nuevo:')||'').trim(); if(!n) return; stat('Creando…'); try{ const d=await post({action:'addGroup',name:n}); if(!d) return; DATA=d; fillGroups(); sel.value=n; renderGrid(); stat('Grupo creado.','ok'); }catch(e){ stat('No se pudo crear el grupo.','err'); } };
+  $('lgRenGroup').onclick=async()=>{ const from=sel.value; if(!from) return; const to=(prompt('Nuevo nombre para "'+from+'":',from)||'').trim(); if(!to||to===from) return; try{ const d=await post({action:'renameGroup',from,to}); if(!d) return; DATA=d; fillGroups(); sel.value=to; renderGrid(); stat('Grupo renombrado.','ok'); }catch(e){ stat('No se pudo renombrar.','err'); } };
+  $('lgDelGroup').onclick=async()=>{ const n=sel.value; if(!n) return; if(!confirm('¿Borrar el grupo "'+n+'" y TODOS sus logos, para todo el equipo?')) return; try{ const d=await post({action:'delGroup',name:n}); if(!d) return; DATA=d; fillGroups(); renderGrid(); stat('Grupo borrado.','ok'); }catch(e){ stat('No se pudo borrar el grupo.','err'); } };
+  $('lgUpload').onclick=()=>$('lgFile').click();
+  $('lgFile').onchange=e=>{ const f=e.target.files[0]; if(!f) return; const img=new Image(); img.onload=async()=>{ const max=400, sc=Math.min(1,max/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*sc)); c.height=Math.max(1,Math.round(img.height*sc)); c.getContext('2d').drawImage(img,0,0,c.width,c.height); let data=''; try{ data=c.toDataURL('image/png'); }catch(err){ data=''; } if(!data){ stat('No se pudo procesar la imagen.','err'); return; } const name=(f.name||'logo').replace(/\.[^.]+$/,'').slice(0,40); stat('Subiendo…'); try{ const d=await post({action:'upload',group:sel.value,name,dataUrl:data}); if(!d) return; DATA=d; fillGroups(); renderGrid(); stat('Logo subido ✓','ok'); }catch(err){ stat('No se pudo subir: '+((err&&err.message)||err),'err'); } $('lgFile').value=''; }; img.onerror=()=>stat('No se pudo leer la imagen.','err'); img.src=URL.createObjectURL(f); };
+  load();
+})();
 
 /* ---------- transcripción con AssemblyAI ---------- */
 function aaiGet(){ try{ return localStorage.getItem('vn_aai')||''; }catch(e){ return ''; } }

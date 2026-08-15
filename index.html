@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v32 · marca en video</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v34 · cierre usa video</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -892,7 +892,7 @@ video.src{display:none}
           </div>
           <div id="lgGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
           <button type="button" class="genbtn" id="lgUpload" style="margin-top:8px">Subir logo a este grupo</button>
-          <input type="file" id="lgFile" accept="image/*" hidden>
+          <input type="file" id="lgFile" accept="image/*,video/*" hidden>
           <div class="genstat" id="lgStat"></div>
         </div>
         <div class="grp" style="margin-top:10px">
@@ -1661,8 +1661,8 @@ function draw(){
     shapePath(ctx, cx, cy, rrW, isSq, rd, rrV);
     ctx.clip();
     ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-rV, 2*r, 2*rV);
-    const _L = logoCustom || (logoWok ? logoW : null);   // usa el logo aplicado (galería/marca propia); si no, el isotipo
-    if(_L){ const box=Math.min(r,rV)*0.82, ar=_L.width/_L.height; let lw=box, lh=box; if(ar>=1) lh=box/ar; else lw=box*ar; ctx.drawImage(_L, cx-lw/2, cy-lh/2, lw, lh); }
+    const _L = (logoVid && logoVid.readyState>=2 && (logoVid.videoWidth||0)>0) ? logoVid : (logoCustom || (logoWok ? logoW : null));   // marca en video / imagen / isotipo
+    if(_L){ const lwN=_L.videoWidth||_L.width||1, lhN=_L.videoHeight||_L.height||1, box=Math.min(r,rV)*0.82, ar=lwN/lhN; let lw=box, lh=box; if(ar>=1) lh=box/ar; else lw=box*ar; try{ ctx.drawImage(_L, cx-lw/2, cy-lh/2, lw, lh); }catch(e){} }
     ctx.restore();
   };
 
@@ -1850,11 +1850,11 @@ function draw(){
 function drawFullClosing(W,H){
   const cx=W/2, cy=H/2;
   // usa el logo cargado por el usuario (puede ser SIN aro); si no hay, el isotipo por defecto
-  const L = logoCustom || (logoWok ? logoW : null);
+  const L = (logoVid && logoVid.readyState>=2 && (logoVid.videoWidth||0)>0) ? logoVid : (logoCustom || (logoWok ? logoW : null));   // marca en video / imagen / isotipo
   const drawLogo = (alpha, s) => {
     if(!L) return;
-    const box=Math.min(W,H)*0.28, ar=L.width/L.height; let lw=box,lh=box; if(ar>=1) lh=box/ar; else lw=box*ar;
-    ctx.save(); ctx.globalAlpha=alpha; ctx.translate(cx,cy); ctx.scale(s,1); ctx.drawImage(L,-lw/2,-lh/2,lw,lh); ctx.restore();
+    const lwN=L.videoWidth||L.width||1, lhN=L.videoHeight||L.height||1, box=Math.min(W,H)*0.28, ar=lwN/lhN; let lw=box,lh=box; if(ar>=1) lh=box/ar; else lw=box*ar;
+    ctx.save(); ctx.globalAlpha=alpha; ctx.translate(cx,cy); ctx.scale(s,1); try{ ctx.drawImage(L,-lw/2,-lh/2,lw,lh); }catch(e){} ctx.restore();
   };
   if(finAnim.fade!=null){
     // fundido final de negro → primer frame del video (conecta el loop)
@@ -3151,6 +3151,17 @@ function startLogoVidTick(){
   const tick=()=>{ if(logoVid && !logoVid.paused && !logoVid.ended){ if(!busy && rafId===null) draw(); logoVidRAF=requestAnimationFrame(tick); } else logoVidRAF=0; };
   logoVidRAF=requestAnimationFrame(tick);
 }
+/* aplicar como marca un video de la galería (URL del Blob, con CORS para no tintar el canvas) */
+function setLogoVideoUrl(url){
+  try{ if(logoVid) logoVid.pause(); }catch(e){}
+  logoCustom=null;
+  logoVid=document.createElement('video');
+  logoVid.muted=true; logoVid.loop=true; logoVid.playsInline=true; logoVid.autoplay=true;
+  if(/^https?:/.test(url)) logoVid.crossOrigin='anonymous';
+  logoVid.src=url;
+  logoVid.onloadeddata=()=>{ $('logoClear').hidden=false; $('logoOn').checked=true; logoVid.play().catch(()=>{}); startLogoVidTick(); redraw(); };
+  logoVid.onerror=()=>{ $('logoNote').textContent='No se pudo cargar el video de la marca desde la galería.'; };
+}
 (function initLogo(){ try{ const d=localStorage.getItem('vn_logo'); if(d){ setLogo(d); $('logoNote').textContent='Marca guardada ✓'; } }catch(e){} })();
 
 /* ---------- galería de logos del equipo, agrupados por marca (servidor / Vercel Blob) ---------- */
@@ -3167,10 +3178,19 @@ function startLogoVidTick(){
     grid.innerHTML='';
     if(!items.length){ grid.innerHTML='<div class="hint" style="margin:0">Sin logos en este grupo todavía.</div>'; return; }
     items.forEach(it=>{
+      const isVid = it.kind==='video';
       const th=document.createElement('div');
-      th.style.cssText='width:52px;height:52px;border:1px solid var(--line);border-radius:6px;background:#fff center/contain no-repeat;cursor:pointer;position:relative';
-      th.style.backgroundImage='url('+it.url+')'; th.title=it.name;
-      th.onclick=()=>{ setLogo(it.url); stat('Logo aplicado: '+it.name+' ✓','ok'); };
+      th.style.cssText='width:52px;height:52px;border:1px solid var(--line);border-radius:6px;background:#fff;overflow:hidden;cursor:pointer;position:relative';
+      th.title=it.name;
+      if(isVid){
+        const v=document.createElement('video'); v.src=it.url; v.muted=true; v.loop=true; v.autoplay=true; v.playsInline=true; v.crossOrigin='anonymous';
+        v.style.cssText='width:100%;height:100%;object-fit:contain;pointer-events:none;background:#111'; v.play().catch(()=>{});
+        th.appendChild(v);
+        const tag=document.createElement('span'); tag.textContent='▶'; tag.style.cssText='position:absolute;left:2px;bottom:1px;font-size:8px;color:#fff;background:rgba(0,0,0,.55);border-radius:3px;padding:0 2px'; th.appendChild(tag);
+      } else {
+        th.style.backgroundImage='url('+it.url+')'; th.style.backgroundSize='contain'; th.style.backgroundPosition='center'; th.style.backgroundRepeat='no-repeat';
+      }
+      th.onclick=()=>{ if(isVid) setLogoVideoUrl(it.url); else setLogo(it.url); stat('Logo aplicado: '+it.name+' ✓','ok'); };
       const x=document.createElement('button'); x.textContent='×';
       x.style.cssText='position:absolute;top:-6px;right:-6px;width:16px;height:16px;line-height:14px;border-radius:50%;border:none;background:#b0000f;color:#fff;cursor:pointer;font-size:11px;padding:0';
       x.onclick=async ev=>{ ev.stopPropagation(); if(!confirm('¿Borrar el logo "'+it.name+'" para todo el equipo?')) return; stat('Borrando…'); try{ const r=await fetch(API+'?id='+encodeURIComponent(it.id),{method:'DELETE'}); DATA=await r.json(); fillGroups(); renderGrid(); stat('Logo borrado.','ok'); }catch(e){ stat('No se pudo borrar.','err'); } };
@@ -3184,7 +3204,18 @@ function startLogoVidTick(){
   $('lgRenGroup').onclick=async()=>{ const from=sel.value; if(!from) return; const to=(prompt('Nuevo nombre para "'+from+'":',from)||'').trim(); if(!to||to===from) return; try{ const d=await post({action:'renameGroup',from,to}); if(!d) return; DATA=d; fillGroups(); sel.value=to; renderGrid(); stat('Grupo renombrado.','ok'); }catch(e){ stat('No se pudo renombrar.','err'); } };
   $('lgDelGroup').onclick=async()=>{ const n=sel.value; if(!n) return; if(!confirm('¿Borrar el grupo "'+n+'" y TODOS sus logos, para todo el equipo?')) return; try{ const d=await post({action:'delGroup',name:n}); if(!d) return; DATA=d; fillGroups(); renderGrid(); stat('Grupo borrado.','ok'); }catch(e){ stat('No se pudo borrar el grupo.','err'); } };
   $('lgUpload').onclick=()=>$('lgFile').click();
-  $('lgFile').onchange=e=>{ const f=e.target.files[0]; if(!f) return; const img=new Image(); img.onload=async()=>{ const max=400, sc=Math.min(1,max/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*sc)); c.height=Math.max(1,Math.round(img.height*sc)); c.getContext('2d').drawImage(img,0,0,c.width,c.height); let data=''; try{ data=c.toDataURL('image/png'); }catch(err){ data=''; } if(!data){ stat('No se pudo procesar la imagen.','err'); return; } const name=(f.name||'logo').replace(/\.[^.]+$/,'').slice(0,40); stat('Subiendo…'); try{ const d=await post({action:'upload',group:sel.value,name,dataUrl:data}); if(!d) return; DATA=d; fillGroups(); renderGrid(); stat('Logo subido ✓','ok'); }catch(err){ stat('No se pudo subir: '+((err&&err.message)||err),'err'); } $('lgFile').value=''; }; img.onerror=()=>stat('No se pudo leer la imagen.','err'); img.src=URL.createObjectURL(f); };
+  $('lgFile').onchange=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const name=(f.name||'logo').replace(/\.[^.]+$/,'').slice(0,40);
+    const send=async(dataUrl)=>{ stat('Subiendo…'); try{ const d=await post({action:'upload',group:sel.value,name,dataUrl}); if(!d) return; DATA=d; fillGroups(); renderGrid(); stat('Logo subido ✓','ok'); }catch(err){ stat('No se pudo subir: '+((err&&err.message)||err),'err'); } $('lgFile').value=''; };
+    const isVid = (f.type && f.type.startsWith('video/')) || /\.(mp4|webm|mov|m4v)$/i.test(f.name||'');
+    if(isVid){
+      if(f.size > 3*1024*1024){ stat('El video es muy pesado (máx ~3 MB). Usá un loop corto y chico.','err'); $('lgFile').value=''; return; }
+      const rd=new FileReader(); rd.onload=()=>send(String(rd.result)); rd.onerror=()=>stat('No se pudo leer el video.','err'); rd.readAsDataURL(f);
+      return;
+    }
+    const img=new Image(); img.onload=()=>{ const max=400, sc=Math.min(1,max/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*sc)); c.height=Math.max(1,Math.round(img.height*sc)); c.getContext('2d').drawImage(img,0,0,c.width,c.height); let data=''; try{ data=c.toDataURL('image/png'); }catch(err){ data=''; } if(!data){ stat('No se pudo procesar la imagen.','err'); return; } send(data); }; img.onerror=()=>stat('No se pudo leer la imagen.','err'); img.src=URL.createObjectURL(f);
+  };
   load();
 })();
 

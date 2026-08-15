@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v29 · captura de pestaña</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v30 · captura muestra video</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1105,15 +1105,24 @@ function load(f){
   mainVidFile = f;
   vid.src = URL.createObjectURL(f);
   vid.onloadedmetadata = () => {
-    loaded = true;
-    $('play').disabled = false; $('rec').disabled = false;
-    $('drop').querySelector('strong').textContent = f.name.slice(0,30);
-    $('drop').querySelector('small').textContent = Math.round(vid.duration*10)/10 + ' s · ' + vid.videoWidth + '×' + vid.videoHeight;
-    trimIn = 0; trimOut = vid.duration || 0; recFinishing = false; seeking=false;
-    $('trimGrp').hidden = false; layoutTL();
-    $('restart').disabled=false; $('seek').disabled=false; $('seek').value=0; updateSeekLabel();
-    vid.currentTime = 0.05;
-    setStatus('Listo. Previsualizá o generá el mp4.');
+    const setup = () => {
+      loaded = true;
+      $('play').disabled = false; $('rec').disabled = false;
+      $('drop').querySelector('strong').textContent = f.name.slice(0,30);
+      $('drop').querySelector('small').textContent = Math.round((vid.duration||0)*10)/10 + ' s · ' + vid.videoWidth + '×' + vid.videoHeight;
+      trimIn = 0; trimOut = vid.duration || 0; recFinishing = false; seeking=false;
+      $('trimGrp').hidden = false; layoutTL();
+      $('restart').disabled=false; $('seek').disabled=false; $('seek').value=0; updateSeekLabel();
+      vid.currentTime = 0.05;
+      setStatus('Listo. Previsualizá o generá el mp4.');
+      draw();
+    };
+    if(!isFinite(vid.duration) || vid.duration===0){
+      // webm de MediaRecorder (captura de pestaña): no trae duración → forzar el cálculo saltando al final
+      const fix = () => { vid.removeEventListener('seeked', fix); try{ vid.currentTime = 0; }catch(e){} setup(); };
+      vid.addEventListener('seeked', fix);
+      try{ vid.currentTime = 1e7; }catch(e){ setup(); }
+    } else setup();
   };
   vid.onseeked = () => { if(!busy && rafId===null) draw(); };
   vid.onerror = () => setStatus('No se pudo leer el video. Probá con otro formato.','err');

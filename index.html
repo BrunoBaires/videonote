@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v27 · galería logos</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v29 · captura de pestaña</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -213,6 +213,12 @@ video.src{display:none}
           <input type="text" id="xUrl" placeholder="Pegá el link del posteo de X" autocomplete="off">
           <button type="button" class="genbtn" id="xFetch" style="margin-top:8px">Traer video de X</button>
           <div class="genstat" id="xStat"></div>
+        </div>
+        <div class="grp" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+          <span class="lbl">…o capturá de una pestaña (Instagram, web, lo que sea)</span>
+          <button type="button" class="genbtn" id="capBtn" style="margin-top:8px">Capturar de una pestaña</button>
+          <div class="genstat" id="capStat"></div>
+          <div class="hint">Abrí el reel/video en otra pestaña (mejor en pantalla completa para que llene el cuadro), tocá Capturar, elegí esa pestaña y dale play. Al frenar, el video queda cargado acá para recortar y editar.</div>
         </div>
         <div class="grp" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
           <label class="chk" style="margin-top:0"><input type="checkbox" id="fullVid"> Publicar el video tal cual (pantalla completa)</label>
@@ -1061,6 +1067,38 @@ $('xFetch').onclick = async () => {
   $('xFetch').disabled=false;
 };
 
+/* ---------- capturar de una pestaña (getDisplayMedia) → grabar a video y cargarlo en el editor ---------- */
+let capStream=null, capRecorder=null, capChunks=[], capMime='';
+function capStat(t,c){ const el=$('capStat'); if(el){ el.innerHTML=t; el.className='genstat'+(c?' '+c:''); } }
+$('capBtn').onclick = async () => {
+  if(capRecorder && capRecorder.state==='recording'){ capRecorder.stop(); return; }   // segundo click = detener
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){ capStat('Tu navegador no permite capturar pestañas.','err'); return; }
+  try{ capStream = await navigator.mediaDevices.getDisplayMedia({ video:{frameRate:30}, audio:true }); }
+  catch(e){ capStat('Captura cancelada.','err'); return; }
+  if(!capStream.getVideoTracks().length){ capStat('Esa pestaña no compartió imagen. Elegí una pestaña con video.','err'); try{ capStream.getTracks().forEach(t=>t.stop()); }catch(_){} return; }
+  const MP4=['video/mp4;codecs=avc1.640028,mp4a.40.2','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4'];
+  const WEBM=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  capMime = MP4.find(m=>MediaRecorder.isTypeSupported(m)) || WEBM.find(m=>MediaRecorder.isTypeSupported(m)) || '';
+  try{ capRecorder = capMime ? new MediaRecorder(capStream,{mimeType:capMime,videoBitsPerSecond:6000000}) : new MediaRecorder(capStream,{videoBitsPerSecond:6000000}); }
+  catch(e){ capStat('No se pudo iniciar la grabación: '+((e&&e.message)||e),'err'); try{ capStream.getTracks().forEach(t=>t.stop()); }catch(_){} return; }
+  capChunks=[];
+  capRecorder.ondataavailable = e => { if(e.data && e.data.size) capChunks.push(e.data); };
+  capRecorder.onstop = () => {
+    try{ capStream.getTracks().forEach(t=>t.stop()); }catch(e){}
+    $('capBtn').textContent='Capturar de una pestaña';
+    const ext = (capMime.indexOf('mp4')>=0) ? 'mp4' : 'webm';
+    const blob = new Blob(capChunks, {type:(capMime||'video/webm').split(';')[0]});
+    if(!blob.size){ capStat('No se grabó nada. Probá de nuevo y dejá reproducir el video.','err'); capRecorder=null; return; }
+    capStat('Capturado ✓ ('+(blob.size/1048576).toFixed(1)+' MB). Cargando en el editor…','ok');
+    load(new File([blob], 'captura-'+Date.now()+'.'+ext, {type: blob.type||'video/webm'}));
+    capRecorder=null;
+  };
+  try{ capStream.getVideoTracks()[0].addEventListener('ended', ()=>{ if(capRecorder && capRecorder.state==='recording') capRecorder.stop(); }); }catch(e){}   // si cortan el compartir desde el navegador
+  capRecorder.start();
+  $('capBtn').textContent='Detener y cargar';
+  capStat('<span class="spin"></span>Grabando la pestaña… reproducí el video y tocá "Detener y cargar" al terminar.','');
+};
+
 function load(f){
   const okType = (f.type && f.type.startsWith('video/')) || /\.(mov|mp4|m4v|webm|mkv|avi|qt|3gp)$/i.test(f.name||'');
   if(!okType){ setStatus('Ese archivo no es un video.','err'); return; }
@@ -1613,7 +1651,8 @@ function draw(){
     shapePath(ctx, cx, cy, rrW, isSq, rd, rrV);
     ctx.clip();
     ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-rV, 2*r, 2*rV);
-    if(logoWok){ const box=Math.min(r,rV)*0.82, ar=logoW.width/logoW.height; let lw=box, lh=box; if(ar>=1) lh=box/ar; else lw=box*ar; ctx.drawImage(logoW, cx-lw/2, cy-lh/2, lw, lh); }
+    const _L = logoCustom || (logoWok ? logoW : null);   // usa el logo aplicado (galería/marca propia); si no, el isotipo
+    if(_L){ const box=Math.min(r,rV)*0.82, ar=_L.width/_L.height; let lw=box, lh=box; if(ar>=1) lh=box/ar; else lw=box*ar; ctx.drawImage(_L, cx-lw/2, cy-lh/2, lw, lh); }
     ctx.restore();
   };
 

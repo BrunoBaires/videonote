@@ -89,7 +89,7 @@ audio,video.src{display:none}
 
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span class="badge" title="versión del editor">AudioNote v24 · corte 1 click + undo</span>
+  <span class="badge" title="versión del editor">AudioNote v25 · editor amplio + formato</span>
   <div class="tabs">
     <button type="button" class="tab" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -180,9 +180,21 @@ audio,video.src{display:none}
       <div id="weBlock" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
         <span class="lbl">Cortar por texto (audioquote)</span>
         <div class="hint" style="margin-top:2px">Seleccioná con el mouse el fragmento que querés conservar. Aparece un botón: al tocarlo, queda solo eso y se rehace el audio. Podés deshacer.</div>
-        <div id="wordEdit" style="margin-top:8px;max-height:200px;overflow:auto;line-height:2;font-size:14px;border:1px solid var(--line);border-radius:8px;padding:8px"></div>
-        <div class="seg" style="margin-top:8px"><button type="button" class="mini" id="weUndo" style="margin-top:0" disabled>Deshacer</button><button type="button" class="mini" id="weRestore" style="margin-top:0">Restaurar original</button></div>
+        <div id="wordEdit" style="margin-top:8px;height:200px;resize:vertical;overflow:auto;line-height:2;font-size:14px;border:1px solid var(--line);border-radius:8px;padding:8px"></div>
+        <div class="seg" style="margin-top:8px"><button type="button" class="mini" id="weExpand" style="margin-top:0">⤢ Ampliar</button><button type="button" class="mini" id="weUndo" style="margin-top:0" disabled>Deshacer</button><button type="button" class="mini" id="weRestore" style="margin-top:0">Restaurar</button></div>
         <div class="stat" id="weStat"></div>
+      </div>
+      <div id="weOverlay" style="position:fixed;inset:0;z-index:9998;display:none;background:rgba(10,15,25,.5)">
+        <div style="position:absolute;top:4vh;left:4vw;right:4vw;bottom:4vh;background:var(--panel,#fff);border-radius:12px;display:flex;flex-direction:column;box-shadow:0 12px 44px rgba(0,0,0,.45);overflow:hidden">
+          <div style="padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px">
+            <strong style="flex:1">Cortar por texto — vista amplia</strong>
+            <button type="button" class="mini" id="weBigUndo" style="margin:0" disabled>Deshacer</button>
+            <button type="button" class="mini" id="weBigRestore" style="margin:0">Restaurar</button>
+            <button type="button" class="mini go" id="weBigClose" style="margin:0">Cerrar ✕</button>
+          </div>
+          <div id="weBig" style="flex:1;overflow:auto;padding:18px 24px;font-size:16px;line-height:2.2"></div>
+          <div style="padding:8px 18px;border-top:1px solid var(--line);color:var(--dim);font-size:12px">Seleccioná el fragmento que querés conservar y tocá "Usar este fragmento".</div>
+        </div>
       </div>
       <button type="button" id="weFloat" style="position:fixed;z-index:9999;display:none;background:#b0000f;color:#fff;border:none;border-radius:8px;padding:8px 13px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 5px 16px rgba(0,0,0,.28)">Usar este fragmento</button>
     </div></div>
@@ -561,19 +573,36 @@ function resyncFromText(){
 $('trText').addEventListener('input', ()=>{ resyncFromText(); renderWordEdit(); });
 
 /* ===== cortar por texto (audioquote): seleccionás con el mouse → botón flotante → queda solo eso + deshacer ===== */
-let weOrigWords=null, weOrigFile=null, weUndoStack=[];
+let weOrigWords=null, weOrigFile=null, weUndoStack=[], weBig=false;
 function weEsc(s){ return String(s==null?'':s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+function weBox(){ return weBig ? $('weBig') : $('wordEdit'); }
+function setUndoDisabled(b){ ['weUndo','weBigUndo'].forEach(id=>{ const el=$(id); if(el) el.disabled=b; }); }
+/* dibuja el transcripto: separado por vocero (etiqueta + color) y con punto y aparte */
 function renderWordEdit(){
-  const box=$('wordEdit'); if(!box) return;
+  const box=weBox(); if(!box) return;
   if(!words.length){ box.innerHTML='<span style="color:var(--dim)">Transcribí (o pegá texto + Estimar tiempos) para poder cortar acá.</span>'; return; }
-  box.innerHTML=words.map((w,i)=>'<span class="wchip" data-i="'+i+'">'+weEsc(w.text)+'</span> ').join('');
+  const parts=[]; let lastSp='__init__';
+  words.forEach((w,i)=>{
+    const sp=w.speaker||null;
+    if(sp!==lastSp){
+      let label='';
+      if(sp){ const info=speakerInfo[sp]||{}; const nm=(info.name&&info.name.trim())||('Hablante '+sp); const col=info.color||'#333'; label='<div style="font-weight:700;color:'+col+';margin-top:4px">'+weEsc(nm)+'</div>'; }
+      parts.push({label, ws:[]}); lastSp=sp;
+    }
+    parts[parts.length-1].ws.push(i);
+  });
+  box.innerHTML=parts.map(pt=>{
+    let s='<div style="margin:0 0 12px">'+pt.label;
+    pt.ws.forEach(i=>{ s+='<span class="wchip" data-i="'+i+'">'+weEsc(words[i].text)+'</span> '; if(/[.?!…]$/.test(words[i].text)) s+='<br>'; });
+    return s+'</div>';
+  }).join('');
 }
-function weSnapshot(){ try{ weOrigWords=JSON.parse(JSON.stringify(words.map(w=>({text:w.text,start:w.start,end:w.end,speaker:w.speaker||null})))); }catch(e){ weOrigWords=null; } weOrigFile=mediaFile; weUndoStack=[]; if($('weUndo')) $('weUndo').disabled=true; }
-function pushUndo(){ try{ weUndoStack.push({ words: JSON.parse(JSON.stringify(words.map(w=>({text:w.text,start:w.start,end:w.end,speaker:w.speaker||null})))), file: mediaFile }); if(weUndoStack.length>25) weUndoStack.shift(); if($('weUndo')) $('weUndo').disabled=false; }catch(e){} }
+function weSnapshot(){ try{ weOrigWords=JSON.parse(JSON.stringify(words.map(w=>({text:w.text,start:w.start,end:w.end,speaker:w.speaker||null})))); }catch(e){ weOrigWords=null; } weOrigFile=mediaFile; weUndoStack=[]; setUndoDisabled(true); }
+function pushUndo(){ try{ weUndoStack.push({ words: JSON.parse(JSON.stringify(words.map(w=>({text:w.text,start:w.start,end:w.end,speaker:w.speaker||null})))), file: mediaFile }); if(weUndoStack.length>25) weUndoStack.shift(); setUndoDisabled(false); }catch(e){} }
 /* rango de palabras tocado por la selección del mouse */
 function selectedWordRange(){
   const sel=window.getSelection(); if(!sel||sel.rangeCount===0||sel.isCollapsed) return null;
-  const range=sel.getRangeAt(0), box=$('wordEdit'); if(!box) return null;
+  const range=sel.getRangeAt(0), box=weBox(); if(!box) return null;
   let lo=Infinity, hi=-1;
   box.querySelectorAll('.wchip').forEach(sp=>{ try{ if(range.intersectsNode(sp)){ const i=+sp.dataset.i; if(i<lo)lo=i; if(i>hi)hi=i; } }catch(e){} });
   if(hi<0) return null; return { lo, hi, rect: range.getBoundingClientRect() };
@@ -588,7 +617,7 @@ function updateFloat(){
   fb.style.top=Math.max(8, r.rect.top - 44)+'px';
   fb._range=[r.lo, r.hi];
 }
-document.addEventListener('selectionchange', ()=>{ const box=$('wordEdit'), sel=window.getSelection(); if(box && sel && sel.rangeCount && sel.anchorNode && box.contains(sel.anchorNode)) updateFloat(); else { const fb=$('weFloat'); if(fb){ fb.style.display='none'; fb._range=null; } } });
+document.addEventListener('selectionchange', ()=>{ const box=weBox(), sel=window.getSelection(); if(box && sel && sel.rangeCount && sel.anchorNode && box.contains(sel.anchorNode)) updateFloat(); else { const fb=$('weFloat'); if(fb){ fb.style.display='none'; fb._range=null; } } });
 $('weFloat').onclick=()=>{ const r=$('weFloat')._range; $('weFloat').style.display='none'; try{ window.getSelection().removeAllRanges(); }catch(e){} if(r) keepRange(r[0], r[1]); };
 async function keepRange(lo,hi){
   if(!words.length || !mediaFile){ setStat('weStat','Primero transcribí un audio.','err'); return; }
@@ -612,10 +641,14 @@ async function keepRange(lo,hi){
     loadMedia(new File([wav],'audioquote.wav',{type:'audio/wav'}));
     buildSpeakers(); renderWordEdit();
     setStat('weStat','Listo ✓ — quedó el fragmento ('+newWords.length+' palabras). Reproducí, o Deshacer.','ok');
-  }catch(e){ weUndoStack.pop(); if($('weUndo')) $('weUndo').disabled=weUndoStack.length===0; setStat('weStat','No se pudo: '+((e&&e.message)||e),'err'); }
+  }catch(e){ weUndoStack.pop(); setUndoDisabled(weUndoStack.length===0); setStat('weStat','No se pudo: '+((e&&e.message)||e),'err'); }
 }
-$('weUndo').onclick=()=>{ const st=weUndoStack.pop(); if(!st){ setStat('weStat','No hay nada para deshacer.','err'); return; } words=JSON.parse(JSON.stringify(st.words)); activeSegment._cache=null; $('trText').value=words.map(w=>w.text).join(' '); if(st.file) loadMedia(st.file); buildSpeakers(); renderWordEdit(); $('weUndo').disabled=weUndoStack.length===0; setStat('weStat','Deshecho ✓','ok'); };
-$('weRestore').onclick=()=>{ if(!weOrigWords){ setStat('weStat','Todavía no hay original guardado.','err'); return; } pushUndo(); words=JSON.parse(JSON.stringify(weOrigWords)); activeSegment._cache=null; $('trText').value=words.map(w=>w.text).join(' '); if(weOrigFile) loadMedia(weOrigFile); buildSpeakers(); renderWordEdit(); setStat('weStat','Volviste al audio y texto originales.','ok'); };
+function weDoUndo(){ const st=weUndoStack.pop(); if(!st){ setStat('weStat','No hay nada para deshacer.','err'); return; } words=JSON.parse(JSON.stringify(st.words)); activeSegment._cache=null; $('trText').value=words.map(w=>w.text).join(' '); if(st.file) loadMedia(st.file); buildSpeakers(); renderWordEdit(); setUndoDisabled(weUndoStack.length===0); setStat('weStat','Deshecho ✓','ok'); }
+function weDoRestore(){ if(!weOrigWords){ setStat('weStat','Todavía no hay original guardado.','err'); return; } pushUndo(); words=JSON.parse(JSON.stringify(weOrigWords)); activeSegment._cache=null; $('trText').value=words.map(w=>w.text).join(' '); if(weOrigFile) loadMedia(weOrigFile); buildSpeakers(); renderWordEdit(); setStat('weStat','Volviste al audio y texto originales.','ok'); }
+$('weUndo').onclick=weDoUndo; if($('weBigUndo')) $('weBigUndo').onclick=weDoUndo;
+$('weRestore').onclick=weDoRestore; if($('weBigRestore')) $('weBigRestore').onclick=weDoRestore;
+$('weExpand').onclick=()=>{ weBig=true; $('weOverlay').style.display='block'; renderWordEdit(); };
+$('weBigClose').onclick=()=>{ weBig=false; $('weOverlay').style.display='none'; renderWordEdit(); };
 renderWordEdit();
 
 /* ---- varias voces (diarización): nombre + cargo por hablante ---- */

@@ -89,7 +89,7 @@ audio,video.src{display:none}
 
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span class="badge" title="versión del editor">AudioNote v20 · voces color + orden</span>
+  <span class="badge" title="versión del editor">AudioNote v22 · flujo visible</span>
   <div class="tabs">
     <button type="button" class="tab" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -117,6 +117,7 @@ audio,video.src{display:none}
           <div><span class="lbl">Fin (out)</span><input type="text" id="clipOutT" placeholder="fin"></div>
         </div>
         <button type="button" class="mini go" id="linkBtn">Traer del link (con el recorte)</button>
+        <div class="stat" id="linkStat"></div>
         <div class="hint">Pegá el link, poné <b>Inicio</b> y <b>Fin</b> (m:ss, ej. 1:30) y tocá Traer: de YouTube se baja solo ese fragmento. Dejá Fin vacío para el video entero.</div>
       </div>
       <div class="grp" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
@@ -159,7 +160,7 @@ audio,video.src{display:none}
       <div class="hint">Transcribe en español a medida que se habla (modelo multilingüe de AssemblyAI). Para captar una transmisión —por ejemplo un discurso— elegí “Pestaña/pantalla” y al compartir tildá <b>“Compartir audio de la pestaña”</b>. Necesita la app servida (Vercel) y tu API key de AssemblyAI.<br><b>Grabar el video de la fuente</b> guarda el clip crudo (imagen + sonido) de lo que estás capturando: sirve para llevarte un fragmento de un video de YouTube y después editarlo.</div>
     </div></div>
 
-    <div class="card collapsed"><div class="body">
+    <div class="card"><div class="body">
       <h2>Transcripción (palabras sincronizadas)</h2>
       <span class="lbl">API key de AssemblyAI <span class="val" id="aaiState">no cargada</span></span>
       <input type="password" id="aaiKey" placeholder="clave de AssemblyAI" autocomplete="off">
@@ -201,7 +202,7 @@ audio,video.src{display:none}
       <div class="stat" id="aiStat"></div>
     </div></div>
 
-    <div class="card collapsed"><div class="body">
+    <div class="card"><div class="body">
       <h2>Placa</h2>
       <div class="grp"><span class="lbl">Kicker (marca)</span><input type="text" id="kicker" value="Incertis" placeholder="The Atlantic, Incertis…"></div>
       <div class="grp"><span class="lbl">Título</span><textarea id="title" rows="2" placeholder="Título de la nota">Cómo tocar pasto</textarea></div>
@@ -377,7 +378,7 @@ $('vizSel').addEventListener('change',()=>{ viz=$('vizSel').value; draw(); });
 
 /* secciones colapsables: clic en el título abre/cierra */
 document.querySelectorAll('.card > .body > h2').forEach(h=>{
-  h.addEventListener('click',()=>{ const card=h.closest('.card'); const willOpen=card.classList.contains('collapsed'); if(willOpen){ document.querySelectorAll('.card').forEach(c=>{ if(c!==card) c.classList.add('collapsed'); }); } card.classList.toggle('collapsed'); });
+  h.addEventListener('click',()=>{ h.closest('.card').classList.toggle('collapsed'); });
 });
 $('vizSz').addEventListener('input',()=>{ $('vizSzV').textContent=$('vizSz').value+' %'; draw(); });
 
@@ -452,13 +453,13 @@ $('applyClip').onclick=async()=>{
 /* traer audio desde link de X o YouTube (usa endpoints serverless: api/xvideo.js / api/ytmedia.js) */
 $('linkBtn').onclick=async()=>{
   const url=($('mediaUrl').value||'').trim();
-  if(!url){ setStat('trStat','Pegá un link de X o YouTube.','err'); return; }
+  if(!url){ setStat('linkStat','Pegá un link de X o YouTube.','err'); return; }
   const isX=/(twitter\.com|x\.com)\//i.test(url);
   const isYT=/(youtube\.com|youtu\.be)\//i.test(url);
-  if(!isX && !isYT){ setStat('trStat','Link no reconocido: tiene que ser de X o de YouTube.','err'); return; }
+  if(!isX && !isYT){ setStat('linkStat','Link no reconocido: tiene que ser de X o de YouTube.','err'); return; }
   const inS=parseTime($('clipInT').value), outS=parseTime($('clipOutT').value);
   const frag=(inS!=null||outS!=null) ? ('&start='+(inS||0)+(outS!=null?('&end='+outS):'')) : '';
-  $('linkBtn').disabled=true; setStat('trStat','<span class="spin"></span>'+(frag?'Bajando el fragmento…':'Trayendo el audio del link…'));
+  $('linkBtn').disabled=true; setStat('linkStat','<span class="spin"></span>'+(frag?'Bajando el fragmento…':'Trayendo el audio del link…'));
   try{
     const endpoint = isX ? ('/api/xvideo?download=1&url='+encodeURIComponent(url)) : ('/api/ytmedia?download=1&url='+encodeURIComponent(url)+frag);
     const r=await fetch(endpoint);
@@ -468,8 +469,8 @@ $('linkBtn').onclick=async()=>{
     if(!blob || !blob.size) throw new Error('el link no devolvió audio/video.');
     loadMediaBlob(blob, isX?'x-video.mp4':'youtube-audio.m4a');
     if(frag){ $('clipInT').value=''; $('clipOutT').value=''; }   // el recorte ya vino aplicado
-    setStat('trStat',(frag?'Fragmento':'Audio')+' del link cargado ✓. Ahora transcribí (o pegá texto + Estimar tiempos).','ok');
-  }catch(e){ setStat('trStat','No se pudo traer el link: '+((e&&e.message)||e),'err'); }
+    setStat('linkStat',(frag?'Fragmento':'Audio')+' del link cargado ✓. Ahora transcribí (o pegá texto + Estimar tiempos).','ok');
+  }catch(e){ setStat('linkStat','No se pudo traer el link: '+((e&&e.message)||e),'err'); }
   $('linkBtn').disabled=false;
 };
 
@@ -894,6 +895,11 @@ function topFade(W,H,topY,lh,bg,bg2){
   }
   ctx.restore(); ctx.globalAlpha=1;
 }
+/* color de la palabra según el hablante (solo si hay 2+ voces); si no, usa el color normal */
+function spkColor(wd, fallback){
+  if(Object.keys(speakerInfo).length<2) return fallback;
+  return (wd && wd.speaker && speakerInfo[wd.speaker] && speakerInfo[wd.speaker].color) ? speakerInfo[wd.speaker].color : fallback;
+}
 function drawRevealText(W,H,t,ml,textW,yTop,fs,lh,ink,spokenC,upcomingC,FF,bg,bg2){
   const mode=($('revealSel')&&$('revealSel').value)||'type';
   const topY=Math.max(H*0.12,yTop), botLimit=H*0.60;
@@ -912,8 +918,8 @@ function drawRevealText(W,H,t,ml,textW,yTop,fs,lh,ink,spokenC,upcomingC,FF,bg,bg
     let y=(topY+botLimit)/2 - blockH/2 + big, gi=0;
     for(const ln of lines){ let x=ml;
       for(const wd of ln){ const isSaid=t>=wd.start, isCur=(gi===ci);
-        if(isCur){ ctx.fillStyle=upcomingC; ctx.globalAlpha=1; }
-        else if(isSaid){ ctx.fillStyle=ink; ctx.globalAlpha=1; }
+        if(isCur){ ctx.fillStyle=spkColor(wd,upcomingC); ctx.globalAlpha=1; }
+        else if(isSaid){ ctx.fillStyle=spkColor(wd,ink); ctx.globalAlpha=1; }
         else { ctx.fillStyle=ink; ctx.globalAlpha=0.26; }
         ctx.fillText(wd.text,x,y); x+=ctx.measureText(wd.text).width+sp2; gi++;
       } y+=llh;
@@ -940,8 +946,8 @@ function drawRevealText(W,H,t,ml,textW,yTop,fs,lh,ink,spokenC,upcomingC,FF,bg,bg
       const lineFade = dRel<0 ? Math.max(0.14, 1-(-dRel)*0.26) : 1;   // las leídas se apagan al subir
       let x=ml;
       for(const wd of ln){ const isSaid=t>=wd.start, isCur=(gi===ci);
-        if(isCur){ ctx.fillStyle=upcomingC; ctx.globalAlpha=1; }
-        else if(isSaid){ ctx.fillStyle=spokenC; ctx.globalAlpha=0.95*lineFade; }
+        if(isCur){ ctx.fillStyle=spkColor(wd,upcomingC); ctx.globalAlpha=1; }
+        else if(isSaid){ ctx.fillStyle=spkColor(wd,spokenC); ctx.globalAlpha=0.95*lineFade; }
         else { ctx.fillStyle=ink; ctx.globalAlpha=0.26; }
         ctx.fillText(wd.text,x,y); x+=ctx.measureText(wd.text).width+sp2; gi++;
       }
@@ -957,7 +963,7 @@ function drawRevealText(W,H,t,ml,textW,yTop,fs,lh,ink,spokenC,upcomingC,FF,bg,bg
     const cur=said[said.length-1], big=fs*1.9, midY=(topY+botLimit)/2;
     if(said.length>1){ const prev=said[said.length-2]; ctx.globalAlpha=0.16; ctx.fillStyle=ink; ctx.font=`500 ${fs*1.05}px ${FF}`; ctx.fillText(prev.text, ml, midY-big*0.9); }
     const a=Math.max(0.15,Math.min(1,(t-cur.start)/0.18));
-    ctx.globalAlpha=a; ctx.fillStyle=ink; ctx.font=`700 ${big}px ${FF}`; ctx.fillText(cur.text, ml, midY);
+    ctx.globalAlpha=a; ctx.fillStyle=spkColor(cur,ink); ctx.font=`700 ${big}px ${FF}`; ctx.fillText(cur.text, ml, midY);
     ctx.globalAlpha=1; return;
   }
 
@@ -976,7 +982,7 @@ function drawRevealText(W,H,t,ml,textW,yTop,fs,lh,ink,spokenC,upcomingC,FF,bg,bg
       const wd=ln[j]; let a=baseA;
       if(mode==='type'){ if(isLast && j===ln.length-1) a=Math.min(baseA,Math.max(0.12,Math.min(1,(t-wd.start)/0.16))); }
       else if(mode==='fade'){ a=Math.min(baseA,Math.max(0.05,Math.min(1,(t-wd.start)/0.5))); }
-      ctx.globalAlpha=a; ctx.fillStyle=ink; ctx.fillText(wd.text,x,y); x+=ctx.measureText(wd.text).width+space;
+      ctx.globalAlpha=a; ctx.fillStyle=spkColor(wd,ink); ctx.fillText(wd.text,x,y); x+=ctx.measureText(wd.text).width+space;
     }
   }
   ctx.globalAlpha=1;
@@ -1001,7 +1007,7 @@ function drawTranscript(W,H, top, bottom, t, spokenC, upcomingC, FF){
     let x=W/2-tot/2;
     for(const wd of ln){
       const spoken = t>=wd.start;
-      ctx.fillStyle = spoken ? spokenC : upcomingC;
+      ctx.fillStyle = spoken ? spkColor(wd,spokenC) : upcomingC;
       ctx.globalAlpha = spoken ? 1 : 0.92;
       ctx.textAlign='left'; ctx.fillText(wd.text, x, yy);
       x+=ctx.measureText(wd.text).width+space;

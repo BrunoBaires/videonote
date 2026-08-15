@@ -156,7 +156,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v30 · captura muestra video</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v31 · trama survive mp4</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1878,8 +1878,16 @@ function drawTrama(W,H){
   const t=$('trama')?$('trama').value:'none'; if(t==='none') return;
   const amt=(parseFloat(($('tramaAmt')||{}).value)||0)/100; if(amt<=0) return;
   if(t==='grain'||t==='both'){
-    if(!grainCv){ grainCv=document.createElement('canvas'); grainCv.width=220; grainCv.height=220; const g=grainCv.getContext('2d'); const id=g.createImageData(220,220); for(let i=0;i<id.data.length;i+=4){ const v=(128+(Math.random()*2-1)*70)|0; id.data[i]=id.data[i+1]=id.data[i+2]=v; id.data[i+3]=255; } g.putImageData(id,0,0); }   // ruido centrado en gris medio: no altera el brillo general (no "palpita")
-    ctx.save(); ctx.globalAlpha=0.12*amt; ctx.globalCompositeOperation='overlay';
+    if(!grainCv){
+      // ruido centrado en gris medio (no "palpita") y en BLOQUES (~4px): grano grueso que sobrevive a la compresión del mp4
+      const N=55, sm=document.createElement('canvas'); sm.width=N; sm.height=N;
+      const sg=sm.getContext('2d'), id=sg.createImageData(N,N);
+      for(let i=0;i<id.data.length;i+=4){ const v=(128+(Math.random()*2-1)*90)|0; id.data[i]=id.data[i+1]=id.data[i+2]=v; id.data[i+3]=255; }
+      sg.putImageData(id,0,0);
+      grainCv=document.createElement('canvas'); grainCv.width=220; grainCv.height=220;
+      const g=grainCv.getContext('2d'); g.imageSmoothingEnabled=false; g.drawImage(sm,0,0,220,220);   // escala x4 → bloques
+    }
+    ctx.save(); ctx.globalAlpha=0.18*amt; ctx.globalCompositeOperation='overlay';
     grainOx=(grainOx+(Math.random()*6-3)+220)%220; grainOy=(grainOy+(Math.random()*6-3)+220)%220;   // deriva suave (sin saltos bruscos = no palpita)
     const ox=grainOx|0, oy=grainOy|0;
     ctx.translate(-ox,-oy); ctx.fillStyle=ctx.createPattern(grainCv,'repeat'); ctx.fillRect(ox,oy,W,H);

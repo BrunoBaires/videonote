@@ -139,6 +139,48 @@ video.src{display:none}
 .wrap[hidden]{display:none}
 #anFrame{display:block;width:100%;max-width:1560px;margin:0 auto;height:calc(100vh - 110px);min-height:540px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 #anFrame[hidden]{display:none}
+
+/* ---------- gestor de quotes ---------- */
+#qOverlay{position:fixed;inset:0;background:rgba(20,22,26,.55);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:26px}
+#qOverlay[hidden]{display:none}
+.q-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:100%;max-width:1400px;height:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.3)}
+.q-top{display:flex;align-items:center;gap:14px;padding:13px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.q-top h2{font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.05em;text-transform:uppercase}
+.q-top .sp{margin-left:auto}
+.q-cols{flex:1;display:grid;grid-template-columns:1fr 330px;gap:0;min-height:0}
+@media(max-width:900px){.q-cols{grid-template-columns:1fr}}
+.q-text{overflow:auto;padding:20px 24px 90px;line-height:1.85;font-size:15.5px;position:relative;user-select:text}
+.q-side{border-left:1px solid var(--line);background:var(--panel2);overflow:auto;padding:14px}
+.q-spk{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin:16px 0 3px;font-weight:700}
+.q-text p{margin-bottom:4px}
+.q-w{cursor:text;border-radius:3px;padding:1px 0}
+.q-w.now{background:#ffe9a8}
+.q-w.inq{padding:2px 0}
+.q-float{position:absolute;z-index:5;background:var(--rojo);color:#fff;border:none;border-radius:7px;padding:8px 14px;font:600 12px/1 var(--ui);cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.28);white-space:nowrap}
+.q-float:hover{background:#a80014}
+.q-empty{color:var(--dim);font-size:13px;font-style:italic;padding:10px 2px}
+.q-item{border:1px solid var(--line);border-left-width:4px;border-radius:8px;background:var(--panel);padding:9px 10px;margin-bottom:8px;cursor:pointer}
+.q-item.on{border-color:var(--rojo);border-left-color:var(--rojo);box-shadow:0 0 0 2px rgba(214,0,25,.12)}
+.q-item .q-h{display:flex;align-items:baseline;gap:7px;margin-bottom:3px}
+.q-item .q-n{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--dim)}
+.q-item .q-d{font-family:var(--mono);font-size:10px;margin-left:auto;color:var(--dim)}
+.q-item .q-d.warn{color:var(--rojo);font-weight:700}
+.q-item .q-t{font-size:12.5px;line-height:1.45;color:var(--ink);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.q-item .q-acts{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+.q-item .q-acts button{font:600 10.5px/1 var(--ui);padding:6px 9px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);cursor:pointer;width:auto;margin:0}
+.q-item .q-acts button:hover{background:#e8ebf0}
+.q-item .q-acts button.pri{background:var(--rojo);border-color:var(--rojo);color:#fff}
+.q-item .q-acts button.pri:hover{background:#a80014}
+.q-tune{border-top:1px solid var(--line);padding:12px 18px;background:var(--panel2);display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.q-tune .blk{display:flex;flex-direction:column;gap:5px}
+.q-tune .nudge{display:flex;gap:4px;align-items:center}
+.q-tune .nudge button{font:600 11px/1 var(--mono);padding:6px 9px;border-radius:6px;border:1px solid var(--line);background:var(--panel);cursor:pointer;width:auto;margin:0}
+.q-tune .nudge span{font-family:var(--mono);font-size:11px;min-width:64px;text-align:center;color:var(--ink)}
+.q-tune input[type=text]{margin-top:0}
+.q-mini{display:flex;gap:6px;align-items:center;margin-top:6px}
+.q-mini .q-chip{font-family:var(--mono);font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);cursor:pointer}
+.q-mini .q-chip.on{background:var(--rojo);border-color:var(--rojo);color:#fff}
+.q-queue{font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:10px}
 </style>
 </head>
 <body>
@@ -156,7 +198,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v34 · cierre usa video</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v36 · quotes</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -710,6 +752,18 @@ video.src{display:none}
       </div>
     </div>
 
+    <div class="card tool" data-pane="video">
+      <div class="head" data-toggle><h2>Quotes <span class="val" id="qCount">0</span></h2><span class="arrow">▸</span></div>
+      <div class="body collapsible">
+        <div class="hint" id="qHint">Transcribí el video y después abrí el editor: seleccionás un pasaje con el mouse y queda guardado como quote. Todos los quotes comparten el mismo encuadre, logo y estilo.</div>
+        <button type="button" class="genbtn go" id="qOpen" style="margin-top:10px">⤢ Abrir el editor de quotes</button>
+        <div id="qList" style="margin-top:10px"></div>
+        <button type="button" class="mini-btn" id="qExportAll" style="margin-top:10px">Exportar todos los quotes</button>
+        <div class="genstat" id="qStat"></div>
+        <div class="hint">La exportación es en tiempo real: la cola graba un quote por vez y los va descargando. Dejá la pestaña visible y al frente hasta que termine.</div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ============ CENTRO: LIENZO ============ -->
@@ -939,6 +993,62 @@ video.src{display:none}
 
 <iframe id="anFrame" title="AudioNote" hidden></iframe>
 
+<!-- ============ EDITOR DE QUOTES ============ -->
+<div id="qOverlay" hidden>
+  <div class="q-box">
+    <div class="q-top">
+      <h2>Editor de quotes</h2>
+      <span class="q-queue" id="qTopInfo">—</span>
+      <div class="sp"></div>
+      <label class="lbl" style="margin:0;display:flex;align-items:center;gap:5px">aire antes
+        <input type="number" id="qPadIn" value="180" min="0" max="800" step="20" style="width:66px;margin-top:0;padding:6px 7px;text-align:right">ms</label>
+      <label class="lbl" style="margin:0;display:flex;align-items:center;gap:5px">aire después
+        <input type="number" id="qPadOut" value="320" min="0" max="1200" step="20" style="width:66px;margin-top:0;padding:6px 7px;text-align:right">ms</label>
+      <button type="button" class="mini-btn" id="qSnapAll" style="margin:0;width:auto;padding:8px 12px">Reajustar bordes</button>
+      <button type="button" class="mini-btn" id="qExportAll2" style="margin:0;width:auto;padding:8px 12px">Exportar todos</button>
+      <button type="button" class="mini-btn" id="qClose" style="margin:0;width:auto;padding:8px 14px">Cerrar</button>
+    </div>
+    <div class="q-cols">
+      <div class="q-text" id="qText"></div>
+      <div class="q-side" id="qSide"></div>
+    </div>
+    <div class="q-tune" id="qTune" hidden>
+      <div class="blk">
+        <span class="lbl" style="margin:0">Entrada</span>
+        <div class="nudge">
+          <button type="button" data-nudge="in--">−100</button>
+          <span id="qInV">—</span>
+          <button type="button" data-nudge="in++">+100</button>
+        </div>
+      </div>
+      <div class="blk">
+        <span class="lbl" style="margin:0">Salida</span>
+        <div class="nudge">
+          <button type="button" data-nudge="out--">−100</button>
+          <span id="qOutV">—</span>
+          <button type="button" data-nudge="out++">+100</button>
+        </div>
+      </div>
+      <div class="blk">
+        <span class="lbl" style="margin:0">Duración</span>
+        <div class="nudge"><span id="qDurV" style="min-width:80px">—</span></div>
+      </div>
+      <div class="blk" style="flex:1;min-width:220px">
+        <span class="lbl" style="margin:0">Epígrafe de este quote</span>
+        <input type="text" id="qCtx" placeholder="Bajada para la placa de este quote…">
+      </div>
+      <div class="blk">
+        <span class="lbl" style="margin:0">&nbsp;</span>
+        <div class="nudge">
+          <button type="button" id="qSnapOne">Al silencio</button>
+          <button type="button" id="qPlay">▸ Escuchar</button>
+          <button type="button" id="qLoad">Cargar en el editor</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </div>
 
 <video class="src" id="vid" playsinline crossorigin="anonymous"></video>
@@ -981,6 +1091,7 @@ const QUAL = {
 
 let loaded=false, rafId=null, busy=false;
 let recorder=null, chunks=[], audioCtx=null, audioDest=null, srcNode=null, recMime='video/webm', recordingMp4=false;
+let recResolve=null, recNameHint='';   // cola de quotes: aviso de fin de grabación + nombre del archivo
 let ffmpeg=null, ffmpegReady=false;
 let bgImg=null, bgVideo=false, overflow=false, finalFrame=false, brandTouched=false;
 let bgCache=null, bgCacheKey='', hiddenDuringRec=false, recTimer=null;
@@ -1069,7 +1180,7 @@ $('xFetch').onclick = async () => {
 };
 
 /* ---------- capturar de una pestaña (getDisplayMedia) → grabar a video y cargarlo en el editor ---------- */
-let capStream=null, capRecorder=null, capChunks=[], capMime='';
+let capStream=null, capRecorder=null, capChunks=[], capMime='', capTimer=null, capT0=0;
 function capStat(t,c){ const el=$('capStat'); if(el){ el.innerHTML=t; el.className='genstat'+(c?' '+c:''); } }
 $('capBtn').onclick = async () => {
   if(capRecorder && capRecorder.state==='recording'){ capRecorder.stop(); return; }   // segundo click = detener
@@ -1080,11 +1191,13 @@ $('capBtn').onclick = async () => {
   const MP4=['video/mp4;codecs=avc1.640028,mp4a.40.2','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4'];
   const WEBM=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
   capMime = MP4.find(m=>MediaRecorder.isTypeSupported(m)) || WEBM.find(m=>MediaRecorder.isTypeSupported(m)) || '';
-  try{ capRecorder = capMime ? new MediaRecorder(capStream,{mimeType:capMime,videoBitsPerSecond:6000000}) : new MediaRecorder(capStream,{videoBitsPerSecond:6000000}); }
+  const capBps = 2800000;   // 2,8 Mbps: alcanza de sobra y evita blobs gigantes en capturas largas
+  try{ capRecorder = capMime ? new MediaRecorder(capStream,{mimeType:capMime,videoBitsPerSecond:capBps}) : new MediaRecorder(capStream,{videoBitsPerSecond:capBps}); }
   catch(e){ capStat('No se pudo iniciar la grabación: '+((e&&e.message)||e),'err'); try{ capStream.getTracks().forEach(t=>t.stop()); }catch(_){} return; }
   capChunks=[];
   capRecorder.ondataavailable = e => { if(e.data && e.data.size) capChunks.push(e.data); };
   capRecorder.onstop = () => {
+    clearInterval(capTimer);
     try{ capStream.getTracks().forEach(t=>t.stop()); }catch(e){}
     $('capBtn').textContent='Capturar de una pestaña';
     const ext = (capMime.indexOf('mp4')>=0) ? 'mp4' : 'webm';
@@ -1095,8 +1208,16 @@ $('capBtn').onclick = async () => {
     capRecorder=null;
   };
   try{ capStream.getVideoTracks()[0].addEventListener('ended', ()=>{ if(capRecorder && capRecorder.state==='recording') capRecorder.stop(); }); }catch(e){}   // si cortan el compartir desde el navegador
-  capRecorder.start();
+  capRecorder.start(1000);   // por trozos: en capturas largas evita que quede todo en un solo blob en memoria
   $('capBtn').textContent='Detener y cargar';
+  capT0=Date.now();
+  clearInterval(capTimer);
+  capTimer=setInterval(()=>{
+    if(!capRecorder || capRecorder.state!=='recording'){ clearInterval(capTimer); return; }
+    const s=Math.floor((Date.now()-capT0)/1000);
+    const mb=capChunks.reduce((a,c)=>a+c.size,0)/1048576;
+    capStat('<span class="spin"></span>Grabando '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0')+' · '+mb.toFixed(0)+' MB — tocá "Detener y cargar" al terminar.','');
+  },1000);
   capStat('<span class="spin"></span>Grabando la pestaña… reproducí el video y tocá "Detener y cargar" al terminar.','');
 };
 
@@ -3239,6 +3360,7 @@ $('transcribeBtn').onclick = async () => {
     trStat('<span class="spin"></span>Transcribiendo… (puede tardar)');
     const _lang=($('srcLang')&&$('srcLang').value)||'auto';
     const _tbody = _lang==='auto' ? { audio_url:upload_url, language_detection:true } : { audio_url:upload_url, language_code:_lang };
+    _tbody.speaker_labels = true;   // hablantes: pinta la transcripción por vocero y sirve para el encuadre
     const cr=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'authorization':key, 'content-type':'application/json' }, body:JSON.stringify(_tbody) });
     if(!cr.ok) throw new Error('create '+cr.status);
     const job=await cr.json();
@@ -3248,7 +3370,7 @@ $('transcribeBtn').onclick = async () => {
       const pr=await fetch('https://api.assemblyai.com/v2/transcript/'+id,{ headers:{ 'authorization':key } });
       const d=await pr.json(); st=d.status; text=d.text||''; if(d.words) subWords=d.words; if(d.error) throw new Error(d.error);
     }
-    if(st==='completed'){ $('trText').value=text; subCues=buildCues(subWords); fillSubEditor(); if(subCues.length) $('subOn').checked=true; updateSubInfo(); redraw(); trStat('Transcripción lista'+(subCues.length?(' · '+subCues.length+' subtítulos'):'')+'.','ok'); }
+    if(st==='completed'){ $('trText').value=text; subCues=buildCues(subWords); fillSubEditor(); if(subCues.length) $('subOn').checked=true; updateSubInfo(); qBuildText(); redraw(); trStat('Transcripción lista'+(subCues.length?(' · '+subCues.length+' subtítulos'):'')+'.','ok'); }
     else throw new Error('estado: '+st);
   }catch(e){
     trStat('Falló: '+(e.message||e)+'. Si es error de red/CORS, hace falta un proxy — avisame.','err');
@@ -3262,6 +3384,314 @@ $('trDownload').onclick = () => {
   const a=document.createElement('a'); a.href=u; a.download='transcripcion.txt'; a.click();
   setTimeout(()=>URL.revokeObjectURL(u),800);
 };
+
+/* ==========================================================================
+   GESTOR DE QUOTES — editar por texto
+   Un quote = un tramo (in/out en ms) + su epígrafe. El estilo (encuadre, logo,
+   placa, subtítulos, cierre) es el mismo para todos: es el estado global del
+   editor. Aplicar un quote sólo mueve el recorte in/out y el epígrafe.
+   ========================================================================== */
+let quotes=[], qActive=null, qSeq=0, qExporting=false, qCancel=false, qPrevRaf=null, qLastNow=-1;
+const QCOL=['#D60019','#1769c9','#0f8f5e','#b8620a','#7a3fbf','#c2185b','#00838f','#5d6d20'];
+const QMAXMS=125000;
+
+function qColor(i){ return QCOL[i%QCOL.length]; }
+function qFmt(ms){ const s=Math.max(0,ms)/1000, m=Math.floor(s/60), r=s-m*60; return m+':'+(r<10?'0':'')+r.toFixed(1).replace('.',','); }
+function qStat(t,c){ const e=$('qStat'); if(!e) return; e.innerHTML=t; e.className='genstat'+(c?' '+c:''); }
+function qSpkName(s){ if(s==null||s==='') return ''; return 'Hablante '+s; }
+
+/* --- persistencia (los quotes son contenido, van aparte de vn_cfg) --- */
+function qSig(){ return (mainVidFile? mainVidFile.name+'|'+mainVidFile.size : 'sin-archivo')+'|'+subWords.length; }
+function qSave(){ try{ localStorage.setItem('vn_quotes', JSON.stringify({sig:qSig(), quotes})); }catch(e){} }
+function qRestore(){
+  try{
+    const raw=localStorage.getItem('vn_quotes'); if(!raw) return false;
+    const d=JSON.parse(raw);
+    if(!d || d.sig!==qSig() || !Array.isArray(d.quotes) || !d.quotes.length) return false;
+    quotes=d.quotes; qSeq=quotes.reduce((m,q)=>Math.max(m,q.id),0);
+    return true;
+  }catch(e){ return false; }
+}
+
+/* --- render de la transcripción como palabras seleccionables --- */
+function qBuildText(){
+  const box=$('qText'); if(!box) return;
+  box.innerHTML=''; qLastNow=-1;
+  if(!subWords.length){
+    box.innerHTML='<div class="q-empty">Todavía no hay transcripción. Cerrá esta ventana, transcribí el video y volvé.</div>';
+    qRenderAll(); return;
+  }
+  qRestore();
+  let p=null, lastSpk=null;
+  subWords.forEach((w,i)=>{
+    const spk=(w.speaker==null?'':String(w.speaker));
+    const gap=i>0 ? (w.start-subWords[i-1].end) : 0;
+    if(spk!==lastSpk || gap>2200 || !p){
+      if(spk!==lastSpk && spk!==''){
+        const h=document.createElement('div');
+        h.className='q-spk'; h.textContent=qSpkName(spk);
+        h.style.color=qColor(Math.max(0,(spk.charCodeAt(0)||65)-65));
+        box.appendChild(h);
+      }
+      p=document.createElement('p'); box.appendChild(p); lastSpk=spk;
+    }
+    const s=document.createElement('span');
+    s.className='q-w'; s.id='q-w-'+i; s.dataset.i=i;
+    s.textContent=w.text+' ';   // el espacio va DENTRO del span: asi el resaltado del quote es un bloque continuo
+    p.appendChild(s);
+  });
+  qRenderAll();
+}
+
+/* --- bordes: enganchar al hueco entre palabras (ahí está el silencio) --- */
+function qSnap(q){
+  const padIn=Math.max(0, parseInt($('qPadIn').value,10)||0);
+  const padOut=Math.max(0, parseInt($('qPadOut').value,10)||0);
+  const wa=subWords[q.a], wb=subWords[q.b]; if(!wa||!wb) return;
+  const gapPrev = q.a>0 ? Math.max(0, wa.start-subWords[q.a-1].end) : 900;
+  const gapNext = q.b<subWords.length-1 ? Math.max(0, subWords[q.b+1].start-wb.end) : 900;
+  q.in  = Math.max(0, wa.start - Math.min(padIn,  gapPrev/2));
+  q.out = wb.end + Math.min(padOut, gapNext/2);
+  const dmax=(vid.duration||0)*1000; if(dmax) q.out=Math.min(q.out, dmax);
+}
+
+/* --- crear un quote desde la selección del mouse --- */
+function qAddFromSelection(){
+  const sel=window.getSelection();
+  if(!sel || sel.isCollapsed || !sel.rangeCount) return;
+  const range=sel.getRangeAt(0);
+  const spans=$('qText').querySelectorAll('.q-w');
+  let a=-1,b=-1;
+  spans.forEach(s=>{ if(range.intersectsNode(s)){ const i=+s.dataset.i; if(a<0||i<a) a=i; if(i>b) b=i; } });
+  sel.removeAllRanges(); qHideFloat();
+  if(a<0){ return; }
+  const q={ id:++qSeq, a, b, in:0, out:0, ctx:'' };
+  qSnap(q);
+  quotes.push(q); quotes.sort((x,y)=>x.in-y.in);
+  qActive=q.id; qSave(); qRenderAll();
+  const el=document.querySelector('.q-item.on'); if(el) el.scrollIntoView({block:'nearest'});
+}
+
+/* --- pintado: resalta los tramos en el texto y arma las dos listas --- */
+function qRenderAll(){ qPaintText(); qRenderSide(); qRenderCard(); qRenderTune(); }
+
+function qPaintText(){
+  const spans=$('qText') ? $('qText').querySelectorAll('.q-w') : [];
+  spans.forEach(s=>{ s.style.background=''; s.style.boxShadow=''; s.classList.remove('inq'); });
+  quotes.forEach((q,n)=>{
+    const c=qColor(n), on=(q.id===qActive);
+    for(let i=q.a;i<=q.b;i++){
+      const s=$('q-w-'+i); if(!s) continue;
+      s.classList.add('inq');
+      s.style.background = on ? c+'3a' : c+'1c';
+      s.style.boxShadow = on ? 'inset 0 -2px 0 '+c : 'inset 0 -1px 0 '+c+'80';
+    }
+  });
+}
+
+function qRenderSide(){
+  const side=$('qSide'); if(!side) return;
+  side.innerHTML='';
+  if(!quotes.length){
+    side.innerHTML='<div class="q-empty">Seleccioná un pasaje de la transcripción con el mouse y apretá “Nuevo quote”.</div>';
+    $('qTopInfo').textContent = subWords.length ? subWords.length+' palabras · 0 quotes' : '—';
+    return;
+  }
+  const tot=quotes.reduce((s,q)=>s+(q.out-q.in),0);
+  $('qTopInfo').textContent=quotes.length+' quotes · '+qFmt(tot)+' en total';
+  quotes.forEach((q,n)=>{
+    const c=qColor(n), dur=q.out-q.in;
+    const d=document.createElement('div');
+    d.className='q-item'+(q.id===qActive?' on':''); d.style.borderLeftColor=c;
+    const txt=subWords.slice(q.a,q.b+1).map(w=>w.text).join(' ');
+    d.innerHTML='<div class="q-h"><span class="q-n" style="color:'+c+'">QUOTE '+(n+1)+'</span>'
+      +'<span class="q-d'+(dur>QMAXMS?' warn':'')+'">'+qFmt(dur)+'</span></div>'
+      +'<div class="q-t">'+txt.replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))+'</div>'
+      +'<div class="q-acts">'
+      +'<button type="button" class="pri" data-act="load">Cargar</button>'
+      +'<button type="button" data-act="play">▸</button>'
+      +'<button type="button" data-act="del">✕</button>'
+      +'</div>';
+    d.onclick=e=>{
+      const act=e.target.dataset.act;
+      qActive=q.id;
+      if(act==='del'){ quotes=quotes.filter(x=>x.id!==q.id); qActive=null; qSave(); qRenderAll(); return; }
+      if(act==='play'){ qRenderAll(); qPreview(q); return; }
+      if(act==='load'){ qApply(q); qCloseOverlay(); return; }
+      qRenderAll();
+    };
+    side.appendChild(d);
+  });
+}
+
+function qRenderCard(){
+  $('qCount').textContent=quotes.length;
+  const list=$('qList'); if(!list) return;
+  list.innerHTML='';
+  if(!quotes.length){ list.innerHTML='<div class="q-empty" style="padding:2px">Sin quotes.</div>'; return; }
+  quotes.forEach((q,n)=>{
+    const c=qColor(n);
+    const row=document.createElement('div');
+    row.className='q-mini';
+    row.innerHTML='<span class="q-chip" style="border-color:'+c+';color:'+c+'">'+(n+1)+'</span>'
+      +'<span style="flex:1;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+      + subWords.slice(q.a,q.a+7).map(w=>w.text).join(' ')+'…</span>'
+      +'<span style="font-family:var(--mono);font-size:10px;color:var(--dim)">'+qFmt(q.out-q.in)+'</span>';
+    row.style.cursor='pointer';
+    row.onclick=()=>{ qActive=q.id; qApply(q); qRenderAll(); };
+    list.appendChild(row);
+  });
+}
+
+function qFind(){ return quotes.find(q=>q.id===qActive)||null; }
+
+function qRenderTune(){
+  const q=qFind(), t=$('qTune'); if(!t) return;
+  if(!q){ t.hidden=true; return; }
+  t.hidden=false;
+  $('qInV').textContent=qFmt(q.in);
+  $('qOutV').textContent=qFmt(q.out);
+  const dur=q.out-q.in;
+  $('qDurV').textContent=qFmt(dur)+(dur>QMAXMS?' ⚠':'');
+  $('qDurV').style.color = dur>QMAXMS ? 'var(--rojo)' : 'var(--ink)';
+  if(document.activeElement!==$('qCtx')) $('qCtx').value=q.ctx||'';
+}
+
+/* --- aplicar un quote al editor: mueve el recorte y el epígrafe --- */
+function qApply(q){
+  if(!q || !loaded) return;
+  cancelClosing(); finalFrame=false;
+  trimIn = Math.max(0, q.in/1000);
+  trimOut = Math.min(vid.duration||0, q.out/1000);
+  layoutTL();
+  if(q.ctx!=null && q.ctx!==''){ $('ctx').value=q.ctx; $('ctx').dispatchEvent(new Event('input',{bubbles:true})); }
+  try{ vid.currentTime=segIn(); }catch(e){}
+  updateSeekLabel();
+  redraw();
+  const n=quotes.indexOf(q)+1;
+  setStatus('Quote '+n+' cargado ('+qFmt(q.out-q.in)+'). El encuadre y el estilo son los mismos para todos.');
+}
+
+/* --- escuchar el tramo sin salir del editor, con karaoke --- */
+function qPreview(q){
+  if(!loaded) return;
+  qStopPreview();
+  try{ vid.currentTime=q.in/1000; }catch(e){}
+  vid.play().catch(()=>{});
+  $('qPlay').textContent='■ Parar';
+  const tick=()=>{
+    const t=vid.currentTime*1000;
+    qHighlight(t);
+    if(t>=q.out || vid.paused){ qStopPreview(); return; }
+    qPrevRaf=requestAnimationFrame(tick);
+  };
+  qPrevRaf=requestAnimationFrame(tick);
+}
+function qStopPreview(){
+  if(qPrevRaf){ cancelAnimationFrame(qPrevRaf); qPrevRaf=null; }
+  try{ if(!busy) vid.pause(); }catch(e){}
+  if($('qPlay')) $('qPlay').textContent='▸ Escuchar';
+  if(qLastNow>=0){ const p=$('q-w-'+qLastNow); if(p) p.classList.remove('now'); qLastNow=-1; }
+}
+function qHighlight(t){
+  let i=qLastNow>=0?qLastNow:0;
+  if(i>0 && subWords[i] && subWords[i].start>t) i=0;
+  while(i<subWords.length-1 && subWords[i].end<t) i++;
+  if(i===qLastNow) return;
+  if(qLastNow>=0){ const p=$('q-w-'+qLastNow); if(p) p.classList.remove('now'); }
+  const n=$('q-w-'+i); if(n){ n.classList.add('now'); n.scrollIntoView({block:'nearest'}); }
+  qLastNow=i;
+}
+
+/* --- botón flotante sobre la selección --- */
+let qFloat=null;
+function qHideFloat(){ if(qFloat){ qFloat.remove(); qFloat=null; } }
+function qShowFloat(){
+  const sel=window.getSelection();
+  const box=$('qText');
+  if(!sel || sel.isCollapsed || !sel.rangeCount || !box.contains(sel.anchorNode)){ qHideFloat(); return; }
+  const r=sel.getRangeAt(0).getBoundingClientRect();
+  if(!r.width && !r.height){ qHideFloat(); return; }
+  const b=box.getBoundingClientRect();
+  if(!qFloat){
+    qFloat=document.createElement('button');
+    qFloat.type='button'; qFloat.className='q-float'; qFloat.textContent='✂ Nuevo quote';
+    qFloat.onmousedown=e=>e.preventDefault();
+    qFloat.onclick=qAddFromSelection;
+    box.appendChild(qFloat);
+  }
+  qFloat.style.left=Math.max(4, r.left-b.left+box.scrollLeft+r.width/2-62)+'px';
+  qFloat.style.top =Math.max(4, r.top -b.top +box.scrollTop -44)+'px';
+}
+
+/* --- abrir / cerrar --- */
+function qOpenOverlay(){
+  if(!subWords.length){ qStat('Primero transcribí el video (tarjeta Transcripción).','err'); return; }
+  qBuildText();
+  $('qOverlay').hidden=false;
+}
+function qCloseOverlay(){ qStopPreview(); qHideFloat(); $('qOverlay').hidden=true; }
+
+/* --- cableado --- */
+$('qOpen').onclick=qOpenOverlay;
+$('qClose').onclick=qCloseOverlay;
+$('qOverlay').addEventListener('mousedown', e=>{ if(e.target===$('qOverlay')) qCloseOverlay(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !$('qOverlay').hidden) qCloseOverlay(); });
+$('qText').addEventListener('mouseup', ()=>setTimeout(qShowFloat,0));
+$('qText').addEventListener('scroll', qHideFloat);
+$('qSnapAll').onclick=()=>{ quotes.forEach(qSnap); qSave(); qRenderAll(); };
+$('qSnapOne').onclick=()=>{ const q=qFind(); if(q){ qSnap(q); qSave(); qRenderAll(); } };
+$('qPlay').onclick=()=>{ const q=qFind(); if(!q) return; if(qPrevRaf) qStopPreview(); else qPreview(q); };
+$('qLoad').onclick=()=>{ const q=qFind(); if(q){ qApply(q); qCloseOverlay(); } };
+$('qCtx').addEventListener('input',()=>{ const q=qFind(); if(q){ q.ctx=$('qCtx').value; qSave(); } });
+$('qTune').addEventListener('click', e=>{
+  const n=e.target.dataset.nudge; if(!n) return;
+  const q=qFind(); if(!q) return;
+  const step=(n.indexOf('++')>0?100:-100);
+  if(n.indexOf('in')===0) q.in=Math.max(0,q.in+step);
+  else q.out=Math.max(q.in+300, q.out+step);
+  qSave(); qRenderTune();
+});
+['qPadIn','qPadOut'].forEach(id=>$(id).addEventListener('change',()=>{ quotes.forEach(qSnap); qSave(); qRenderAll(); }));
+
+/* --- cola de exportación --- */
+async function qExportAll(){
+  if(qExporting){ qCancel=true; return; }
+  if(!loaded){ qStat('Cargá el video del cronista primero.','err'); return; }
+  if(!quotes.length){ qStat('Todavía no hay quotes.','err'); return; }
+  if(busy){ qStat('Hay una exportación en curso: esperá a que termine.','err'); return; }
+  qStopPreview();
+  qExporting=true; qCancel=false;
+  $('qExportAll').textContent='■ Cancelar la cola';
+  $('qExportAll2').textContent='■ Cancelar';
+  const total=quotes.length;
+  for(let i=0;i<total;i++){
+    if(qCancel) break;
+    const q=quotes[i];
+    qStat('<span class="spin"></span>Grabando quote '+(i+1)+' de '+total+' · '+qFmt(q.out-q.in)+'…');
+    qApply(q);
+    recNameHint='Quote '+String(i+1).padStart(2,'0');
+    await new Promise(r=>setTimeout(r,600));
+    await qRecordOnce();
+    await new Promise(r=>setTimeout(r,1200));
+  }
+  recNameHint='';
+  $('qExportAll').textContent='Exportar todos los quotes';
+  $('qExportAll2').textContent='Exportar todos';
+  qStat(qCancel ? 'Cola cancelada.' : ('Listos los '+total+' quotes.'), qCancel?'err':'ok');
+  qExporting=false; qCancel=false;
+}
+function qRecordOnce(){
+  return new Promise(res=>{
+    let done=false;
+    const fin=()=>{ if(!done){ done=true; recResolve=null; res(); } };
+    recResolve=fin;
+    startRecording();
+    setTimeout(()=>{ if(!busy) fin(); }, 2500);   // por si el guard cortó la grabación de entrada
+  });
+}
+$('qExportAll').onclick=qExportAll;
+$('qExportAll2').onclick=qExportAll;
 
 /* ---- epígrafe sugerido y lugares (usan la key de OpenAI) ---- */
 async function gptChat(messages, opts){
@@ -3542,7 +3972,7 @@ function downloadBlob(blob, ext){
   const url=URL.createObjectURL(blob);
   const d=new Date();
   const hh=String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');
-  const fname='Incertis Video WhatsApp '+hh+'.'+ext;
+  const fname=(recNameHint ? 'Incertis '+recNameHint+' '+hh : 'Incertis Video WhatsApp '+hh)+'.'+ext;
   const a=document.createElement('a');
   a.href=url; a.download=fname; a.rel='noopener'; a.style.display='none';
   document.body.appendChild(a); a.click();
@@ -3560,7 +3990,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ---------- exportación ---------- */
-$('rec').onclick = async () => {
+async function startRecording(){
   if(busy || !loaded) return;
   busy=true;
   $('rec').disabled=true; $('play').disabled=true;
@@ -3646,7 +4076,8 @@ $('rec').onclick = async () => {
     setStatus('Falló la grabación: '+err.message,'err');
     reset();
   }
-};
+}
+$('rec').onclick = startRecording;
 
 async function convert(){
   const blob=new Blob(chunks,{type: recordingMp4 ? 'video/mp4' : 'video/webm'});
@@ -3699,6 +4130,7 @@ function reset(){
   vid.onended=null;
   try{ vid.currentTime=segIn(); }catch(e){}   // volver al inicio del tramo
   draw();                                     // refrescar el lienzo (que no quede el cierre en pantalla)
+  if(recResolve){ const r=recResolve; recResolve=null; setTimeout(r,300); }   // avisarle a la cola de quotes
 }
 
 /* ---------- guardar / restaurar mi configuración de estilo ---------- */

@@ -139,6 +139,42 @@ video.src{display:none}
 .wrap[hidden]{display:none}
 #anFrame{display:block;width:100%;max-width:1560px;margin:0 auto;height:calc(100vh - 110px);min-height:540px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 #anFrame[hidden]{display:none}
+/* entrada numérica del recorte */
+.trim-num{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:9px}
+.trim-num .tn{display:flex;flex-direction:column;gap:4px}
+.trim-num input[type=text]{margin-top:0;width:88px;font-family:var(--mono);font-size:12px;padding:7px 8px;text-align:center}
+.trim-num input.mal{border-color:var(--rojo);background:#fff2f3}
+.trim-num button{margin:0;width:auto;padding:7px 9px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);font:600 10.5px/1 var(--ui);color:var(--ink);cursor:pointer;white-space:nowrap}
+.trim-num button:hover{background:#e8ebf0;border-color:var(--rojo)}
+/* ---- editor de recorte preciso (overlay) ---- */
+#tzOv{position:fixed;inset:0;background:rgba(18,20,24,.72);z-index:210;display:flex;align-items:center;justify-content:center;padding:22px}
+#tzOv[hidden]{display:none}
+.tz-box{background:var(--panel);border-radius:12px;width:100%;max-width:1360px;max-height:94vh;display:flex;flex-direction:column;overflow:hidden}
+.tz-top{display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid var(--line)}
+.tz-top h2{font-family:var(--disp);font-weight:600;font-size:14px;letter-spacing:.05em;text-transform:uppercase}
+.tz-vid{background:#0d0f12;display:flex;align-items:center;justify-content:center;min-height:0;flex:1}
+.tz-vid video{max-width:100%;max-height:52vh;display:block}
+.tz-ctl{padding:12px 18px 16px;display:flex;flex-direction:column;gap:10px}
+.tz-now{font-family:var(--mono);font-size:26px;font-weight:700;text-align:center;letter-spacing:.02em}
+.tz-now small{font-size:12px;color:var(--dim);font-weight:400}
+.tz-step{display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
+.tz-step button{margin:0;width:auto;padding:9px 11px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);font:600 11px/1 var(--mono);cursor:pointer;color:var(--ink)}
+.tz-step button:hover{border-color:var(--rojo);background:#fff}
+.tz-step button.play{background:var(--rojo);border-color:var(--rojo);color:#fff;min-width:92px}
+.tz-bar{position:relative;height:34px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;cursor:pointer;overflow:hidden}
+.tz-bar .sel{position:absolute;top:0;bottom:0;background:rgba(214,0,25,.16);border-left:2px solid var(--rojo);border-right:2px solid var(--rojo)}
+.tz-bar .cur{position:absolute;top:0;bottom:0;width:2px;background:#111;pointer-events:none}
+.tz-bar .lbl2{position:absolute;left:7px;top:9px;font-family:var(--mono);font-size:10px;color:var(--dim);pointer-events:none}
+.tz-zoom{position:relative;height:52px;background:#eef1f5;border:1px solid var(--line);border-radius:6px;cursor:pointer;overflow:hidden}
+.tz-zoom .tick{position:absolute;top:0;bottom:0;width:1px;background:#cfd5dd}
+.tz-zoom .tick b{position:absolute;top:2px;left:3px;font:400 9px/1 var(--mono);color:var(--dim)}
+.tz-zoom .mid{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--rojo)}
+.tz-zoom .selz{position:absolute;top:0;bottom:0;background:rgba(214,0,25,.14)}
+.tz-fin{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;justify-content:center;border-top:1px solid var(--line);padding-top:11px}
+.tz-fin .mk{margin:0;width:auto;padding:10px 14px;border-radius:7px;border:1px solid var(--rojo);background:var(--rojo);color:#fff;font:600 12px/1 var(--ui);cursor:pointer}
+.tz-fin .mk.sec{background:var(--panel);color:var(--ink);border-color:var(--line)}
+.tz-fin input[type=text]{margin:0;width:100px;font-family:var(--mono);font-size:12px;padding:8px;text-align:center}
+.tz-hint{font-size:11px;color:var(--dim);text-align:center;font-style:italic}
 
 /* ---------- gestor de quotes ---------- */
 #qOverlay{position:fixed;inset:0;background:rgba(20,22,26,.55);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:26px}
@@ -155,6 +191,7 @@ video.src{display:none}
 .q-text p{margin-bottom:4px}
 .q-w{cursor:text;border-radius:3px;padding:1px 0}
 .q-w.now{background:#ffe9a8}
+.q-w.fuera{color:#c3c8d0}
 .q-w.inq{padding:2px 0}
 .q-float{position:absolute;z-index:5;background:var(--rojo);color:#fff;border:none;border-radius:7px;padding:8px 14px;font:600 12px/1 var(--ui);cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.28);white-space:nowrap}
 .q-float:hover{background:#a80014}
@@ -194,6 +231,9 @@ video.src{display:none}
 /* revisión de candidatos */
 .q-cand{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:10px 11px;margin-bottom:8px}
 .q-cand.off{opacity:.45}
+.q-cand.edit{border-color:var(--rojo);box-shadow:0 0 0 2px rgba(214,0,25,.14)}
+.q-cand .q-acts button{font:600 10.5px/1 var(--ui);padding:5px 8px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);cursor:pointer;width:auto;margin:0}
+.q-cand .q-acts button:hover{border-color:var(--rojo);color:var(--rojo)}
 .q-cand .top{display:flex;gap:8px;align-items:flex-start}
 .q-cand input[type=checkbox]{margin-top:3px;flex:0 0 auto}
 .q-cand .por{font-size:11.5px;color:var(--rojo);font-weight:600;line-height:1.35}
@@ -222,7 +262,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v40 · quotes con IA</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v42 · recorte preciso</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -318,7 +358,21 @@ video.src{display:none}
             <div class="tl-h" id="tlIn" data-h="in"></div>
             <div class="tl-h" id="tlOut" data-h="out"></div>
           </div>
-          <div class="hint">Arrastrá las dos manijas para elegir el tramo que se usa. El anillo y el contador se ajustan a ese tramo.</div>
+          <div class="trim-num">
+            <div class="tn">
+              <span class="lbl" style="margin:0">Desde</span>
+              <input type="text" id="trimInTxt" placeholder="0:00" spellcheck="false">
+              <button type="button" id="trimInHere" title="Usar la posición del cabezal">⇤ acá</button>
+            </div>
+            <div class="tn">
+              <span class="lbl" style="margin:0">Hasta</span>
+              <input type="text" id="trimOutTxt" placeholder="0:00" spellcheck="false">
+              <button type="button" id="trimOutHere" title="Usar la posición del cabezal">acá ⇥</button>
+            </div>
+            <button type="button" id="trimAll" class="mini-btn" style="margin:0;width:auto;padding:7px 10px">Todo</button>
+            <button type="button" id="tzOpen" class="mini-btn" style="margin:0;width:auto;padding:7px 10px;border-color:var(--rojo);color:var(--rojo);font-weight:700">⤢ Recorte preciso</button>
+          </div>
+          <div class="hint">Escribí los tiempos (<b>15:00</b>, <b>1:02:30</b> o <b>900</b> segundos) o arrastrá las manijas. Con “⇤ acá” usás el punto donde está el cabezal: movés el control de abajo del lienzo hasta encontrarlo y tocás el botón. El anillo y el contador se ajustan al tramo.</div>
         </div>
       </div>
     </div>
@@ -709,6 +763,7 @@ video.src{display:none}
         </select>
         <button type="button" class="genbtn go" id="transcribeBtn" style="margin-top:10px">Transcribir el video</button>
         <div class="genstat" id="trStat"></div>
+        <div class="hint" id="trAlcance" style="margin-top:6px">Se transcribe el video entero.</div>
         <textarea id="trText" rows="6" placeholder="La transcripción aparece acá…" style="margin-top:10px"></textarea>
         <div class="row" style="margin-top:8px">
           <button type="button" class="mini-btn" id="trCopy" style="margin-top:0">Copiar</button>
@@ -1018,6 +1073,49 @@ video.src{display:none}
 
 <iframe id="anFrame" title="AudioNote" hidden></iframe>
 
+<!-- ============ RECORTE PRECISO ============ -->
+<div id="tzOv" hidden>
+  <div class="tz-box">
+    <div class="tz-top">
+      <h2>Recorte preciso</h2>
+      <span class="q-queue" id="tzInfo">—</span>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button type="button" class="mini-btn" id="tzAll" style="margin:0;width:auto;padding:8px 12px">Todo el video</button>
+        <button type="button" class="mini-btn" id="tzClose" style="margin:0;width:auto;padding:8px 14px">Aplicar y cerrar</button>
+      </div>
+    </div>
+    <div class="tz-vid"><video id="tzVid" playsinline preload="auto"></video></div>
+    <div class="tz-ctl">
+      <div class="tz-now" id="tzNow">0:00.0 <small id="tzTot"></small></div>
+      <div class="tz-step">
+        <button type="button" data-s="-30">−30s</button>
+        <button type="button" data-s="-5">−5s</button>
+        <button type="button" data-s="-1">−1s</button>
+        <button type="button" data-s="-0.2">−0,2s</button>
+        <button type="button" data-s="-0.04">◀ cuadro</button>
+        <button type="button" class="play" id="tzPlay">▶ Reproducir</button>
+        <button type="button" data-s="0.04">cuadro ▶</button>
+        <button type="button" data-s="0.2">+0,2s</button>
+        <button type="button" data-s="1">+1s</button>
+        <button type="button" data-s="5">+5s</button>
+        <button type="button" data-s="30">+30s</button>
+      </div>
+      <div class="tz-bar" id="tzBar"><div class="sel" id="tzSel"></div><div class="cur" id="tzCur"></div><div class="lbl2">video completo — clic para saltar</div></div>
+      <div class="tz-zoom" id="tzZoom"><div class="selz" id="tzSelZ"></div><div class="mid"></div></div>
+      <div class="tz-fin">
+        <button type="button" class="mk" id="tzSetIn">⇤ Marcar ENTRADA acá</button>
+        <input type="text" id="tzInTxt" placeholder="0:00">
+        <span style="color:var(--dim)">→</span>
+        <input type="text" id="tzOutTxt" placeholder="0:00">
+        <button type="button" class="mk" id="tzSetOut">Marcar SALIDA acá ⇥</button>
+        <button type="button" class="mk sec" id="tzGoIn">Ir a la entrada</button>
+        <button type="button" class="mk sec" id="tzGoOut">Ir a la salida</button>
+      </div>
+      <div class="tz-hint">Teclado: <b>← →</b> un cuadro · <b>Shift + ← →</b> un segundo · <b>espacio</b> reproducir · <b>I</b> entrada · <b>O</b> salida. La franja de abajo son 20 segundos alrededor del cabezal: ahí apuntás fino.</div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ EDITOR DE QUOTES ============ -->
 <div id="qOverlay" hidden>
   <div class="q-box">
@@ -1051,6 +1149,7 @@ video.src{display:none}
     </div>
     <div class="q-tune" id="qTune" hidden>
       <div class="blk">
+        <span class="lbl" style="margin:0;color:var(--rojo);font-weight:700" id="qTuneWhat">—</span>
         <span class="lbl" style="margin:0">Entrada</span>
         <div class="nudge">
           <button type="button" data-nudge="in--">−100</button>
@@ -1070,9 +1169,10 @@ video.src{display:none}
         <span class="lbl" style="margin:0">Duración</span>
         <div class="nudge"><span id="qDurV" style="min-width:80px">—</span></div>
       </div>
-      <div class="blk" style="flex:1;min-width:220px">
-        <span class="lbl" style="margin:0">Epígrafe de este quote</span>
-        <input type="text" id="qCtx" placeholder="Bajada para la placa de este quote…">
+      <div class="blk" style="flex:1;min-width:240px">
+        <span class="lbl" style="margin:0">Epígrafe de este quote <span class="counter">texto para publicar</span></span>
+        <input type="text" id="qCtx" placeholder="Bajada para acompañar el posteo…">
+        <label class="chk" style="margin:4px 0 0"><input type="checkbox" id="qCtxOn"> También pintarlo sobre el video</label>
       </div>
       <div class="blk">
         <span class="lbl" style="margin:0">&nbsp;</span>
@@ -1350,7 +1450,9 @@ function layoutTL(){
   $('tlOut').style.left=(fo*100)+'%';
   $('tlRange').style.left=(fi*100)+'%';
   $('tlRange').style.width=Math.max(0,(fo-fi)*100)+'%';
-  $('trimV').textContent=fmt1(segIn())+' – '+fmt1(segOut())+' s ('+fmt1(segDur())+' s)';
+  $('trimV').textContent=fmtTiempo(segIn())+' – '+fmtTiempo(segOut())+'  ('+fmtTiempo(segDur())+')';
+  if(typeof trimNumSync==='function') trimNumSync();
+  if(typeof trAlcance==='function') trAlcance();
   updateTLPlay();
 }
 function updateTLPlay(){
@@ -1382,6 +1484,158 @@ document.addEventListener('pointermove', e=>{
   tlApply(tlDragH,t); redraw();
 });
 document.addEventListener('pointerup', ()=>{ tlDragH=null; });
+
+/* ===== recorte por tiempo escrito — imprescindible en videos largos =====
+   Arrastrar una manija sobre una barra de ~250 px en un video de 40 minutos
+   da 10 segundos por píxel: no se puede apuntar. Acá se escribe el tiempo. */
+function parseTiempo(txt){
+  const t=(txt||'').trim().replace(',', '.');
+  if(!t) return null;
+  if(/^\d+(\.\d+)?$/.test(t)) return parseFloat(t);            // "900" → segundos
+  const p=t.split(':');
+  if(p.length>3 || p.some(x=>x==='' || isNaN(parseFloat(x)))) return null;
+  let seg=0; for(const x of p) seg = seg*60 + parseFloat(x);      // mm:ss  o  hh:mm:ss
+  return isFinite(seg) ? seg : null;
+}
+function fmtTiempo(s){
+  s=Math.max(0,s||0);
+  const h=Math.floor(s/3600), m=Math.floor((s-h*3600)/60), r=s-h*3600-m*60;
+  const rr=(r<10?'0':'')+ (Math.round(r*10)/10).toFixed(1);
+  return h ? (h+':'+String(m).padStart(2,'0')+':'+rr) : (m+':'+rr);
+}
+function trAlcance(){
+  const el=$('trAlcance'); if(!el) return;
+  const d=vidDur(); if(!d){ el.textContent='Se transcribe el video entero.'; return; }
+  const rec = segIn()>0.2 || segOut()<d-0.2;
+  el.innerHTML = rec
+    ? '<b>Se transcribe sólo el tramo '+fmtTiempo(segIn())+' – '+fmtTiempo(segOut())+'</b> ('+fmtTiempo(segDur())+'). Lo que quede fuera del recorte no entra en la transcripción ni en los quotes.'
+    : 'Se transcribe el video entero ('+fmtTiempo(d)+'). Si querés sacar una intro o una espera, recortá antes de transcribir.';
+}
+function trimNumSync(){
+  const a=$('trimInTxt'), b=$('trimOutTxt');
+  if(!a||!b) return;
+  if(document.activeElement!==a){ a.value=fmtTiempo(segIn()); a.classList.remove('mal'); }
+  if(document.activeElement!==b){ b.value=fmtTiempo(segOut()); b.classList.remove('mal'); }
+}
+function trimNumAplicar(cual){
+  const el=$(cual==='in'?'trimInTxt':'trimOutTxt');
+  const v=parseTiempo(el.value);
+  const d=vidDur();
+  if(v==null || !isFinite(v) || v<0 || (d && v>d+0.5)){ el.classList.add('mal'); return; }
+  el.classList.remove('mal');
+  tlApply(cual, v);
+  try{ vid.currentTime = (cual==='in') ? segIn() : Math.max(0, segOut()-0.05); }catch(e){}
+  updateSeekLabel(); trimNumSync(); redraw();
+}
+['in','out'].forEach(c=>{
+  const el=$(c==='in'?'trimInTxt':'trimOutTxt');
+  el.addEventListener('change', ()=>trimNumAplicar(c));
+  el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); trimNumAplicar(c); el.blur(); } });
+});
+$('trimInHere').onclick  = ()=>{ tlApply('in',  vid.currentTime||0); trimNumSync(); updateSeekLabel(); redraw(); };
+$('trimOutHere').onclick = ()=>{ tlApply('out', vid.currentTime||0); trimNumSync(); updateSeekLabel(); redraw(); };
+$('trimAll').onclick = ()=>{ trimIn=0; trimOut=vidDur(); layoutTL(); trimNumSync(); updateSeekLabel(); redraw(); };
+
+/* ===== RECORTE PRECISO =====
+   En un video de 40 minutos la barra de 250 px da ~10 s por píxel: imposible apuntar.
+   Acá hay un video grande, avance cuadro por cuadro y una franja ampliada de 20 s
+   alrededor del cabezal (unos 17 ms por píxel), que sí permite buscar el punto exacto. */
+const TZV = ()=>$('tzVid');
+const TZW = 20;                      // segundos que abarca la franja ampliada
+let tzRaf=null;
+
+function tzOpen(){
+  if(!loaded) return;
+  const v=TZV();
+  if(v.src!==vid.currentSrc){ v.src=vid.currentSrc; }
+  v.muted=false;
+  $('tzOv').hidden=false;
+  const ir=()=>{ try{ v.currentTime=Math.min(segIn(), Math.max(0,vidDur()-0.1)); }catch(e){} };
+  if(v.readyState>=1) ir(); else v.addEventListener('loadedmetadata', ir, {once:true});
+  $('tzTot').textContent='de '+fmtTiempo(vidDur());
+  tzSync(); tzLoop();
+}
+function tzClose(){
+  try{ TZV().pause(); }catch(e){}
+  if(tzRaf){ cancelAnimationFrame(tzRaf); tzRaf=null; }
+  $('tzOv').hidden=true;
+  layoutTL(); updateSeekLabel(); redraw();
+}
+function tzLoop(){
+  tzSync();
+  tzRaf=requestAnimationFrame(tzLoop);
+}
+function tzSeek(t){
+  const d=vidDur()||0;
+  const v=TZV();
+  try{ v.currentTime=Math.max(0, Math.min(d?d-0.03:t, t)); }catch(e){}
+  tzSync();
+}
+function tzPaso(d){ TZV().pause(); tzSeek((TZV().currentTime||0)+d); }
+
+function tzSync(){
+  const v=TZV(), d=vidDur()||0, t=v.currentTime||0;
+  $('tzNow').firstChild.nodeValue = fmtTiempo(t)+' ';
+  $('tzInfo').textContent = 'entrada '+fmtTiempo(segIn())+'  ·  salida '+fmtTiempo(segOut())+'  ·  dura '+fmtTiempo(segDur());
+  if(document.activeElement!==$('tzInTxt'))  $('tzInTxt').value=fmtTiempo(segIn());
+  if(document.activeElement!==$('tzOutTxt')) $('tzOutTxt').value=fmtTiempo(segOut());
+  $('tzPlay').textContent = v.paused ? '▶ Reproducir' : '❚❚ Pausar';
+  if(!d) return;
+  // barra completa
+  const fi=segIn()/d, fo=segOut()/d;
+  $('tzSel').style.left=(fi*100)+'%'; $('tzSel').style.width=Math.max(0,(fo-fi)*100)+'%';
+  $('tzCur').style.left=((t/d)*100)+'%';
+  // franja ampliada: 20 s centrados en el cabezal
+  const z=$('tzZoom'), a=t-TZW/2, b=t+TZW/2;
+  z.querySelectorAll('.tick').forEach(e=>e.remove());
+  for(let sec=Math.ceil(a); sec<=Math.floor(b); sec++){
+    if(sec<0 || sec>d) continue;
+    const el=document.createElement('div');
+    el.className='tick'; el.style.left=(((sec-a)/TZW)*100)+'%';
+    if(sec%5===0) el.innerHTML='<b>'+fmtTiempo(sec).replace(/\.0$/,'')+'</b>';
+    z.appendChild(el);
+  }
+  const za=Math.max(0,(segIn()-a)/TZW), zb=Math.min(1,(segOut()-a)/TZW);
+  const sz=$('tzSelZ');
+  if(zb>za){ sz.style.left=(za*100)+'%'; sz.style.width=((zb-za)*100)+'%'; sz.style.display='block'; }
+  else sz.style.display='none';
+}
+
+$('tzOpen').onclick=tzOpen;
+$('tzClose').onclick=tzClose;
+$('tzOv').addEventListener('mousedown', e=>{ if(e.target===$('tzOv')) tzClose(); });
+$('tzPlay').onclick=()=>{ const v=TZV(); if(v.paused) v.play().catch(()=>{}); else v.pause(); tzSync(); };
+document.querySelectorAll('.tz-step button[data-s]').forEach(b=>{ b.onclick=()=>tzPaso(parseFloat(b.dataset.s)); });
+$('tzBar').onclick=e=>{ const r=$('tzBar').getBoundingClientRect(); tzPaso(0); tzSeek(((e.clientX-r.left)/r.width)*(vidDur()||0)); };
+$('tzZoom').onclick=e=>{ const r=$('tzZoom').getBoundingClientRect();
+  const t=TZV().currentTime||0; TZV().pause();
+  tzSeek(t - TZW/2 + ((e.clientX-r.left)/r.width)*TZW); };
+$('tzSetIn').onclick =()=>{ tlApply('in',  TZV().currentTime||0); tzSync(); };
+$('tzSetOut').onclick=()=>{ tlApply('out', TZV().currentTime||0); tzSync(); };
+$('tzGoIn').onclick  =()=>{ TZV().pause(); tzSeek(segIn()); };
+$('tzGoOut').onclick =()=>{ TZV().pause(); tzSeek(Math.max(0,segOut()-0.05)); };
+$('tzAll').onclick   =()=>{ trimIn=0; trimOut=vidDur(); layoutTL(); tzSync(); };
+[['tzInTxt','in'],['tzOutTxt','out']].forEach(([id,cual])=>{
+  const el=$(id);
+  const ap=()=>{ const v=parseTiempo(el.value); const d=vidDur();
+    if(v==null||v<0||(d&&v>d+0.5)){ el.classList.add('mal'); return; }
+    el.classList.remove('mal'); tlApply(cual,v); tzSeek(cual==='in'?segIn():Math.max(0,segOut()-0.05)); };
+  el.addEventListener('change', ap);
+  el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); ap(); el.blur(); } });
+});
+document.addEventListener('keydown', e=>{
+  if($('tzOv').hidden) return;
+  if(/^(INPUT|TEXTAREA)$/.test((e.target.tagName||''))) return;
+  const k=e.key;
+  if(k==='Escape'){ tzClose(); return; }
+  if(k==='ArrowLeft'){  e.preventDefault(); tzPaso(e.shiftKey?-1:-0.04); return; }
+  if(k==='ArrowRight'){ e.preventDefault(); tzPaso(e.shiftKey? 1: 0.04); return; }
+  if(k===' '){ e.preventDefault(); $('tzPlay').click(); return; }
+  if(k==='i'||k==='I'){ $('tzSetIn').click(); return; }
+  if(k==='o'||k==='O'){ $('tzSetOut').click(); return; }
+});
+
+
 
 /* ===== recorte in/out del video de fondo (loop dentro del tramo) ===== */
 function bgSegIn(){ return Math.max(0, bgTrimIn||0); }
@@ -3449,6 +3703,13 @@ $('transcribeBtn').onclick = async () => {
     const _lang=($('srcLang')&&$('srcLang').value)||'auto';
     const _tbody = _lang==='auto' ? { audio_url:upload_url, language_detection:true } : { audio_url:upload_url, language_code:_lang };
     _tbody.speaker_labels = true;   // hablantes: pinta la transcripción por vocero y sirve para el encuadre
+    /* Transcribir SÓLO el tramo elegido. Si no, en un video con 15 minutos de espera
+       antes del discurso la transcripción trae todo y los quotes salen de la nada. */
+    const _ini = Math.round(segIn()*1000);
+    const _fin = Math.round(segOut()*1000);
+    const _dur = Math.round(vidDur()*1000);
+    const _recorte = (_ini > 200) || (_dur && _fin < _dur - 200);
+    if(_recorte){ _tbody.audio_start_from = _ini; if(_fin > _ini) _tbody.audio_end_at = _fin; }
     const cr=await fetch('https://api.assemblyai.com/v2/transcript',{ method:'POST', headers:{ 'authorization':key, 'content-type':'application/json' }, body:JSON.stringify(_tbody) });
     if(!cr.ok) throw new Error('create '+cr.status);
     const job=await cr.json();
@@ -3458,7 +3719,24 @@ $('transcribeBtn').onclick = async () => {
       const pr=await fetch('https://api.assemblyai.com/v2/transcript/'+id,{ headers:{ 'authorization':key } });
       const d=await pr.json(); st=d.status; text=d.text||''; if(d.words) subWords=d.words; if(d.error) throw new Error(d.error);
     }
-    if(st==='completed'){ $('trText').value=text; subCues=buildCues(subWords); fillSubEditor(); if(subCues.length) $('subOn').checked=true; updateSubInfo(); qBuildText(); redraw(); trStat('Transcripción lista'+(subCues.length?(' · '+subCues.length+' subtítulos'):'')+'.','ok'); }
+    if(st==='completed'){
+      /* La documentación de AssemblyAI no aclara si, al usar audio_start_from, los tiempos
+         vuelven relativos al tramo o absolutos al archivo. En vez de asumir, usamos un
+         invariante: si los tiempos fueran absolutos, NINGUNA palabra podría empezar antes
+         de _ini, porque ese audio no se transcribió. Si alguna empieza antes, son relativos
+         y hay que correrlos. Todo el resto de la app trabaja en tiempo absoluto del video. */
+      let _rel=false;
+      if(_recorte && subWords.length){
+        const _primera = Math.min.apply(null, subWords.map(w=>w.start));
+        if(_primera < _ini){ _rel=true; subWords.forEach(w=>{ w.start+=_ini; w.end+=_ini; }); }
+        subWords = subWords.filter(w => w.end>=_ini-50 && w.start<=_fin+50);   // por las dudas
+      }
+      $('trText').value=text; subCues=buildCues(subWords); fillSubEditor();
+      if(subCues.length) $('subOn').checked=true;
+      updateSubInfo(); qBuildText(); redraw();
+      trStat('Transcripción lista'+(subCues.length?(' · '+subCues.length+' subtítulos'):'')
+        +(_recorte?(' · sólo el tramo '+fmtTiempo(segIn())+'–'+fmtTiempo(segOut())+(_rel?'':'')):'')+'.','ok');
+    }
     else throw new Error('estado: '+st);
   }catch(e){
     trStat('Falló: '+(e.message||e)+'. Si es error de red/CORS, hace falta un proxy — avisame.','err');
@@ -3524,7 +3802,7 @@ function qBuildText(){
       p=document.createElement('p'); box.appendChild(p); lastSpk=spk;
     }
     const s=document.createElement('span');
-    s.className='q-w'; s.id='q-w-'+i; s.dataset.i=i;
+    s.className='q-w'+(qEnTramo(w)?'':' fuera'); s.id='q-w-'+i; s.dataset.i=i;
     s.textContent=w.text+' ';   // el espacio va DENTRO del span: asi el resaltado del quote es un bloque continuo
     p.appendChild(s);
   });
@@ -3553,6 +3831,17 @@ function qAddFromSelection(){
   spans.forEach(s=>{ if(range.intersectsNode(s)){ const i=+s.dataset.i; if(a<0||i<a) a=i; if(i>b) b=i; } });
   sel.removeAllRanges(); qHideFloat();
   if(a<0){ return; }
+  /* Si estamos revisando la propuesta de la IA, la selección a mano entra como un
+     candidato más: así conviven en una sola lista y el editor mezcla lo suyo con lo
+     de la IA sin tener que cerrar nada. */
+  if(qCands.length){
+    const c={ a, b, in:0, out:0, ctx:'', porque:'Selección tuya', sel:true, manual:true };
+    qSnap(c);
+    qCands.push(c); qCands.sort((x,y)=>x.in-y.in);
+    qCandSel=qCands.indexOf(c);
+    qRenderCands(); qRenderTune();
+    return;
+  }
   const q={ id:++qSeq, a, b, in:0, out:0, ctx:'' };
   qSnap(q);
   quotes.push(q); quotes.sort((x,y)=>x.in-y.in);
@@ -3601,6 +3890,7 @@ function qRenderSide(){
       +'<button type="button" class="pri" data-act="load">Cargar</button>'
       +'<button type="button" data-act="play">▸</button>'
       +'<button type="button" data-act="del">✕</button>'
+      +(q.ctx?'<button type="button" data-act="copy">⧉ epígrafe</button>':'')
       +'</div>'
       +(q.url ? '<a class="baja" href="'+q.url+'" download="'+q.fname+'">⤓ Descargar este quote</a>' : '');
     d.onclick=e=>{
@@ -3609,6 +3899,7 @@ function qRenderSide(){
       qActive=q.id;
       if(act==='del'){ quotes=quotes.filter(x=>x.id!==q.id); qActive=null; qSave(); qRenderAll(); return; }
       if(act==='play'){ qRenderAll(); qPreview(q); return; }
+      if(act==='copy'){ try{ navigator.clipboard.writeText(q.ctx||''); }catch(_){ } e.target.textContent='copiado'; setTimeout(()=>qRenderAll(),900); return; }
       if(act==='load'){ qApply(q); qCloseOverlay(); return; }
       qRenderAll();
     };
@@ -3653,12 +3944,20 @@ function qRenderCard(){
   });
 }
 
-function qFind(){ return quotes.find(q=>q.id===qActive)||null; }
+let qCandSel=null;
+/* Devuelve lo que está en edición: un candidato de la IA si estamos revisando, o un quote. */
+function qFind(){
+  if(qCands.length && qCandSel!=null && qCands[qCandSel]) return qCands[qCandSel];
+  return quotes.find(q=>q.id===qActive)||null;
+}
 
 function qRenderTune(){
   const q=qFind(), t=$('qTune'); if(!t) return;
   if(!q){ t.hidden=true; return; }
   t.hidden=false;
+  const enRev = qCands.length && qCandSel!=null;
+  const et=$('qTuneWhat');
+  if(et) et.textContent = enRev ? ('Ajustando la propuesta '+(qCandSel+1)) : (q.id?('Quote '+(quotes.indexOf(q)+1)):'');
   $('qInV').textContent=qFmt(q.in);
   $('qOutV').textContent=qFmt(q.out);
   const dur=q.out-q.in;
@@ -3674,7 +3973,11 @@ function qApply(q){
   trimIn = Math.max(0, q.in/1000);
   trimOut = Math.min(vidDur()||q.out/1000, q.out/1000);
   layoutTL();
-  if(q.ctx!=null && q.ctx!==''){ $('ctx').value=q.ctx; $('ctx').dispatchEvent(new Event('input',{bubbles:true})); }
+  /* El epígrafe del quote NO se pinta en la placa por defecto: el clip sale con el video,
+     el subtítulo y los parámetros calibrados, nada más. Se guarda como texto para publicar. */
+  if($('qCtxOn') && $('qCtxOn').checked && q.ctx!=null){
+    $('ctx').value=q.ctx; $('ctx').dispatchEvent(new Event('input',{bubbles:true}));
+  }
   try{ vid.currentTime=segIn(); }catch(e){}
   updateSeekLabel();
   redraw();
@@ -3750,17 +4053,19 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !$('qOverlay').
 $('qText').addEventListener('mouseup', ()=>setTimeout(qShowFloat,0));
 $('qText').addEventListener('scroll', qHideFloat);
 $('qSnapAll').onclick=()=>{ quotes.forEach(qSnap); qSave(); qRenderAll(); };
-$('qSnapOne').onclick=()=>{ const q=qFind(); if(q){ qSnap(q); qSave(); qRenderAll(); } };
+$('qSnapOne').onclick=()=>{ const q=qFind(); if(!q) return; qSnap(q); if(qCands.length){ qRenderCands(); qRenderTune(); } else { qSave(); qRenderAll(); } };
 $('qPlay').onclick=()=>{ const q=qFind(); if(!q) return; if(qPrevRaf) qStopPreview(); else qPreview(q); };
 $('qLoad').onclick=()=>{ const q=qFind(); if(q){ qApply(q); qCloseOverlay(); } };
-$('qCtx').addEventListener('input',()=>{ const q=qFind(); if(q){ q.ctx=$('qCtx').value; qSave(); } });
+$('qCtx').addEventListener('input',()=>{ const q=qFind(); if(q){ q.ctx=$('qCtx').value; if(!qCands.length) qSave(); } });
+try{ $('qCtxOn').checked = localStorage.getItem('vn_qctx')==='1'; }catch(e){}
+$('qCtxOn').addEventListener('change',()=>{ try{ localStorage.setItem('vn_qctx', $('qCtxOn').checked?'1':'0'); }catch(e){} });
 $('qTune').addEventListener('click', e=>{
   const n=e.target.dataset.nudge; if(!n) return;
   const q=qFind(); if(!q) return;
   const step=(n.indexOf('++')>0?100:-100);
   if(n.indexOf('in')===0) q.in=Math.max(0,q.in+step);
   else q.out=Math.max(q.in+300, q.out+step);
-  qSave(); qRenderTune();
+  if(qCands.length){ qRenderCands(); qRenderTune(); } else { qSave(); qRenderTune(); }
 });
 ['qPadIn','qPadOut'].forEach(id=>$(id).addEventListener('change',()=>{ quotes.forEach(qSnap); qSave(); qRenderAll(); }));
 
@@ -3860,6 +4165,7 @@ let qJoin='', qJoinPos=[];
 function qBuildIndex(){
   qJoin=''; qJoinPos=[];
   subWords.forEach((w,i)=>{
+    if(!qEnTramo(w)) return;                 // fuera del recorte: no se puede ubicar acá
     const t=qNorm(w.text); if(!t) return;
     if(qJoin) qJoin+=' ';
     qJoinPos.push({c:qJoin.length, i});
@@ -3885,9 +4191,13 @@ function qLocate(texto){
 }
 
 /* transcripción con marcas de vocero, para que la IA sepa quién dice qué */
+function qEnTramo(w){
+  const a=segIn()*1000, b=segOut()*1000;
+  return w.end>=a-50 && w.start<=b+50;
+}
 function qPromptText(){
   let out='', last=null;
-  subWords.forEach((w,i)=>{
+  subWords.filter(qEnTramo).forEach((w,i)=>{
     const spk=(w.speaker==null?'':String(w.speaker));
     if(spk!==last){ out+=(out?'\n\n':'')+(spk?'['+qSpkName(spk)+'] ':''); last=spk; }
     out+=w.text+' ';
@@ -3981,18 +4291,32 @@ function qRenderCands(){
 
   qCands.forEach((c,n)=>{
     const dur=c.out-c.in;
+    const act=(qCandSel===n);
     const d=document.createElement('div');
-    d.className='q-cand'+(c.sel?'':' off');
+    d.className='q-cand'+(c.sel?'':' off')+(act?' edit':'');
     const txt=subWords.slice(c.a,c.b+1).map(w=>w.text).join(' ');
     const esc=t=>t.replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
     d.innerHTML='<div class="top"><input type="checkbox" '+(c.sel?'checked':'')+'>'
-      +'<div style="flex:1"><div class="por">'+esc(c.porque||'—')+'</div>'
+      +'<div style="flex:1">'
+      +'<div class="por" style="'+(c.manual?'color:#0f8f5e':'')+'">'+esc(c.porque||'—')+'</div>'
       +'<div class="cita">'+esc(txt.length>260?txt.slice(0,260)+'…':txt)+'</div>'
       +(c.ctx?'<div class="epi">Epígrafe: '+esc(c.ctx)+'</div>':'')
       +'<div class="meta">'+qFmt(c.in)+' → '+qFmt(c.out)+' · '+qFmt(dur)+(dur>QMAXMS?' ⚠ largo':'')+'</div>'
-      +'</div></div>';
+      +'<div class="q-acts" style="margin-top:6px">'
+      +'<button type="button" data-a="edit">'+(act?'✎ editando':'✎ ajustar')+'</button>'
+      +'<button type="button" data-a="play">▸ escuchar</button>'
+      +'<button type="button" data-a="del">✕ quitar</button>'
+      +'</div></div></div>';
     d.querySelector('input').onchange=e=>{ c.sel=e.target.checked; qRenderCands(); };
-    d.onmouseenter=()=>{ const el=$('q-w-'+c.a); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); };
+    d.onclick=e=>{
+      if(e.target.tagName==='INPUT') return;
+      const a=e.target.dataset.a;
+      if(a==='del'){ qCands.splice(n,1); if(qCandSel===n) qCandSel=null; else if(qCandSel>n) qCandSel--; qRenderCands(); qRenderTune(); return; }
+      qCandSel=n;                                   // este pasa a ser el que edita la barra de abajo
+      if(a==='play'){ qRenderCands(); qRenderTune(); qPreview(c); return; }
+      qRenderCands(); qRenderTune();
+      const el=$('q-w-'+c.a); if(el) el.scrollIntoView({block:'center',behavior:'smooth'});
+    };
     side.appendChild(d);
   });
 
@@ -4000,8 +4324,9 @@ function qRenderCands(){
     + qFmt(seg*1000)+' de video · <b>exportar lleva ~'+mins+' min</b>';
   // resaltar los candidatos en el texto
   $('qText').querySelectorAll('.q-w').forEach(w=>{ w.style.background=''; w.style.boxShadow=''; });
-  qCands.forEach((c,n)=>{ if(!c.sel) return; const col=qColor(n);
-    for(let i=c.a;i<=c.b;i++){ const w=$('q-w-'+i); if(w){ w.style.background=col+'1c'; w.style.boxShadow='inset 0 -1px 0 '+col+'80'; } } });
+  qCands.forEach((c,n)=>{ if(!c.sel) return; const col=qColor(n); const act=(qCandSel===n);
+    for(let i=c.a;i<=c.b;i++){ const w=$('q-w-'+i); if(w){
+      w.style.background=col+(act?'3a':'1c'); w.style.boxShadow='inset 0 -'+(act?2:1)+'px 0 '+col+(act?'':'80'); } } });
 }
 
 function qAplicarCands(){

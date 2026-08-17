@@ -146,6 +146,15 @@ video.src{display:none}
 .trim-num input.mal{border-color:var(--rojo);background:#fff2f3}
 .trim-num button{margin:0;width:auto;padding:7px 9px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);font:600 10.5px/1 var(--ui);color:var(--ink);cursor:pointer;white-space:nowrap}
 .trim-num button:hover{background:#e8ebf0;border-color:var(--rojo)}
+/* keyframes de encuadre */
+.kf{display:flex;align-items:center;gap:6px;padding:6px 7px;border:1px solid var(--line);border-radius:7px;margin-bottom:5px;background:var(--panel2);cursor:pointer}
+.kf.on{border-color:var(--rojo);background:#fff4f5}
+.kf .t{font-family:var(--mono);font-size:11px;font-weight:700;min-width:52px}
+.kf .v{font-family:var(--mono);font-size:9.5px;color:var(--dim);flex:1;line-height:1.3}
+.kf input.tr{width:52px;margin:0;padding:4px 5px;font-family:var(--mono);font-size:10px;text-align:center}
+.kf button{margin:0;width:auto;padding:4px 6px;border-radius:5px;border:1px solid var(--line);background:var(--panel);font:600 10px/1 var(--ui);cursor:pointer;color:var(--ink)}
+.kf button:hover{border-color:var(--rojo);color:var(--rojo)}
+.tl-kf{position:absolute;top:-3px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:7px solid #7a3fbf;transform:translateX(-4px);pointer-events:none}
 /* ---- editor de recorte preciso (overlay) ---- */
 #tzOv{position:fixed;inset:0;background:rgba(18,20,24,.72);z-index:210;display:flex;align-items:center;justify-content:center;padding:22px}
 #tzOv[hidden]{display:none}
@@ -262,7 +271,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v42 · recorte preciso</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v43 · encuadres por time code</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -340,6 +349,12 @@ video.src{display:none}
           <input type="range" id="zoom" min="100" max="300" value="100">
           <span class="lbl" style="margin-top:8px">Encuadre horizontal <span class="val" id="ofHV">0 %</span></span>
           <input type="range" id="ofH" min="-30" max="30" value="0">
+          <div class="grp" id="kfGrp" hidden style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+            <label class="chk" style="margin-top:0"><input type="checkbox" id="kfOn"> Encuadres por momento del video <span class="counter" id="kfN">0</span></label>
+            <div class="hint">Para discursos con varias cámaras: movés el cabezal al cambio de cámara, ajustás zoom y encuadre, y guardás. Desde ahí en adelante se usa ese encuadre. Queda pegado al time code, así que los quotes lo heredan solos.</div>
+            <button type="button" class="genbtn go" id="kfAdd" style="margin-top:9px">◆ Guardar encuadre acá</button>
+            <div id="kfList" style="margin-top:8px"></div>
+          </div>
           <div class="hint">Subí el zoom si el cronista se filmó lejos, y corré el encuadre para centrar el rostro.</div>
         </div>
         <div class="grp">
@@ -1398,6 +1413,7 @@ function load(f, durHint){
       $('drop').querySelector('small').textContent = Math.round(vidDur()*10)/10 + ' s · ' + vid.videoWidth + '×' + vid.videoHeight;
       trimIn = 0; trimOut = vidDur(); recFinishing = false; seeking=false;
       $('trimGrp').hidden = false; layoutTL();
+      kfs=[]; if($('kfOn')) $('kfOn').checked=false; kfRestore(); kfRender(); kfMarcas();
       $('restart').disabled=false; $('seek').disabled=false; $('seek').value=0; updateSeekLabel();
       vid.currentTime = 0.05;
       if(sinDur) aviso('El video carga, pero no se pudo determinar su duración: el recorte, el anillo y el contador no van a funcionar. Si viene de una captura, volvé a capturarla.','err');
@@ -1453,6 +1469,7 @@ function layoutTL(){
   $('trimV').textContent=fmtTiempo(segIn())+' – '+fmtTiempo(segOut())+'  ('+fmtTiempo(segDur())+')';
   if(typeof trimNumSync==='function') trimNumSync();
   if(typeof trAlcance==='function') trAlcance();
+  if(typeof kfMarcas==='function') kfMarcas();
   updateTLPlay();
 }
 function updateTLPlay(){
@@ -1535,6 +1552,105 @@ function trimNumAplicar(cual){
 $('trimInHere').onclick  = ()=>{ tlApply('in',  vid.currentTime||0); trimNumSync(); updateSeekLabel(); redraw(); };
 $('trimOutHere').onclick = ()=>{ tlApply('out', vid.currentTime||0); trimNumSync(); updateSeekLabel(); redraw(); };
 $('trimAll').onclick = ()=>{ trimIn=0; trimOut=vidDur(); layoutTL(); trimNumSync(); updateSeekLabel(); redraw(); };
+
+/* ===== keyframes de encuadre — interfaz ===== */
+function kfSig(){ return (mainVidFile? mainVidFile.name+'|'+mainVidFile.size : 'x')+'|'+Math.round(vidDur()); }
+function kfSave(){ try{ localStorage.setItem('vn_kfs', JSON.stringify({sig:kfSig(), on:$('kfOn').checked, kfs})); }catch(e){} }
+function kfRestore(){
+  try{ const d=JSON.parse(localStorage.getItem('vn_kfs')||'null');
+    if(d && d.sig===kfSig() && Array.isArray(d.kfs) && d.kfs.length){ kfs=d.kfs; $('kfOn').checked=!!d.on; return true; }
+  }catch(e){}
+  return false;
+}
+function kfSort(){ kfs.sort((a,b)=>a.t-b.t); }
+
+function kfAgregar(){
+  const t=Math.max(0, vid.currentTime||0);
+  const v=encSliders();
+  /* El primero se crea siempre en 0:00 para que el arranque conserve su encuadre:
+     si no, guardar un encuadre en el minuto 8 le cambiaría el encuadre a todo el video. */
+  if(!kfs.length){ kfs.push({t:0, z:v.zoom, o:v.of, h:v.ofH, tr:0}); }
+  const ya=kfs.find(k=>Math.abs(k.t-t)<0.15);
+  if(ya){ ya.z=v.zoom; ya.o=v.of; ya.h=v.ofH; }
+  else kfs.push({t, z:v.zoom, o:v.of, h:v.ofH, tr:0});
+  kfSort(); $('kfOn').checked=true; kfPend=false; kfAviso();
+  kfSave(); kfRender(); layoutTL(); redraw();
+}
+function kfBorrar(i){ kfs.splice(i,1); if(!kfs.length) $('kfOn').checked=false; kfSave(); kfRender(); layoutTL(); redraw(); }
+
+function kfRender(){
+  const g=$('kfGrp'); if(!g) return;
+  g.hidden = !loaded;
+  $('kfN').textContent = kfs.length;
+  const L=$('kfList'); L.innerHTML='';
+  if(!kfs.length){ L.innerHTML='<div class="q-empty" style="padding:2px">Sin encuadres guardados: se usa uno solo para todo el video.</div>'; return; }
+  const act=kfActual(vid.currentTime||0);
+  kfs.forEach((k,i)=>{
+    const d=document.createElement('div');
+    d.className='kf'+(k===act?' on':'');
+    d.innerHTML='<span class="t">'+fmtTiempo(k.t).replace(/\.0$/,'')+'</span>'
+      +'<span class="v">zoom '+Math.round(k.z)+'%<br>enc '+Math.round(k.h)+' / '+Math.round(k.o)+'</span>'
+      +'<input class="tr" type="number" min="0" max="3000" step="100" value="'+(k.tr||0)+'" title="0 = corte seco · 400 = travelling de 0,4 s">'
+      +'<button data-a="go">ir</button><button data-a="del">✕</button>';
+    d.querySelector('input').onchange=e=>{ k.tr=Math.max(0,parseInt(e.target.value,10)||0); kfSave(); redraw(); };
+    d.onclick=e=>{
+      if(e.target.tagName==='INPUT') return;
+      if(e.target.dataset.a==='del'){ kfBorrar(i); return; }
+      try{ vid.currentTime=k.t; }catch(_){}
+      seeking=true; kfPend=false; kfAviso(); kfSliders(k); updateSeekLabel(); kfRender(); redraw();
+    };
+    L.appendChild(d);
+  });
+}
+/* refleja un encuadre en los sliders (sin disparar redraw en cadena) */
+function kfSliders(k){
+  if(!k) return;
+  $('zoom').value=k.z; $('of').value=k.o; $('ofH').value=k.h;
+  if($('zoomV')) $('zoomV').textContent=Math.round(k.z)+' %';
+  if($('ofV'))   $('ofV').textContent=Math.round(k.o)+' %';
+  if($('ofHV'))  $('ofHV').textContent=Math.round(k.h)+' %';
+}
+/* mover un slider edita el keyframe que manda en este momento */
+['zoom','of','ofH'].forEach(id=>{
+  $(id).addEventListener('input', ()=>{
+    if(!kfOn()) return;
+    const t=vid.currentTime||0;
+    const enc=kfs.find(k=>Math.abs(k.t-t)<0.35);
+    if(enc){                                   // parado sobre un encuadre guardado → lo edita en vivo
+      const v=encSliders(); enc.z=v.zoom; enc.o=v.of; enc.h=v.ofH;
+      kfPend=false; kfSave(); kfRender();
+    }else{                                     // momento nuevo → no pisa nada, espera el "Guardar"
+      kfPend=true; kfAviso();
+    }
+  });
+});
+function kfAviso(){
+  const b=$('kfAdd'); if(!b) return;
+  b.textContent = kfPend ? '◆ Guardar este encuadre acá  ●' : '◆ Guardar encuadre acá';
+  b.style.boxShadow = kfPend ? '0 0 0 3px rgba(214,0,25,.22)' : '';
+}
+$('kfAdd').onclick=kfAgregar;
+$('kfOn').addEventListener('change', ()=>{ kfSave(); kfRender(); redraw(); });
+
+/* marcas en la línea de tiempo + sliders al día cuando el video está pausado */
+function kfMarcas(){
+  const tl=$('tl'); if(!tl) return;
+  tl.querySelectorAll('.tl-kf').forEach(e=>e.remove());
+  const d=vidDur(); if(!d || !kfs.length) return;
+  kfs.forEach(k=>{ const m=document.createElement('div'); m.className='tl-kf';
+    m.style.left=((k.t/d)*100)+'%'; tl.appendChild(m); });
+}
+let _kfUlt=null, _kfT=-1;
+function kfSeguir(){
+  if(!kfOn()){ if(kfPend){ kfPend=false; kfAviso(); } return; }
+  const t=vid.currentTime||0;
+  if(kfPend && Math.abs(t-_kfT)>0.35){ kfPend=false; kfAviso(); }   // se movió: el ajuste sin guardar se descarta
+  _kfT=t;
+  const k=kfActual(t);
+  if(k!==_kfUlt){ _kfUlt=k; if(vid.paused && !kfPend){ kfSliders(k); kfRender(); redraw(); } }
+}
+setInterval(kfSeguir, 300);
+
 
 /* ===== RECORTE PRECISO =====
    En un video de 40 minutos la barra de 250 px da ~10 s por píxel: imposible apuntar.
@@ -1990,7 +2106,36 @@ function drawSky(W,H,intensity){
 function skyActive(){ return !bgImg && !bgVideo && $('paletaHora').checked && $('nightStars').checked && solarState && solarState.starI>0; }
 
 /* ---------- dibujo principal ---------- */
+/* ===== ENCUADRES POR TIME CODE (keyframes) =====
+   Cada keyframe guarda zoom + encuadre para un momento del video. draw() usa el que
+   corresponde al cabezal, así el reencuadre queda pegado al time code y se respeta en
+   la reproducción y en la exportación. Los quotes lo heredan solos: son tiempo absoluto. */
+let kfs=[], kfPend=false;                     // [{t, z, o, h, tr}] ordenados por t · kfPend = ajuste sin guardar
+let ENC={zoom:100,of:0,ofH:0}, ENC0={zoom:100,of:0,ofH:0};
+function kfOn(){ const c=$('kfOn'); return !!(c && c.checked && kfs.length); }
+function encSliders(){ return { zoom:parseFloat($('zoom').value)||100, of:parseFloat($('of').value)||0, ofH:parseFloat($('ofH').value)||0 }; }
+const _lerp=(a,b,p)=>a+(b-a)*p;
+const _ease=p=>p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+function encAt(t){
+  if(!kfOn()) return encSliders();
+  let i=0; while(i+1<kfs.length && kfs[i+1].t<=t) i++;
+  const a=kfs[i];
+  if(a.tr>0 && i>0){
+    const p=(t-a.t)/(a.tr/1000);
+    if(p>=0 && p<1){ const b=kfs[i-1], e=_ease(p);
+      return { zoom:_lerp(b.z,a.z,e), of:_lerp(b.o,a.o,e), ofH:_lerp(b.h,a.h,e) }; }
+  }
+  return { zoom:a.z, of:a.o, ofH:a.h };
+}
+/* el keyframe que manda en este momento: es el que se edita al mover un slider */
+function kfActual(t){
+  if(!kfs.length) return null;
+  let i=0; while(i+1<kfs.length && kfs[i+1].t<=t) i++;
+  return kfs[i];
+}
 function draw(){
+  ENC  = kfPend ? encSliders() : encAt(vid.currentTime||0);
+  ENC0 = encAt(segIn());
   const [W,H] = DIMS[$('fmt').value];
   if(cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; bgCacheKey=''; }
   // capturar el primer frame del cronista cuando pasamos cerca del inicio (para el fundido final)
@@ -2046,9 +2191,9 @@ function draw(){
   // ── PUBLICAR TAL CUAL: el video ocupa toda la placa (sin recuadro); el resto de los elementos van encima ──
   const fullVid = ($('fullVid') && $('fullVid').checked && (vid.videoWidth||0) > 0);
   if(fullVid){
-    const vw=vid.videoWidth, vh=vid.videoHeight, zoom=parseFloat($('zoom').value)/100;
+    const vw=vid.videoWidth, vh=vid.videoHeight, zoom=ENC.zoom/100;
     const scale=Math.max(W/vw,H/vh)*zoom, dw=vw*scale, dh=vh*scale;
-    const offX=dw*(parseFloat($('ofH').value)/100), offY=dh*(parseFloat($('of').value)/100);
+    const offX=dw*(ENC.ofH/100), offY=dh*(ENC.of/100);
     const fA=filtro($('aBri').value,$('aCon').value,$('aExp').value);
     ctx.save(); if(fA!=='none') ctx.filter=fA;
     if(vid.readyState>=2) ctx.drawImage(vid, (W-dw)/2+offX, (H-dh)/2+offY, dw, dh);
@@ -2098,12 +2243,12 @@ function draw(){
     const fA = filtro($('aBri').value, $('aCon').value, $('aExp').value);
     if(fA !== 'none') ctx.filter = fA;
     const vw=vid.videoWidth||1, vh=vid.videoHeight||1;
-    const zoom=parseFloat($('zoom').value)/100;
+    const zoom=ENC.zoom/100;
     const bands = (_fitM==='contain' && !_containF);   // círculo o sin video → letterbox con bandas desenfocadas
     const scale=(bands?Math.min((rrW*2)/vw,(rrV*2)/vh):Math.max((rrW*2)/vw,(rrV*2)/vh))*zoom;
     const dw=vw*scale, dh=vh*scale;
-    const off = dh*(parseFloat($('of').value)/100);
-    const offX = dw*(parseFloat($('ofH').value)/100);
+    const off = dh*(ENC.of/100);
+    const offX = dw*(ENC.ofH/100);
     if(bands && vid.readyState>=2){
       ctx.save(); ctx.filter='blur('+Math.max(6,Math.round(rrW*2*0.05))+'px)';
       const cs=Math.max((rrW*2)/vw,(rrV*2)/vh)*zoom, cw=vw*cs, ch=vh*cs;
@@ -2136,9 +2281,9 @@ function draw(){
     ctx.save();
     ctx.beginPath(); shapePath(ctx, cx, cy, r, isSq, rad, rV); ctx.clip();
     if(firstFrameCv){
-      const vw=firstFrameCv.width||1, vh=firstFrameCv.height||1, zoom=parseFloat($('zoom').value)/100;
+      const vw=firstFrameCv.width||1, vh=firstFrameCv.height||1, zoom=ENC0.zoom/100;
       const scale=Math.max((r*2)/vw, (rV*2)/vh)*zoom, dw=vw*scale, dh=vh*scale;
-      const off=dh*(parseFloat($('of').value)/100), offX=dw*(parseFloat($('ofH').value)/100);
+      const off=dh*(ENC0.of/100), offX=dw*(ENC0.ofH/100);
       ctx.drawImage(firstFrameCv, cx-dw/2+offX, cy-dh/2+off, dw, dh);
     } else { ctx.fillStyle='#000'; ctx.fillRect(cx-r, cy-rV, 2*r, 2*rV); }
     ctx.fillStyle='rgba(0,0,0,'+(1-finAnim.fade).toFixed(3)+')'; ctx.fillRect(cx-r, cy-rV, 2*r, 2*rV);   // el negro se desvanece
@@ -2322,9 +2467,9 @@ function drawFullClosing(W,H){
   if(finAnim.fade!=null){
     // fundido final de negro → primer frame del video (conecta el loop)
     if(firstFrameCv){
-      const vw=firstFrameCv.width||1, vh=firstFrameCv.height||1, zoom=parseFloat($('zoom').value)/100;
+      const vw=firstFrameCv.width||1, vh=firstFrameCv.height||1, zoom=ENC0.zoom/100;
       const scale=Math.max(W/vw,H/vh)*zoom, dw=vw*scale, dh=vh*scale;
-      const offX=dw*(parseFloat($('ofH').value)/100), offY=dh*(parseFloat($('of').value)/100);
+      const offX=dw*(ENC0.ofH/100), offY=dh*(ENC0.of/100);
       ctx.drawImage(firstFrameCv,(W-dw)/2+offX,(H-dh)/2+offY,dw,dh);
     } else { ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H); }
     ctx.fillStyle='rgba(0,0,0,'+(1-finAnim.fade).toFixed(3)+')'; ctx.fillRect(0,0,W,H);

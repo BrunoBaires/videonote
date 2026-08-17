@@ -198,7 +198,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v36 · quotes</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v37 · quotes + captura</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1097,7 +1097,7 @@ let bgImg=null, bgVideo=false, overflow=false, finalFrame=false, brandTouched=fa
 let bgCache=null, bgCacheKey='', hiddenDuringRec=false, recTimer=null;
 let elImg=null, subjCut=null, elFile=null, logoCustom=null, bakingFondo=false, ctxBBox=null, mainVidFile=null;
 let nameFullX=0.5, nameFullY=0.62, nameBBox=null;   // posición libre del nombre en modo pantalla completa
-let trimIn=0, trimOut=0, recFinishing=false;
+let trimIn=0, trimOut=0, recFinishing=false, durFix=0;
 let bgTrimIn=0, bgTrimOut=0, btlDragH=null;
 let finAnim = { active:false, theta:0, raf:0, black:false, fade:null };   // cierre "traumótropo" (animación final)
 let firstFrameCv=null;   // primer frame del cronista (para el fundido final que conecta el loop)
@@ -1204,7 +1204,8 @@ $('capBtn').onclick = async () => {
     const blob = new Blob(capChunks, {type:(capMime||'video/webm').split(';')[0]});
     if(!blob.size){ capStat('No se grabó nada. Probá de nuevo y dejá reproducir el video.','err'); capRecorder=null; return; }
     capStat('Capturado ✓ ('+(blob.size/1048576).toFixed(1)+' MB). Cargando en el editor…','ok');
-    load(new File([blob], 'captura-'+Date.now()+'.'+ext, {type: blob.type||'video/webm'}));
+    const durMedida = capT0 ? (Date.now()-capT0)/1000 : 0;   // sabemos cuánto grabamos: es el respaldo si el webm no trae duración
+    load(new File([blob], 'captura-'+Date.now()+'.'+ext, {type: blob.type||'video/webm'}), durMedida);
     capRecorder=null;
   };
   try{ capStream.getVideoTracks()[0].addEventListener('ended', ()=>{ if(capRecorder && capRecorder.state==='recording') capRecorder.stop(); }); }catch(e){}   // si cortan el compartir desde el navegador
@@ -1216,47 +1217,77 @@ $('capBtn').onclick = async () => {
     if(!capRecorder || capRecorder.state!=='recording'){ clearInterval(capTimer); return; }
     const s=Math.floor((Date.now()-capT0)/1000);
     const mb=capChunks.reduce((a,c)=>a+c.size,0)/1048576;
-    capStat('<span class="spin"></span>Grabando '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0')+' · '+mb.toFixed(0)+' MB — tocá "Detener y cargar" al terminar.','');
+    capStat('<span class="spin"></span>Grabando '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0')+' · '+mb.toFixed(1)+' MB — tocá "Detener y cargar" al terminar.','');
   },1000);
   capStat('<span class="spin"></span>Grabando la pestaña… reproducí el video y tocá "Detener y cargar" al terminar.','');
 };
 
-function load(f){
+function load(f, durHint){
   const okType = (f.type && f.type.startsWith('video/')) || /\.(mov|mp4|m4v|webm|mkv|avi|qt|3gp)$/i.test(f.name||'');
   if(!okType){ setStatus('Ese archivo no es un video.','err'); return; }
+  const esCaptura = /^captura-/.test(f.name||'');
+  const aviso = (t,c) => { setStatus(t,c); if(esCaptura) capStat(t,c); };   // que el error se vea tambien en la tarjeta de captura
   mainVidFile = f;
+  durFix = 0;
+  vid.onerror = () => aviso('No se pudo leer el video. Probá con otro formato.','err');
   vid.src = URL.createObjectURL(f);
   vid.onloadedmetadata = () => {
     const setup = () => {
+      if((!isFinite(vid.duration) || vid.duration<=0) && durHint>0) durFix = durHint;
       loaded = true;
+      const sinDur = !vidDur();
       $('play').disabled = false; $('rec').disabled = false;
       $('drop').querySelector('strong').textContent = f.name.slice(0,30);
-      $('drop').querySelector('small').textContent = Math.round((vid.duration||0)*10)/10 + ' s · ' + vid.videoWidth + '×' + vid.videoHeight;
-      trimIn = 0; trimOut = vid.duration || 0; recFinishing = false; seeking=false;
+      $('drop').querySelector('small').textContent = Math.round(vidDur()*10)/10 + ' s · ' + vid.videoWidth + '×' + vid.videoHeight;
+      trimIn = 0; trimOut = vidDur(); recFinishing = false; seeking=false;
       $('trimGrp').hidden = false; layoutTL();
       $('restart').disabled=false; $('seek').disabled=false; $('seek').value=0; updateSeekLabel();
       vid.currentTime = 0.05;
-      setStatus('Listo. Previsualizá o generá el mp4.');
+      if(sinDur) aviso('El video carga, pero no se pudo determinar su duración: el recorte, el anillo y el contador no van a funcionar. Si viene de una captura, volvé a capturarla.','err');
+      else aviso('Listo. Previsualizá o generá el mp4.');
       draw();
     };
     if(!isFinite(vid.duration) || vid.duration===0){
-      // webm de MediaRecorder (captura de pestaña): no trae duración → forzar el cálculo saltando al final
-      const fix = () => { vid.removeEventListener('seeked', fix); try{ vid.currentTime = 0; }catch(e){} setup(); };
-      vid.addEventListener('seeked', fix);
-      try{ vid.currentTime = 1e7; }catch(e){ setup(); }
+      /* webm de MediaRecorder (captura de pestaña): no trae duración.
+         Se fuerza el cálculo saltando al final, pero en capturas largas ese salto puede
+         no terminar nunca — por eso hay TIMEOUT y respaldo con la duración medida al grabar.
+         Antes, si el 'seeked' no llegaba, la app quedaba clavada en "Cargando en el editor…". */
+      aviso('Midiendo la duración del video… (en capturas largas tarda unos segundos)');
+      let hecho = false;
+      const terminar = () => {
+        if(hecho) return; hecho = true;
+        clearTimeout(reloj);
+        vid.removeEventListener('durationchange', onDur);
+        vid.removeEventListener('seeked', onSeek);
+        if(!isFinite(vid.duration) || vid.duration<=0){
+          const medido = (isFinite(vid.currentTime) && vid.currentTime>0) ? vid.currentTime : 0;
+          durFix = durHint>0 ? durHint : medido;
+        }
+        try{ vid.currentTime = 0; }catch(e){}
+        setup();
+      };
+      const onDur  = () => { if(isFinite(vid.duration) && vid.duration>0) terminar(); };
+      const onSeek = () => terminar();
+      vid.addEventListener('durationchange', onDur);
+      vid.addEventListener('seeked', onSeek);
+      const reloj = setTimeout(terminar, durHint>0 ? 2500 : 8000);   // con duración medida no hace falta esperar tanto
+      try{ vid.currentTime = 1e7; }catch(e){ terminar(); }
     } else setup();
   };
   vid.onseeked = () => { if(!busy && rafId===null) draw(); };
-  vid.onerror = () => setStatus('No se pudo leer el video. Probá con otro formato.','err');
 }
 
 /* ===== recorte in/out (línea de tiempo con manijas) ===== */
+/* Los webm de MediaRecorder (captura de pestaña) llegan con duration = Infinity.
+   vidDur() devuelve la duración real: la del elemento si es válida, si no la que
+   medimos al grabar la captura (durFix). */
+function vidDur(){ const d=vid.duration; return (isFinite(d) && d>0) ? d : (durFix||0); }
 function segIn(){ return Math.max(0, trimIn||0); }
-function segOut(){ const d=vid.duration||0; return (trimOut>0 && trimOut<=d+0.01) ? trimOut : d; }
+function segOut(){ const d=vidDur(); return (trimOut>0 && trimOut<=d+0.01) ? trimOut : d; }
 function segDur(){ return Math.max(0.05, segOut()-segIn()); }
 function fmt1(n){ return (Math.round(n*10)/10).toFixed(1).replace('.',','); }
 function layoutTL(){
-  const d=vid.duration||0; if(!d) return;
+  const d=vidDur(); if(!d) return;
   const fi=segIn()/d, fo=segOut()/d;
   $('tlIn').style.left=(fi*100)+'%';
   $('tlOut').style.left=(fo*100)+'%';
@@ -1266,14 +1297,14 @@ function layoutTL(){
   updateTLPlay();
 }
 function updateTLPlay(){
-  const d=vid.duration||0; const p=$('tlPlay'); if(!d||!p) return;
+  const d=vidDur(); const p=$('tlPlay'); if(!d||!p) return;
   const f=Math.max(0,Math.min(1,(vid.currentTime||0)/d));
   p.style.left=(f*100)+'%';
 }
 function seekPreview(t){ if(vid.paused){ try{ vid.currentTime=t; }catch(e){} } }
 let tlDragH=null;
 function tlFromX(clientX){
-  const r=$('tl').getBoundingClientRect(); const d=vid.duration||0;
+  const r=$('tl').getBoundingClientRect(); const d=vidDur();
   if(!r.width||!d) return null;
   let f=(clientX-r.left)/r.width; f=Math.max(0,Math.min(1,f));
   return f*d;
@@ -1281,7 +1312,7 @@ function tlFromX(clientX){
 function tlApply(which,t){
   const minGap=0.3;
   if(which==='in'){ trimIn=Math.max(0, Math.min(t, segOut()-minGap)); seekPreview(trimIn); }
-  else { trimOut=Math.min(vid.duration||0, Math.max(t, segIn()+minGap)); seekPreview(Math.max(0,trimOut-0.02)); }
+  else { trimOut=Math.min(vidDur(), Math.max(t, segIn()+minGap)); seekPreview(Math.max(0,trimOut-0.02)); }
   layoutTL();
 }
 ['tlIn','tlOut'].forEach(id=>{
@@ -1831,7 +1862,7 @@ function draw(){
   }
 
   // recorrido
-  let prog = vid.duration ? (vid.currentTime - segIn())/segDur() : 0;
+  let prog = vidDur() ? (vid.currentTime - segIn())/segDur() : 0;
   if(finalFrame || vid.ended || prog > 0.985) prog = 1;
   prog = Math.min(Math.max(prog,0),1);
   if(prog>0.0005 && stroke>0 && $('ringOn').checked){
@@ -1861,7 +1892,7 @@ function draw(){
   }
 
   // contador (oculto durante el cierre)
-  if(!_spin && $('timerOn').checked && vid.duration){
+  if(!_spin && $('timerOn').checked && vidDur()){
     const cur = finalFrame ? segOut() : Math.min(vid.currentTime, segOut());
     const rel = Math.max(0, cur - segIn());
     const t = $('timerDown').checked ? (segDur()-rel) : rel;
@@ -2026,7 +2057,7 @@ function drawTrama(W,H){
 function drawFullRing(cx,cy,hw,hh,rad,stroke){
   ctx.save(); ctx.lineWidth=stroke; ctx.lineJoin='round';
   ctx.strokeStyle=$('trackC').value; ctx.beginPath(); shapePath(ctx,cx,cy,hw,true,rad,hh); ctx.stroke();
-  let prog = vid.duration ? (vid.currentTime - segIn())/segDur() : 0;
+  let prog = vidDur() ? (vid.currentTime - segIn())/segDur() : 0;
   if(finalFrame || vid.ended || prog>0.985) prog=1; prog=Math.min(Math.max(prog,0),1);
   if(prog>0.0005){
     ctx.strokeStyle=$('ringC').value; ctx.lineCap = prog>=1?'butt':'round';
@@ -3452,7 +3483,7 @@ function qSnap(q){
   const gapNext = q.b<subWords.length-1 ? Math.max(0, subWords[q.b+1].start-wb.end) : 900;
   q.in  = Math.max(0, wa.start - Math.min(padIn,  gapPrev/2));
   q.out = wb.end + Math.min(padOut, gapNext/2);
-  const dmax=(vid.duration||0)*1000; if(dmax) q.out=Math.min(q.out, dmax);
+  const dmax=vidDur()*1000; if(dmax) q.out=Math.min(q.out, dmax);
 }
 
 /* --- crear un quote desde la selección del mouse --- */
@@ -3562,7 +3593,7 @@ function qApply(q){
   if(!q || !loaded) return;
   cancelClosing(); finalFrame=false;
   trimIn = Math.max(0, q.in/1000);
-  trimOut = Math.min(vid.duration||0, q.out/1000);
+  trimOut = Math.min(vidDur()||q.out/1000, q.out/1000);
   layoutTL();
   if(q.ctx!=null && q.ctx!==''){ $('ctx').value=q.ctx; $('ctx').dispatchEvent(new Event('input',{bubbles:true})); }
   try{ vid.currentTime=segIn(); }catch(e){}

@@ -32,6 +32,7 @@ function collectMp4(obj, out){
 export default async function handler(req, res){
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Range');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
   const q = req.query || {};
@@ -61,12 +62,24 @@ export default async function handler(req, res){
       return;
     }
 
-    // proxy del mp4 (streaming, sin bufferear todo en memoria)
-    const vr = await fetch(best, { headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://twitter.com/' } });
+    // Proxy del mp4. Soporta Range: el cliente lo pide por trozos de pocos MB para que
+    // ninguna invocación se acerque al límite de 60 s de Vercel. Un video largo bajado de
+    // una sola vez hace que la función se corte a mitad de camino y el navegador vea
+    // "Failed to fetch" sin código de error.
+    const rango = req.headers['range'] || null;
+    const cab = { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://twitter.com/' };
+    if (rango) cab['Range'] = rango;
+
+    const vr = await fetch(best, { headers: cab });
     if (!vr.ok || !vr.body) { res.status(502).json({ error: 'descarga_' + (vr.status || 'x') }); return; }
+
     res.setHeader('Content-Type', vr.headers.get('content-type') || 'video/mp4');
     res.setHeader('Content-Disposition', 'attachment; filename="x-' + id + '.mp4"');
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+    const cr = vr.headers.get('content-range'); if (cr) res.setHeader('Content-Range', cr);
     const len = vr.headers.get('content-length'); if (len) res.setHeader('Content-Length', len);
+    res.status(vr.status === 206 ? 206 : 200);
     Readable.fromWeb(vr.body).pipe(res);
   } catch (e) {
     res.status(500).json({ error: String((e && e.message) || e) });

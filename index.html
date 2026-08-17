@@ -181,6 +181,30 @@ video.src{display:none}
 .q-mini .q-chip{font-family:var(--mono);font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);cursor:pointer}
 .q-mini .q-chip.on{background:var(--rojo);border-color:var(--rojo);color:#fff}
 .q-queue{font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:10px}
+/* barra de IA dentro del editor de quotes */
+.q-ia{display:flex;gap:8px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);background:#fff6f7;flex-wrap:wrap}
+.q-ia input[type=text]{margin-top:0;flex:1;min-width:180px}
+.q-ia button{margin:0;width:auto;padding:9px 14px;border-radius:7px;border:1px solid var(--line);background:var(--panel);font:600 11.5px/1 var(--ui);cursor:pointer}
+.q-ia button.go{background:var(--rojo);border-color:var(--rojo);color:#fff}
+.q-ia button.go:hover{background:#a80014}
+.q-ia button:disabled{opacity:.5;cursor:default}
+.q-pre{display:flex;gap:5px;flex-wrap:wrap}
+.q-pre span{font-family:var(--mono);font-size:10px;padding:5px 9px;border-radius:20px;border:1px solid var(--line);background:var(--panel);color:var(--dim);cursor:pointer}
+.q-pre span:hover{border-color:var(--rojo);color:var(--rojo)}
+/* revisión de candidatos */
+.q-cand{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:10px 11px;margin-bottom:8px}
+.q-cand.off{opacity:.45}
+.q-cand .top{display:flex;gap:8px;align-items:flex-start}
+.q-cand input[type=checkbox]{margin-top:3px;flex:0 0 auto}
+.q-cand .por{font-size:11.5px;color:var(--rojo);font-weight:600;line-height:1.35}
+.q-cand .cita{font-size:12.5px;line-height:1.5;margin-top:5px;color:var(--ink)}
+.q-cand .meta{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:5px}
+.q-cand .epi{font-size:11.5px;color:var(--dim);font-style:italic;margin-top:4px}
+/* estado de exportación por quote */
+.q-est{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:20px;border:1px solid var(--line);color:var(--dim)}
+.q-est.rec{border-color:var(--rojo);color:#fff;background:var(--rojo)}
+.q-est.ok{border-color:#0f8f5e;color:#0f8f5e}
+.q-item .baja{display:inline-block;margin-top:6px;font:600 10.5px/1 var(--ui);padding:6px 10px;border-radius:6px;background:#0f8f5e;color:#fff;text-decoration:none}
 </style>
 </head>
 <body>
@@ -198,7 +222,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v39 · descarga en zip</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v40 · quotes con IA</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1009,6 +1033,18 @@ video.src{display:none}
       <button type="button" class="mini-btn" id="qExportAll2" style="margin:0;width:auto;padding:8px 12px">Exportar todos</button>
       <button type="button" class="mini-btn" id="qClose" style="margin:0;width:auto;padding:8px 14px">Cerrar</button>
     </div>
+    <div class="q-ia">
+      <button type="button" class="go" id="qIaBtn">✨ Identificar quotes destacados</button>
+      <input type="text" id="qIaFoco" placeholder="¿Qué buscás? (opcional) — ej: los anuncios y las cifras sobre jubilaciones">
+      <div class="q-pre">
+        <span data-pre="los anuncios y las medidas concretas">anuncios</span>
+        <span data-pre="las cifras, montos y porcentajes">cifras</span>
+        <span data-pre="los cruces, chicanas y respuestas a la oposición">cruces</span>
+        <span data-pre="las definiciones políticas y las frases más fuertes">definiciones</span>
+      </div>
+      <label class="chk" style="margin:0;white-space:nowrap"><input type="checkbox" id="qAuto"> Automático</label>
+      <span class="q-queue" id="qIaStat"></span>
+    </div>
     <div class="q-cols">
       <div class="q-text" id="qText"></div>
       <div class="q-side" id="qSide"></div>
@@ -1092,7 +1128,7 @@ const QUAL = {
 
 let loaded=false, rafId=null, busy=false;
 let recorder=null, chunks=[], audioCtx=null, audioDest=null, srcNode=null, recMime='video/webm', recordingMp4=false;
-let recResolve=null, recNameHint='', recQueue=false, recQueueFiles=[];   // cola de quotes: aviso de fin de grabación + nombre del archivo
+let recResolve=null, recNameHint='', recQueue=false, recQueueFiles=[], recQuoteId=null;   // cola de quotes: aviso de fin de grabación + nombre del archivo
 let ffmpeg=null, ffmpegReady=false;
 let bgImg=null, bgVideo=false, overflow=false, finalFrame=false, brandTouched=false;
 let bgCache=null, bgCacheKey='', hiddenDuringRec=false, recTimer=null;
@@ -3543,6 +3579,7 @@ function qPaintText(){
 
 function qRenderSide(){
   const side=$('qSide'); if(!side) return;
+  if(qCands.length){ qRenderCands(); return; }   // estamos revisando la propuesta de la IA
   side.innerHTML='';
   if(!quotes.length){
     side.innerHTML='<div class="q-empty">Seleccioná un pasaje de la transcripción con el mouse y apretá “Nuevo quote”.</div>';
@@ -3557,14 +3594,17 @@ function qRenderSide(){
     d.className='q-item'+(q.id===qActive?' on':''); d.style.borderLeftColor=c;
     const txt=subWords.slice(q.a,q.b+1).map(w=>w.text).join(' ');
     d.innerHTML='<div class="q-h"><span class="q-n" style="color:'+c+'">QUOTE '+(n+1)+'</span>'
+      +qChip(q)
       +'<span class="q-d'+(dur>QMAXMS?' warn':'')+'">'+qFmt(dur)+'</span></div>'
       +'<div class="q-t">'+txt.replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))+'</div>'
       +'<div class="q-acts">'
       +'<button type="button" class="pri" data-act="load">Cargar</button>'
       +'<button type="button" data-act="play">▸</button>'
       +'<button type="button" data-act="del">✕</button>'
-      +'</div>';
+      +'</div>'
+      +(q.url ? '<a class="baja" href="'+q.url+'" download="'+q.fname+'">⤓ Descargar este quote</a>' : '');
     d.onclick=e=>{
+      if(e.target.tagName==='A') return;           // el link de descarga no cambia la selección
       const act=e.target.dataset.act;
       qActive=q.id;
       if(act==='del'){ quotes=quotes.filter(x=>x.id!==q.id); qActive=null; qSave(); qRenderAll(); return; }
@@ -3576,11 +3616,22 @@ function qRenderSide(){
   });
 }
 
+function qChip(q){
+  if(q.estado==='rec') return '<span class="q-est rec">grabando</span>';
+  if(q.estado==='ok')  return '<span class="q-est ok">listo</span>';
+  if(q.estado==='pend')return '<span class="q-est">en cola</span>';
+  return '';
+}
 function qRenderCard(){
   $('qCount').textContent=quotes.length;
   const list=$('qList'); if(!list) return;
   list.innerHTML='';
   if(!quotes.length){ list.innerHTML='<div class="q-empty" style="padding:2px">Sin quotes.</div>'; return; }
+  const segT=quotes.reduce((a2,q)=>a2+(q.out-q.in)/1000+6,0);
+  const cab=document.createElement('div');
+  cab.style.cssText='font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:6px';
+  cab.textContent='exportar los '+quotes.length+' lleva ~'+Math.max(1,Math.round(segT/60))+' min';
+  list.appendChild(cab);
   quotes.forEach((q,n)=>{
     const c=qColor(n);
     const row=document.createElement('div');
@@ -3588,10 +3639,17 @@ function qRenderCard(){
     row.innerHTML='<span class="q-chip" style="border-color:'+c+';color:'+c+'">'+(n+1)+'</span>'
       +'<span style="flex:1;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
       + subWords.slice(q.a,q.a+7).map(w=>w.text).join(' ')+'…</span>'
+      + qChip(q)
       +'<span style="font-family:var(--mono);font-size:10px;color:var(--dim)">'+qFmt(q.out-q.in)+'</span>';
     row.style.cursor='pointer';
-    row.onclick=()=>{ qActive=q.id; qApply(q); qRenderAll(); };
+    row.onclick=e=>{ if(e.target.tagName==='A') return; qActive=q.id; qApply(q); qRenderAll(); };
     list.appendChild(row);
+    if(q.url){
+      const b=document.createElement('div');
+      b.style.cssText='margin:2px 0 8px 26px';
+      b.innerHTML='<a class="baja" href="'+q.url+'" download="'+q.fname+'">⤓ Descargar quote '+(n+1)+'</a>';
+      list.appendChild(b);
+    }
   });
 }
 
@@ -3719,16 +3777,30 @@ async function qExportAll(){
   $('qExportAll').textContent='■ Cancelar la cola';
   $('qExportAll2').textContent='■ Cancelar';
   const total=quotes.length;
+  const restante=(desde)=>{                       // segundos que faltan: duración + ~6 s de cierre y transición
+    let s=0; for(let k=desde;k<total;k++) s+=(quotes[k].out-quotes[k].in)/1000+6;
+    return Math.max(1, Math.round(s/60));
+  };
+  quotes.forEach(q=>{ q.estado='pend'; q.url=null; q.fname=null; });
+  qRenderAll();
   for(let i=0;i<total;i++){
     if(qCancel) break;
     const q=quotes[i];
-    qStat('<span class="spin"></span>Grabando quote '+(i+1)+' de '+total+' · '+qFmt(q.out-q.in)+'…');
+    q.estado='rec'; qRenderAll();
+    qStat('<span class="spin"></span>Grabando quote '+(i+1)+' de '+total+' · '+qFmt(q.out-q.in)
+      +' · faltan ~'+restante(i)+' min. Los que ya salieron se pueden bajar y publicar.');
     qApply(q);
+    recQuoteId=q.id;
     recNameHint='Quote '+String(i+1).padStart(2,'0');
     await new Promise(r=>setTimeout(r,600));
     await qRecordOnce();
+    if(q.estado!=='ok') q.estado='';
+    qRenderAll();
+    if(q.estado==='ok' && i<total-1) qStat('Quote '+(i+1)+' listo — ya lo podés bajar y publicar. Siguen '+(total-i-1)+', ~'+restante(i+1)+' min.','ok');
     await new Promise(r=>setTimeout(r,1200));
   }
+  recQuoteId=null;
+  quotes.forEach(q=>{ if(q.estado==='pend'||q.estado==='rec') q.estado=''; });
   recNameHint=''; recQueue=false;
   $('qExportAll').textContent='Exportar todos los quotes';
   $('qExportAll2').textContent='Exportar todos';
@@ -3770,6 +3842,187 @@ function qRecordOnce(){
 }
 $('qExportAll').onclick=qExportAll;
 $('qExportAll2').onclick=qExportAll;
+
+/* ==========================================================================
+   IA — identificar quotes destacados
+   La IA propone, el editor decide. Nunca devuelve índices de palabra (los
+   modelos cuentan mal): devuelve el texto TEXTUAL y lo ubicamos nosotros por
+   coincidencia de cadena normalizada. Si un candidato no se ubica, se descarta.
+   ========================================================================== */
+let qCands=[], qAutoRun=false;
+
+function qNorm(t){
+  return (t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9ñ ]/g,' ').replace(/\s+/g,' ').trim();
+}
+
+let qJoin='', qJoinPos=[];
+function qBuildIndex(){
+  qJoin=''; qJoinPos=[];
+  subWords.forEach((w,i)=>{
+    const t=qNorm(w.text); if(!t) return;
+    if(qJoin) qJoin+=' ';
+    qJoinPos.push({c:qJoin.length, i});
+    qJoin+=t;
+  });
+}
+function qWordAtChar(c){
+  let lo=0, hi=qJoinPos.length-1, best=0;
+  while(lo<=hi){ const m=(lo+hi)>>1; if(qJoinPos[m].c<=c){ best=m; lo=m+1; } else hi=m-1; }
+  return qJoinPos.length ? qJoinPos[best].i : 0;
+}
+/* ubica un texto textual dentro de la transcripción → índices de palabra */
+function qLocate(texto){
+  const n=qNorm(texto); if(!n || !qJoin) return null;
+  let p=qJoin.indexOf(n);
+  if(p>=0) return { a:qWordAtChar(p), b:qWordAtChar(p+n.length-1) };
+  const tk=n.split(' ');
+  if(tk.length<8) return null;                       // muy corto para ubicar por extremos
+  const ini=tk.slice(0,6).join(' '), fin=tk.slice(-6).join(' ');
+  const pa=qJoin.indexOf(ini); if(pa<0) return null;
+  const pb=qJoin.indexOf(fin, pa); if(pb<0) return null;
+  return { a:qWordAtChar(pa), b:qWordAtChar(pb+fin.length-1) };
+}
+
+/* transcripción con marcas de vocero, para que la IA sepa quién dice qué */
+function qPromptText(){
+  let out='', last=null;
+  subWords.forEach((w,i)=>{
+    const spk=(w.speaker==null?'':String(w.speaker));
+    if(spk!==last){ out+=(out?'\n\n':'')+(spk?'['+qSpkName(spk)+'] ':''); last=spk; }
+    out+=w.text+' ';
+  });
+  return out.trim();
+}
+
+function qIaStat(t,c){ const e=$('qIaStat'); if(e){ e.innerHTML=t; e.style.color = c==='err'?'var(--rojo)':'var(--dim)'; } }
+
+async function qIdentificar(){
+  if(!subWords.length){ qIaStat('Primero transcribí el video.','err'); return; }
+  const foco=($('qIaFoco').value||'').trim();
+  $('qIaBtn').disabled=true;
+  qIaStat('<span class="spin"></span>Leyendo la transcripción…');
+  try{
+    qBuildIndex();
+    const sistema = 'Sos editor de video de un diario argentino. Te paso la transcripción de un discurso o entrevista '
+      + 'y tenés que proponer los pasajes más publicables como clip corto para redes.\n\n'
+      + 'CRITERIO — priorizá el valor noticioso por encima de la prolijidad retórica:\n'
+      + '- anuncios, medidas concretas, cifras y plazos\n'
+      + '- admisiones, reconocimientos, cambios de posición\n'
+      + '- cruces, acusaciones y respuestas directas\n'
+      + '- definiciones que comprometen a quien habla\n'
+      + 'NO elijas un pasaje sólo porque está bien redondeado: una frase titubeante o mal construida '
+      + 'suele ser más publicable que una parrafada bien armada sin novedad.\n\n'
+      + 'REGLAS DURAS:\n'
+      + '1. "texto" tiene que ser una copia EXACTA y literal de la transcripción, palabra por palabra. '
+      + 'No corrijas, no resumas, no completes, no cambies el orden. Si lo alterás, el sistema no lo puede ubicar y se descarta.\n'
+      + '2. Cada pasaje: entre 140 y 320 palabras (son 1 a 2 minutos hablados).\n'
+      + '3. Que arranque al principio de una oración y cierre una idea. Nunca a mitad de frase.\n'
+      + '4. Los pasajes no se pueden superponer entre sí.\n'
+      + '5. Entre 4 y 9 pasajes, ordenados de mayor a menor interés.\n\n'
+      + 'Devolvé SOLO un JSON válido, sin markdown, con esta forma:\n'
+      + '{"quotes":[{"texto":"copia literal","porque":"una línea: por qué es publicable","epigrafe":"bajada periodística en tercera persona, hasta 180 caracteres"}]}';
+    const usuario = (foco ? 'El editor pide especialmente: '+foco+'\n\n' : '')
+      + 'TRANSCRIPCIÓN:\n'+qPromptText();
+    qIaStat('<span class="spin"></span>Buscando los pasajes destacados…');
+    let out=await gptChat([{role:'system',content:sistema},{role:'user',content:usuario}],{model:'gpt-4o',temperature:0.2});
+    out=out.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
+    let data; try{ data=JSON.parse(out); }catch(e){ throw new Error('la IA no devolvió un JSON válido'); }
+    const lista=(data&&data.quotes)||[];
+    if(!lista.length) throw new Error('no propuso ningún pasaje');
+
+    // ubicar cada candidato y descartar los que no se puedan localizar
+    qCands=[]; let perdidos=0;
+    const dmax=vidDur()*1000;
+    for(const c of lista){
+      const loc=qLocate(c.texto);
+      if(!loc || loc.b<=loc.a){ perdidos++; continue; }
+      if(qCands.some(x=>loc.a<=x.b && loc.b>=x.a)) continue;          // sin superposiciones
+      const q={ id:0, a:loc.a, b:loc.b, in:0, out:0, ctx:(c.epigrafe||'').trim(),
+                porque:(c.porque||'').trim(), sel:true };
+      qSnap(q);
+      if(dmax && q.out>dmax) q.out=dmax;
+      qCands.push(q);
+    }
+    qCands.sort((x,y)=>x.in-y.in);
+    if(!qCands.length) throw new Error('propuso pasajes pero ninguno coincide con la transcripción');
+    qIaStat(qCands.length+' candidatos'+(perdidos?(' · '+perdidos+' descartados por no coincidir'):''));
+    qAutoRun = $('qAuto').checked;     // antes de dibujar: define el texto del botón de confirmación
+    qRenderCands();
+  }catch(e){
+    qIaStat('Falló: '+((e&&e.message)||e),'err');
+  }
+  $('qIaBtn').disabled=false;
+}
+
+/* --- pantalla de revisión: casillas pre-tildadas, el editor decide --- */
+function qRenderCands(){
+  const side=$('qSide'); side.innerHTML='';
+  const sel=qCands.filter(c=>c.sel);
+  const seg=sel.reduce((s,c)=>s+(c.out-c.in)/1000,0);
+  const mins=Math.max(1, Math.round((seg + sel.length*6)/60));   // +6 s por quote: cierre y transiciones
+
+  const cab=document.createElement('div');
+  cab.style.cssText='position:sticky;top:-14px;background:var(--panel2);padding:8px 0 10px;z-index:2';
+  cab.innerHTML='<div style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">Propuesta de la IA — revisá y decidí</div>'
+    +'<div id="qCandInfo" style="font-family:var(--mono);font-size:11px;color:var(--ink);margin-bottom:8px"></div>';
+  side.appendChild(cab);
+
+  const btns=document.createElement('div');
+  btns.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px';
+  const mk=(txt,pri,fn)=>{ const b=document.createElement('button'); b.type='button'; b.textContent=txt;
+    b.style.cssText='margin:0;width:auto;padding:8px 11px;border-radius:6px;font:600 11px/1 var(--ui);cursor:pointer;border:1px solid '+(pri?'var(--rojo)':'var(--line)')+';background:'+(pri?'var(--rojo)':'var(--panel)')+';color:'+(pri?'#fff':'var(--ink)');
+    b.onclick=fn; return b; };
+  btns.appendChild(mk(qAutoRun?'Confirmar y exportar':'Agregar los seleccionados', true, qAplicarCands));
+  btns.appendChild(mk('Todos', false, ()=>{ qCands.forEach(c=>c.sel=true); qRenderCands(); }));
+  btns.appendChild(mk('Ninguno', false, ()=>{ qCands.forEach(c=>c.sel=false); qRenderCands(); }));
+  btns.appendChild(mk('Descartar', false, ()=>{ qCands=[]; qAutoRun=false; qIaStat(''); qRenderAll(); }));
+  side.appendChild(btns);
+
+  qCands.forEach((c,n)=>{
+    const dur=c.out-c.in;
+    const d=document.createElement('div');
+    d.className='q-cand'+(c.sel?'':' off');
+    const txt=subWords.slice(c.a,c.b+1).map(w=>w.text).join(' ');
+    const esc=t=>t.replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
+    d.innerHTML='<div class="top"><input type="checkbox" '+(c.sel?'checked':'')+'>'
+      +'<div style="flex:1"><div class="por">'+esc(c.porque||'—')+'</div>'
+      +'<div class="cita">'+esc(txt.length>260?txt.slice(0,260)+'…':txt)+'</div>'
+      +(c.ctx?'<div class="epi">Epígrafe: '+esc(c.ctx)+'</div>':'')
+      +'<div class="meta">'+qFmt(c.in)+' → '+qFmt(c.out)+' · '+qFmt(dur)+(dur>QMAXMS?' ⚠ largo':'')+'</div>'
+      +'</div></div>';
+    d.querySelector('input').onchange=e=>{ c.sel=e.target.checked; qRenderCands(); };
+    d.onmouseenter=()=>{ const el=$('q-w-'+c.a); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); };
+    side.appendChild(d);
+  });
+
+  $('qCandInfo').innerHTML = sel.length+' de '+qCands.length+' seleccionados · '
+    + qFmt(seg*1000)+' de video · <b>exportar lleva ~'+mins+' min</b>';
+  // resaltar los candidatos en el texto
+  $('qText').querySelectorAll('.q-w').forEach(w=>{ w.style.background=''; w.style.boxShadow=''; });
+  qCands.forEach((c,n)=>{ if(!c.sel) return; const col=qColor(n);
+    for(let i=c.a;i<=c.b;i++){ const w=$('q-w-'+i); if(w){ w.style.background=col+'1c'; w.style.boxShadow='inset 0 -1px 0 '+col+'80'; } } });
+}
+
+function qAplicarCands(){
+  const sel=qCands.filter(c=>c.sel);
+  if(!sel.length){ qIaStat('No hay ninguno seleccionado.','err'); return; }
+  sel.forEach(c=>{ quotes.push({ id:++qSeq, a:c.a, b:c.b, in:c.in, out:c.out, ctx:c.ctx }); });
+  quotes.sort((x,y)=>x.in-y.in);
+  const correr=qAutoRun;
+  qCands=[]; qAutoRun=false; qActive=null;
+  qSave(); qRenderAll();
+  qIaStat(sel.length+' quotes agregados.');
+  if(correr){ qCloseOverlay(); qExportAll(); }
+}
+
+$('qIaBtn').onclick=qIdentificar;
+$('qAuto').addEventListener('change', ()=>{ if(qCands.length){ qAutoRun=$('qAuto').checked; qRenderCands(); } });
+$('qIaFoco').addEventListener('keydown', e=>{ if(e.key==='Enter') qIdentificar(); });
+document.querySelectorAll('.q-pre span').forEach(sp=>{
+  sp.onclick=()=>{ const v=$('qIaFoco'); v.value = v.value ? (v.value+', '+sp.dataset.pre) : sp.dataset.pre; v.focus(); };
+});
+
 
 /* ---- epígrafe sugerido y lugares (usan la key de OpenAI) ---- */
 async function gptChat(messages, opts){
@@ -4097,6 +4350,8 @@ function downloadBlob(blob, ext){
   if(recQueue){
     // dentro de la cola: NO disparar la descarga (Chrome corta la cadena) y NO pisar los links anteriores
     recQueueFiles.push({name:fname, blob});
+    const q=quotes.find(x=>x.id===recQuoteId);
+    if(q){ q.url=url; q.fname=fname; q.estado='ok'; }   // descargable YA, sin esperar a que termine la cola
   }else{
     const a=document.createElement('a');
     a.href=url; a.download=fname; a.rel='noopener'; a.style.display='none';

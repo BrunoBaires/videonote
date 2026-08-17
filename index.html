@@ -198,7 +198,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v38 · captura webm</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v39 · descarga en zip</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1092,7 +1092,7 @@ const QUAL = {
 
 let loaded=false, rafId=null, busy=false;
 let recorder=null, chunks=[], audioCtx=null, audioDest=null, srcNode=null, recMime='video/webm', recordingMp4=false;
-let recResolve=null, recNameHint='';   // cola de quotes: aviso de fin de grabación + nombre del archivo
+let recResolve=null, recNameHint='', recQueue=false, recQueueFiles=[];   // cola de quotes: aviso de fin de grabación + nombre del archivo
 let ffmpeg=null, ffmpegReady=false;
 let bgImg=null, bgVideo=false, overflow=false, finalFrame=false, brandTouched=false;
 let bgCache=null, bgCacheKey='', hiddenDuringRec=false, recTimer=null;
@@ -3714,6 +3714,8 @@ async function qExportAll(){
   if(busy){ qStat('Hay una exportación en curso: esperá a que termine.','err'); return; }
   qStopPreview();
   qExporting=true; qCancel=false;
+  recQueue=true; recQueueFiles=[];
+  $('dl').innerHTML=''; $('dl').classList.remove('on');
   $('qExportAll').textContent='■ Cancelar la cola';
   $('qExportAll2').textContent='■ Cancelar';
   const total=quotes.length;
@@ -3727,10 +3729,34 @@ async function qExportAll(){
     await qRecordOnce();
     await new Promise(r=>setTimeout(r,1200));
   }
-  recNameHint='';
+  recNameHint=''; recQueue=false;
   $('qExportAll').textContent='Exportar todos los quotes';
   $('qExportAll2').textContent='Exportar todos';
-  qStat(qCancel ? 'Cola cancelada.' : ('Listos los '+total+' quotes.'), qCancel?'err':'ok');
+  const listos=recQueueFiles.length;
+  if(listos){
+    // un solo archivo = un solo clic = Chrome no lo bloquea
+    const zipBtn=document.createElement('button');
+    zipBtn.type='button'; zipBtn.className='dl-link';
+    zipBtn.style.cssText='margin:4px;cursor:pointer;font-family:var(--disp)';
+    zipBtn.textContent='⤓ Bajar los '+listos+' quotes en un ZIP';
+    zipBtn.onclick=async ()=>{
+      zipBtn.textContent='Armando el ZIP…'; zipBtn.disabled=true;
+      try{
+        const z=await zipStore(recQueueFiles);
+        const u=URL.createObjectURL(z);
+        const a=document.createElement('a');
+        a.href=u; a.download='Incertis quotes.zip'; a.style.display='none';
+        document.body.appendChild(a); a.click();
+        setTimeout(()=>{ try{document.body.removeChild(a);}catch(e){} },1000);
+        zipBtn.textContent='⤓ Bajar los '+listos+' quotes en un ZIP';
+      }catch(e){ zipBtn.textContent='Falló el ZIP — usá los links de abajo'; }
+      zipBtn.disabled=false;
+    };
+    $('dl').insertBefore(zipBtn, $('dl').firstChild);
+    qStat((qCancel?'Cola cancelada — ':'')+listos+' quote'+(listos>1?'s':'')+' listo'+(listos>1?'s':'')+'. Bajalos con el botón del ZIP debajo del lienzo (o uno por uno con los links).', qCancel?'err':'ok');
+  }else{
+    qStat(qCancel ? 'Cola cancelada.' : 'No se generó ningún archivo.','err');
+  }
   qExporting=false; qCancel=false;
 }
 function qRecordOnce(){
@@ -4020,20 +4046,68 @@ async function initFFmpeg(){
   }
 }
 
+/* ---- ZIP sin compresión (store), escrito a mano ----
+   Chrome bloquea las descargas automáticas en cadena: la primera pasa y las demás
+   se caen sin avisar. Por eso la cola de quotes NO descarga uno por uno: junta todo
+   y lo entrega en un único archivo, con un solo clic del usuario. Los mp4 ya vienen
+   comprimidos, así que "store" (sin comprimir) no pierde nada y no necesita librería. */
+const CRC_T=(()=>{ const t=new Uint32Array(256);
+  for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = (c&1) ? (0xEDB88320 ^ (c>>>1)) : (c>>>1); t[n]=c>>>0; }
+  return t; })();
+function crc32(u8){ let c=0xFFFFFFFF; for(let i=0;i<u8.length;i++) c=CRC_T[(c ^ u8[i]) & 0xFF] ^ (c>>>8); return (c ^ 0xFFFFFFFF)>>>0; }
+
+async function zipStore(items){          // items = [{name, blob}]
+  const enc=new TextEncoder(), partes=[], central=[];
+  let off=0;
+  for(const it of items){
+    const nombre=enc.encode(it.name);
+    const datos=new Uint8Array(await it.blob.arrayBuffer());
+    const crc=crc32(datos), n=datos.length;
+    const lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0,true);
+    lh.setUint16(8,0,true); lh.setUint16(10,0,true); lh.setUint16(12,33,true);   // fecha DOS válida (1/1/1980)
+    lh.setUint32(14,crc,true); lh.setUint32(18,n,true); lh.setUint32(22,n,true);
+    lh.setUint16(26,nombre.length,true); lh.setUint16(28,0,true);
+    partes.push(new Uint8Array(lh.buffer), nombre, datos);
+    const ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true);
+    ch.setUint16(8,0,true); ch.setUint16(10,0,true); ch.setUint16(12,0,true); ch.setUint16(14,33,true);
+    ch.setUint32(16,crc,true); ch.setUint32(20,n,true); ch.setUint32(24,n,true);
+    ch.setUint16(28,nombre.length,true); ch.setUint16(30,0,true); ch.setUint16(32,0,true);
+    ch.setUint16(34,0,true); ch.setUint16(36,0,true); ch.setUint32(38,0,true);
+    ch.setUint32(42,off,true);
+    central.push(new Uint8Array(ch.buffer), nombre);
+    off += 30 + nombre.length + n;
+  }
+  const cdIni=off;
+  let cdLen=0; central.forEach(p=>cdLen+=p.length);
+  const fin=new DataView(new ArrayBuffer(22));
+  fin.setUint32(0,0x06054b50,true); fin.setUint16(4,0,true); fin.setUint16(6,0,true);
+  fin.setUint16(8,items.length,true); fin.setUint16(10,items.length,true);
+  fin.setUint32(12,cdLen,true); fin.setUint32(16,cdIni,true); fin.setUint16(20,0,true);
+  return new Blob([...partes, ...central, new Uint8Array(fin.buffer)], {type:'application/zip'});
+}
+
 function downloadBlob(blob, ext){
   const url=URL.createObjectURL(blob);
   const d=new Date();
   const hh=String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');
   const fname=(recNameHint ? 'Incertis '+recNameHint+' '+hh : 'Incertis Video WhatsApp '+hh)+'.'+ext;
-  const a=document.createElement('a');
-  a.href=url; a.download=fname; a.rel='noopener'; a.style.display='none';
-  document.body.appendChild(a); a.click();
-  const box=$('dl'); box.innerHTML='';
+  const box=$('dl');
+  if(recQueue){
+    // dentro de la cola: NO disparar la descarga (Chrome corta la cadena) y NO pisar los links anteriores
+    recQueueFiles.push({name:fname, blob});
+  }else{
+    const a=document.createElement('a');
+    a.href=url; a.download=fname; a.rel='noopener'; a.style.display='none';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ try{document.body.removeChild(a);}catch(e){} },1000);
+    box.innerHTML='';
+  }
   const link=document.createElement('a');
   link.href=url; link.download=fname; link.className='dl-link';
-  link.textContent='Descargar '+fname+' ('+Math.round(blob.size/1048576*10)/10+' MB)';
+  link.style.margin='4px'; link.textContent='Descargar '+fname+' ('+Math.round(blob.size/1048576*10)/10+' MB)';
   box.appendChild(link); box.classList.add('on');
-  setTimeout(()=>{ try{document.body.removeChild(a);}catch(e){} },1000);
   return fname;
 }
 
@@ -4047,7 +4121,7 @@ async function startRecording(){
   busy=true;
   $('rec').disabled=true; $('play').disabled=true;
   $('prog').classList.add('on'); $('progBar').style.width='0%';
-  $('dl').classList.remove('on'); $('dl').innerHTML='';
+  if(!recQueue){ $('dl').classList.remove('on'); $('dl').innerHTML=''; }   // en la cola se acumulan los links, no se pisan
   hiddenDuringRec=false;
   cancelClosing(); finalFrame=false; recFinishing=false;   // arrancar la grabación desde el video, no desde un cierre previo congelado
 

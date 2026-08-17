@@ -271,7 +271,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v43 · encuadres por time code</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v46 · X por trozos</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -350,9 +350,13 @@ video.src{display:none}
           <span class="lbl" style="margin-top:8px">Encuadre horizontal <span class="val" id="ofHV">0 %</span></span>
           <input type="range" id="ofH" min="-30" max="30" value="0">
           <div class="grp" id="kfGrp" hidden style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
-            <label class="chk" style="margin-top:0"><input type="checkbox" id="kfOn"> Encuadres por momento del video <span class="counter" id="kfN">0</span></label>
-            <div class="hint">Para discursos con varias cámaras: movés el cabezal al cambio de cámara, ajustás zoom y encuadre, y guardás. Desde ahí en adelante se usa ese encuadre. Queda pegado al time code, así que los quotes lo heredan solos.</div>
-            <button type="button" class="genbtn go" id="kfAdd" style="margin-top:9px">◆ Guardar encuadre acá</button>
+            <label class="chk" style="margin-top:0"><input type="checkbox" id="kfOn" checked> <b>Usar los encuadres guardados</b> <span class="counter" id="kfN">0</span></label>
+            <div class="hint"><b>No hay que activar nada:</b> cada vez que soltás el zoom o el encuadre queda guardado en el momento donde esté el cabezal. El primer ajuste vale para todo el video; a partir del segundo momento el encuadre se parte y cada tramo usa el suyo. Pausá en el cambio de cámara, reencuadrá, seguí. Queda pegado al time code, así que los quotes lo heredan solos.</div>
+            <div class="genstat" id="kfEstado" style="min-height:14px"></div>
+            <div class="row" style="margin-top:6px;gap:6px">
+              <button type="button" class="mini-btn" id="kfAdd" style="margin-top:0;flex:1">◆ Fijar acá</button>
+              <button type="button" class="mini-btn" id="kfUno" style="margin-top:0;flex:1">Uno solo para todo</button>
+            </div>
             <div id="kfList" style="margin-top:8px"></div>
           </div>
           <div class="hint">Subí el zoom si el cronista se filmó lejos, y corré el encuadre para centrar el rostro.</div>
@@ -1311,22 +1315,52 @@ $('file').onchange = e => { if(e.target.files[0]) load(e.target.files[0]); };
 
 /* ---------- traer el video directo de X (Twitter) vía api/xvideo ---------- */
 function xStat(t,c){ const el=$('xStat'); if(el){ el.innerHTML=t; el.className='genstat'+(c?' '+c:''); } }
+/* Baja el video de X POR TROZOS.
+   Antes se pedía el archivo entero en una sola llamada: con videos largos la función de
+   Vercel se pasaba de los 60 s, la cortaban a mitad de la descarga y el navegador tiraba
+   "Failed to fetch" sin código. Pidiéndolo en pedazos de 6 MB, cada llamada dura segundos. */
+const XCHUNK = 6*1024*1024;
+async function xTrozo(url, desde, hasta){
+  const ctl=new AbortController();
+  const reloj=setTimeout(()=>ctl.abort(), 50000);
+  try{
+    return await fetch('/api/xvideo?download=1&url='+encodeURIComponent(url),
+      { headers:{ 'Range':'bytes='+desde+'-'+hasta }, signal:ctl.signal });
+  } finally { clearTimeout(reloj); }
+}
 $('xFetch').onclick = async () => {
   const url=($('xUrl').value||'').trim();
   if(!url){ xStat('Pegá el link del posteo de X.','err'); return; }
   $('xFetch').disabled=true;
-  xStat('<span class="spin"></span>Bajando el video de X… (puede tardar unos segundos)');
+  xStat('<span class="spin"></span>Buscando el video…');
   try{
-    const r=await fetch('/api/xvideo?download=1&url='+encodeURIComponent(url));
-    if(!r.ok){ let m=''; try{ const j=await r.json(); m=j.error||''; }catch(e){} throw new Error(m||('HTTP '+r.status)); }
-    const blob=await r.blob();
-    if(!blob || blob.size<1000){ throw new Error('el archivo vino vacío'); }
-    const file=new File([blob], 'x-'+Date.now()+'.mp4', {type: blob.type||'video/mp4'});
+    const partes=[]; let desde=0, total=null, vueltas=0;
+    while(total===null || desde<total){
+      if(++vueltas>400) throw new Error('demasiados trozos');
+      const r=await xTrozo(url, desde, desde+XCHUNK-1);
+      if(!r.ok && r.status!==206){
+        let m=''; try{ const j=await r.json(); m=j.error||''; }catch(e){}
+        throw new Error(m||('HTTP '+r.status));
+      }
+      const cr=r.headers.get('content-range');
+      if(cr){ const t=parseInt(cr.split('/')[1],10); if(isFinite(t)) total=t; }
+      const b=await r.blob();
+      if(!b.size) break;
+      partes.push(b); desde+=b.size;
+      if(r.status!==206){ total=desde; break; }        // el servidor mandó todo de una
+      xStat('<span class="spin"></span>Bajando… '+(desde/1048576).toFixed(1)
+            +(total?(' de '+(total/1048576).toFixed(1)):'')+' MB');
+    }
+    const blob=new Blob(partes,{type:'video/mp4'});
+    if(blob.size<1000) throw new Error('el archivo vino vacío');
+    const file=new File([blob], 'x-'+Date.now()+'.mp4', {type:'video/mp4'});
     xStat('Video traído ✓ ('+(blob.size/1048576).toFixed(1)+' MB). Cargándolo en el editor…','ok');
     load(file);
   }catch(e){
-    const msg=(e&&e.message)||e;
-    xStat('No se pudo traer el video ('+msg+'). Revisá que el posteo sea público y tenga video.','err');
+    let msg=(e&&e.name==='AbortError') ? 'el servidor tardó demasiado en responder' : ((e&&e.message)||e);
+    if(/Failed to fetch|NetworkError|load failed/i.test(String(msg)))
+      msg='se cortó la conexión con el servidor — probá de nuevo, o usá "Capturar de una pestaña"';
+    xStat('No se pudo traer el video: '+msg+'.','err');
   }
   $('xFetch').disabled=false;
 };
@@ -1591,11 +1625,14 @@ function kfRender(){
     d.innerHTML='<span class="t">'+fmtTiempo(k.t).replace(/\.0$/,'')+'</span>'
       +'<span class="v">zoom '+Math.round(k.z)+'%<br>enc '+Math.round(k.h)+' / '+Math.round(k.o)+'</span>'
       +'<input class="tr" type="number" min="0" max="3000" step="100" value="'+(k.tr||0)+'" title="0 = corte seco · 400 = travelling de 0,4 s">'
-      +'<button data-a="go">ir</button><button data-a="del">✕</button>';
+      +'<button data-a="go" title="Llevar el cabezal a este momento">ir</button>'
+      +'<button data-a="mover" title="Correr este encuadre al momento donde está el cabezal">◀ acá</button>'
+      +'<button data-a="del">✕</button>';
     d.querySelector('input').onchange=e=>{ k.tr=Math.max(0,parseInt(e.target.value,10)||0); kfSave(); redraw(); };
     d.onclick=e=>{
       if(e.target.tagName==='INPUT') return;
       if(e.target.dataset.a==='del'){ kfBorrar(i); return; }
+      if(e.target.dataset.a==='mover'){ k.t=Math.max(0, vid.currentTime||0); kfSort(); kfSave(); kfRender(); layoutTL(); redraw(); kfFlash(k.t); return; }
       try{ vid.currentTime=k.t; }catch(_){}
       seeking=true; kfPend=false; kfAviso(); kfSliders(k); updateSeekLabel(); kfRender(); redraw();
     };
@@ -1611,26 +1648,57 @@ function kfSliders(k){
   if($('ofHV'))  $('ofHV').textContent=Math.round(k.h)+' %';
 }
 /* mover un slider edita el keyframe que manda en este momento */
+/* Mientras arrastrás el slider se previsualiza (input); al soltar queda guardado (change)
+   en el momento donde está el cabezal. Es lo que uno espera: reencuadrar ES grabar. */
 ['zoom','of','ofH'].forEach(id=>{
-  $(id).addEventListener('input', ()=>{
-    if(!kfOn()) return;
-    const t=vid.currentTime||0;
-    const enc=kfs.find(k=>Math.abs(k.t-t)<0.35);
-    if(enc){                                   // parado sobre un encuadre guardado → lo edita en vivo
-      const v=encSliders(); enc.z=v.zoom; enc.o=v.of; enc.h=v.ofH;
-      kfPend=false; kfSave(); kfRender();
-    }else{                                     // momento nuevo → no pisa nada, espera el "Guardar"
-      kfPend=true; kfAviso();
-    }
-  });
+  $(id).addEventListener('input', ()=>{ kfPend=true; kfAviso(); });
+  $(id).addEventListener('change', ()=>{ kfGrabar(); });     // soltar el slider = guardar en este momento
 });
+function kfGrabar(){
+  if(!loaded) return;
+  const t=Math.max(0, vid.currentTime||0);
+  const v=encSliders();
+  const antes=kfs.length;
+  /* El primero se ancla en 0:00: así el primer reencuadre vale para todo el video,
+     igual que siempre. Recién a partir del segundo momento el encuadre se parte. */
+  if(!kfs.length) kfs.push({t:0, z:v.zoom, o:v.of, h:v.ofH, tr:0});
+  const enc=kfs.find(k=>Math.abs(k.t-t)<0.35);
+  if(enc){ enc.z=v.zoom; enc.o=v.of; enc.h=v.ofH; }
+  else kfs.push({t, z:v.zoom, o:v.of, h:v.ofH, tr:0});
+  kfSort(); kfPend=false; kfAviso();
+  if($('kfOn')) $('kfOn').checked = true;      // el motor se enciende solo
+  kfSave(); kfRender(); layoutTL(); redraw();
+  kfFlash(t, antes<=1 && kfs.length>1);
+}
+function kfFlash(t, partido){
+  const st=$('kfEstado'); if(!st) return;
+  st.textContent = partido
+    ? '✓ guardado en '+fmtTiempo(t).replace(/\.0$/,'')+' — desde acá el video usa este encuadre'
+    : '✓ encuadre guardado en '+fmtTiempo(t).replace(/\.0$/,'');
+  st.style.color='#0f8f5e';
+  clearTimeout(kfFlash._id);
+  kfFlash._id=setTimeout(()=>{ st.textContent=''; }, partido?4500:2200);
+}
 function kfAviso(){
   const b=$('kfAdd'); if(!b) return;
-  b.textContent = kfPend ? '◆ Guardar este encuadre acá  ●' : '◆ Guardar encuadre acá';
   b.style.boxShadow = kfPend ? '0 0 0 3px rgba(214,0,25,.22)' : '';
 }
-$('kfAdd').onclick=kfAgregar;
-$('kfOn').addEventListener('change', ()=>{ kfSave(); kfRender(); redraw(); });
+$('kfAdd').onclick=()=>{ if(!kfMode()) $('kfOn').checked=true; kfAgregar(); };
+$('kfUno').onclick=()=>{                       // dejar el encuadre vigente para todo el video
+  const v=encSliders();
+  kfs=[{t:0, z:v.zoom, o:v.of, h:v.ofH, tr:0}];
+  kfPend=false; kfAviso(); kfSave(); kfRender(); layoutTL(); redraw();
+  const st=$('kfEstado'); if(st){ st.textContent='Un solo encuadre para todo el video.'; st.style.color='var(--dim)';
+    clearTimeout(kfFlash._id); kfFlash._id=setTimeout(()=>{ st.textContent=''; },2600); }
+};
+$('kfOn').addEventListener('change', ()=>{
+  if(kfMode() && !kfs.length){
+    const v=encSliders();
+    kfs.push({t:0, z:v.zoom, o:v.of, h:v.ofH, tr:0});   // el encuadre de arranque, para no cambiarle nada al principio
+    kfFlash(0);
+  }
+  kfSave(); kfRender(); layoutTL(); redraw();
+});
 
 /* marcas en la línea de tiempo + sliders al día cuando el video está pausado */
 function kfMarcas(){
@@ -1642,9 +1710,9 @@ function kfMarcas(){
 }
 let _kfUlt=null, _kfT=-1;
 function kfSeguir(){
-  if(!kfOn()){ if(kfPend){ kfPend=false; kfAviso(); } return; }
+  if(!kfMode()){ if(kfPend){ kfPend=false; kfAviso(); } return; }
   const t=vid.currentTime||0;
-  if(kfPend && Math.abs(t-_kfT)>0.35){ kfPend=false; kfAviso(); }   // se movió: el ajuste sin guardar se descarta
+  if(kfPend && vid.paused && Math.abs(t-_kfT)>0.35){ kfPend=false; kfAviso(); }
   _kfT=t;
   const k=kfActual(t);
   if(k!==_kfUlt){ _kfUlt=k; if(vid.paused && !kfPend){ kfSliders(k); kfRender(); redraw(); } }
@@ -2112,7 +2180,8 @@ function skyActive(){ return !bgImg && !bgVideo && $('paletaHora').checked && $(
    la reproducción y en la exportación. Los quotes lo heredan solos: son tiempo absoluto. */
 let kfs=[], kfPend=false;                     // [{t, z, o, h, tr}] ordenados por t · kfPend = ajuste sin guardar
 let ENC={zoom:100,of:0,ofH:0}, ENC0={zoom:100,of:0,ofH:0};
-function kfOn(){ const c=$('kfOn'); return !!(c && c.checked && kfs.length); }
+function kfMode(){ const c=$('kfOn'); return !!(c && c.checked); }          // el interruptor
+function kfOn(){ return kfMode() && kfs.length>0; }                          // hay encuadres que aplicar
 function encSliders(){ return { zoom:parseFloat($('zoom').value)||100, of:parseFloat($('of').value)||0, ofH:parseFloat($('ofH').value)||0 }; }
 const _lerp=(a,b,p)=>a+(b-a)*p;
 const _ease=p=>p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
@@ -3087,6 +3156,7 @@ $('play').onclick = () => {
   if(vid.paused){
     seeking=false;
     if(vid.ended || vid.currentTime < segIn()-0.01 || vid.currentTime >= segOut()-0.03){ vid.currentTime=segIn(); cancelClosing(); finalFrame=false; }
+    if(kfPend) kfGrabar();                  // lo ajustado antes de darle play queda guardado
     vid.play(); $('play').textContent='Pausar';
     if(bgVideo) vidBg.play().catch(()=>{});
     if(rafId===null) loop();

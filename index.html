@@ -198,7 +198,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v37 · quotes + captura</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v38 · captura webm</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -260,6 +260,7 @@ video.src{display:none}
           <span class="lbl">…o capturá de una pestaña (Instagram, web, lo que sea)</span>
           <button type="button" class="genbtn" id="capBtn" style="margin-top:8px">Capturar de una pestaña</button>
           <div class="genstat" id="capStat"></div>
+          <div id="capDl" style="margin-top:6px"></div>
           <div class="hint">Abrí el reel/video en otra pestaña (mejor en pantalla completa para que llene el cuadro), tocá Capturar, elegí esa pestaña y dale play. Al frenar, el video queda cargado acá para recortar y editar.</div>
         </div>
         <div class="grp" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
@@ -1190,7 +1191,10 @@ $('capBtn').onclick = async () => {
   if(!capStream.getVideoTracks().length){ capStat('Esa pestaña no compartió imagen. Elegí una pestaña con video.','err'); try{ capStream.getTracks().forEach(t=>t.stop()); }catch(_){} return; }
   const MP4=['video/mp4;codecs=avc1.640028,mp4a.40.2','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4'];
   const WEBM=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
-  capMime = MP4.find(m=>MediaRecorder.isTypeSupported(m)) || WEBM.find(m=>MediaRecorder.isTypeSupported(m)) || '';
+  // WEBM primero, a proposito: el mp4 de MediaRecorder es fMP4 y en capturas largas
+  // Chrome despues no lo puede abrir ("No se pudo leer el video"). El webm nunca falla.
+  // La captura es un archivo intermedio — el mp4 final lo hace la exportacion igual.
+  capMime = WEBM.find(m=>MediaRecorder.isTypeSupported(m)) || MP4.find(m=>MediaRecorder.isTypeSupported(m)) || '';
   const capBps = 2800000;   // 2,8 Mbps: alcanza de sobra y evita blobs gigantes en capturas largas
   try{ capRecorder = capMime ? new MediaRecorder(capStream,{mimeType:capMime,videoBitsPerSecond:capBps}) : new MediaRecorder(capStream,{videoBitsPerSecond:capBps}); }
   catch(e){ capStat('No se pudo iniciar la grabación: '+((e&&e.message)||e),'err'); try{ capStream.getTracks().forEach(t=>t.stop()); }catch(_){} return; }
@@ -1205,7 +1209,18 @@ $('capBtn').onclick = async () => {
     if(!blob.size){ capStat('No se grabó nada. Probá de nuevo y dejá reproducir el video.','err'); capRecorder=null; return; }
     capStat('Capturado ✓ ('+(blob.size/1048576).toFixed(1)+' MB). Cargando en el editor…','ok');
     const durMedida = capT0 ? (Date.now()-capT0)/1000 : 0;   // sabemos cuánto grabamos: es el respaldo si el webm no trae duración
-    load(new File([blob], 'captura-'+Date.now()+'.'+ext, {type: blob.type||'video/webm'}), durMedida);
+    const nombre = 'captura-'+Date.now()+'.'+ext;
+    // Red de seguridad: dejar SIEMPRE el archivo a mano. Si la carga en el editor falla,
+    // media hora de grabación no se puede perder — se baja y se sube con "Cargar video".
+    try{
+      const u=URL.createObjectURL(blob);
+      $('capDl').innerHTML='';
+      const a=document.createElement('a');
+      a.href=u; a.download=nombre; a.className='dl-link';
+      a.textContent='⤓ Guardar la captura ('+(blob.size/1048576).toFixed(1)+' MB) por las dudas';
+      $('capDl').appendChild(a);
+    }catch(e){}
+    load(new File([blob], nombre, {type: blob.type||'video/webm'}), durMedida);
     capRecorder=null;
   };
   try{ capStream.getVideoTracks()[0].addEventListener('ended', ()=>{ if(capRecorder && capRecorder.state==='recording') capRecorder.stop(); }); }catch(e){}   // si cortan el compartir desde el navegador
@@ -1229,7 +1244,13 @@ function load(f, durHint){
   const aviso = (t,c) => { setStatus(t,c); if(esCaptura) capStat(t,c); };   // que el error se vea tambien en la tarjeta de captura
   mainVidFile = f;
   durFix = 0;
-  vid.onerror = () => aviso('No se pudo leer el video. Probá con otro formato.','err');
+  vid.onerror = () => {
+    const e = vid.error || {};
+    const COD = {1:'carga cancelada', 2:'error de red', 3:'no se pudo decodificar', 4:'formato no soportado'};
+    const det = (COD[e.code] || ('código '+(e.code||'?'))) + (e.message ? ' — '+e.message : '');
+    aviso('No se pudo leer el video: '+det+'. ('+(f.type||'sin tipo')+', '+(f.size/1048576).toFixed(1)+' MB, '+(f.name||'')+')','err');
+    console.error('[load] fallo', {code:e.code, message:e.message, type:f.type, size:f.size, name:f.name});
+  };
   vid.src = URL.createObjectURL(f);
   vid.onloadedmetadata = () => {
     const setup = () => {

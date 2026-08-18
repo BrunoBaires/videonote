@@ -154,6 +154,19 @@ video.src{display:none}
 .kf input.tr{width:52px;margin:0;padding:4px 5px;font-family:var(--mono);font-size:10px;text-align:center}
 .kf button{margin:0;width:auto;padding:4px 6px;border-radius:5px;border:1px solid var(--line);background:var(--panel);font:600 10px/1 var(--ui);cursor:pointer;color:var(--ink)}
 .kf button:hover{border-color:var(--rojo);color:var(--rojo)}
+.rev{width:100%;max-width:640px;margin:10px auto 0;border:1px solid var(--rojo);border-radius:10px;background:#fff6f7;padding:11px 13px}
+.rev[hidden]{display:none}
+.rev-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:9px}
+.rev-top b{font-family:var(--mono);font-size:11.5px;flex:1;text-align:center;color:var(--ink)}
+.rev button{margin:0;width:auto;padding:7px 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:600 11px/1 var(--ui);cursor:pointer;color:var(--ink)}
+.rev button:hover{border-color:var(--rojo);color:var(--rojo)}
+.rev button.pri{background:var(--rojo);border-color:var(--rojo);color:#fff}
+.rev button.pri:hover{background:#a80014;color:#fff}
+.rev-fila{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+.rev-fila > span.et{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);min-width:60px}
+.rev-fila input[type=range]{flex:1;min-width:90px;margin:0}
+.rev-fila b{font-family:var(--mono);font-size:11px;min-width:52px;text-align:center}
+.rev button.mini{padding:5px 7px;font-family:var(--mono);font-size:10px}
 .tl-kf{position:absolute;top:-3px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:7px solid #7a3fbf;transform:translateX(-4px);pointer-events:none}
 /* ---- editor de recorte preciso (overlay) ---- */
 #tzOv{position:fixed;inset:0;background:rgba(18,20,24,.72);z-index:210;display:flex;align-items:center;justify-content:center;padding:22px}
@@ -271,7 +284,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v46 · X por trozos</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v47 · revisión de encuadres</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -353,6 +366,7 @@ video.src{display:none}
             <label class="chk" style="margin-top:0"><input type="checkbox" id="kfOn" checked> <b>Usar los encuadres guardados</b> <span class="counter" id="kfN">0</span></label>
             <div class="hint"><b>No hay que activar nada:</b> cada vez que soltás el zoom o el encuadre queda guardado en el momento donde esté el cabezal. El primer ajuste vale para todo el video; a partir del segundo momento el encuadre se parte y cada tramo usa el suyo. Pausá en el cambio de cámara, reencuadrá, seguí. Queda pegado al time code, así que los quotes lo heredan solos.</div>
             <div class="genstat" id="kfEstado" style="min-height:14px"></div>
+            <button type="button" class="genbtn go" id="revStart" style="margin-top:8px">▶ Revisar los encuadres uno por uno</button>
             <div class="row" style="margin-top:6px;gap:6px">
               <button type="button" class="mini-btn" id="kfAdd" style="margin-top:0;flex:1">◆ Fijar acá</button>
               <button type="button" class="mini-btn" id="kfUno" style="margin-top:0;flex:1">Uno solo para todo</button>
@@ -878,6 +892,31 @@ video.src{display:none}
       <span id="seekV" style="font-family:var(--mono);font-size:10.5px;color:var(--dim);min-width:78px;text-align:right">0:00 / 0:00</span>
     </div>
     <div class="hint" style="text-align:center;margin-top:0">Movés el cabezal para ver y ajustar los subtítulos en cualquier momento, sin reproducir todo.</div>
+    <div class="rev" id="revBar" hidden>
+      <div class="rev-top">
+        <button type="button" id="revPrev">◀ anterior</button>
+        <b id="revWho">—</b>
+        <button type="button" id="revNext">siguiente ▶</button>
+        <button type="button" class="pri" id="revPlay">↻ Repetir 3 s</button>
+        <button type="button" id="revExit">Terminar</button>
+      </div>
+      <div class="rev-fila">
+        <span class="et">momento</span>
+        <button type="button" class="mini" data-rt="-0.5">−0,5s</button>
+        <button type="button" class="mini" data-rt="-0.1">−0,1s</button>
+        <b id="revT">—</b>
+        <button type="button" class="mini" data-rt="0.1">+0,1s</button>
+        <button type="button" class="mini" data-rt="0.5">+0,5s</button>
+        <button type="button" class="mini" id="revAqui">al cabezal</button>
+      </div>
+      <div class="rev-fila"><span class="et">zoom</span><input type="range" id="revZ" min="100" max="300" step="1"><b id="revZV">—</b></div>
+      <div class="rev-fila"><span class="et">horiz</span><input type="range" id="revH" min="-30" max="30" step="0.5"><b id="revHV">—</b></div>
+      <div class="rev-fila"><span class="et">vert</span><input type="range" id="revV" min="-30" max="30" step="0.5"><b id="revVV">—</b></div>
+      <div class="rev-fila" style="margin-bottom:0">
+        <label class="chk" style="margin:0;flex:1"><input type="checkbox" id="revNeg"> Tapar esta transición con un negro corto</label>
+        <button type="button" class="mini" id="revDel">✕ quitar este encuadre</button>
+      </div>
+    </div>
     <div class="prog" id="prog"><i id="progBar"></i></div>
     <div class="status" id="status">Cargá un video para empezar.</div>
     <div class="dl" id="dl"></div>
@@ -1656,6 +1695,12 @@ function kfSliders(k){
 });
 function kfGrabar(){
   if(!loaded) return;
+  if(revOn && kfs[revIdx]){                    // en revisión se corrige el que se está mirando
+    const k=kfs[revIdx], v0=encSliders();
+    k.z=v0.zoom; k.o=v0.of; k.h=v0.ofH;
+    kfPend=false; kfAviso(); kfSave(); revSync(); redraw();
+    return;
+  }
   const t=Math.max(0, vid.currentTime||0);
   const v=encSliders();
   const antes=kfs.length;
@@ -1718,6 +1763,101 @@ function kfSeguir(){
   if(k!==_kfUlt){ _kfUlt=k; if(vid.paused && !kfPend){ kfSliders(k); kfRender(); redraw(); } }
 }
 setInterval(kfSeguir, 300);
+
+/* ==========================================================================
+   MODO REVISIÓN — segunda pasada
+   Primero se marcan todos los encuadres sin obsesionarse con la precisión;
+   después se mira el resultado y se corrige lo que se ve mal, transición por
+   transición. Acá la clave es que ajustar EDITA el encuadre existente en vez
+   de crear uno nuevo — si no, la revisión llena el video de casi-duplicados.
+   ========================================================================== */
+let revOn=false, revIdx=1, revReloj=null;
+
+function revK(){ return kfs[revIdx]||null; }
+function revEntrar(){
+  if(kfs.length<2){ const st=$('kfEstado'); if(st){ st.textContent='Marcá al menos dos encuadres para poder revisarlos.'; st.style.color='var(--rojo)'; } return; }
+  revOn=true; $('revBar').hidden=false;
+  $('revStart').textContent='▶ Revisando…';
+  revIdx=Math.min(1, kfs.length-1);
+  revIr(1, true);
+}
+function revSalir(){
+  revOn=false; revParar(); $('revBar').hidden=true;
+  $('revStart').textContent='▶ Revisar los encuadres uno por uno';
+  kfRender();
+}
+function revParar(){
+  if(revReloj){ clearInterval(revReloj); revReloj=null; }
+  try{ if(!busy) vid.pause(); }catch(e){}
+  $('play').textContent='Previsualizar';
+}
+function revIr(i, reproducir){
+  if(!kfs.length) return;
+  revIdx=Math.max(0, Math.min(kfs.length-1, i));
+  revSync();
+  if(reproducir) revRepetir(); else { try{ vid.currentTime=revK().t; }catch(e){} seeking=true; redraw(); }
+}
+/* reproduce 1,5 s antes y 1,5 s después de la transición: el bucle de corregir y volver a ver */
+function revRepetir(){
+  const k=revK(); if(!k) return;
+  revParar();
+  const desde=Math.max(0, k.t-1.5), hasta=Math.min(vidDur()||k.t+1.5, k.t+1.5);
+  try{ vid.currentTime=desde; }catch(e){}
+  seeking=false;
+  vid.play().catch(()=>{});
+  $('play').textContent='Pausar';
+  if(rafId===null) loop();
+  revReloj=setInterval(()=>{
+    if((vid.currentTime||0)>=hasta || vid.paused){ revParar(); seeking=true; redraw(); }
+  }, 40);
+}
+function revSync(){
+  const k=revK(); if(!k) return;
+  $('revWho').textContent='Encuadre '+(revIdx+1)+' de '+kfs.length+(revIdx===0?'  (el de arranque)':'');
+  $('revT').textContent=fmtTiempo(k.t).replace(/\.0$/,'');
+  $('revZ').value=k.z; $('revZV').textContent=Math.round(k.z)+'%';
+  $('revH').value=k.h; $('revHV').textContent=Math.round(k.h)+'%';
+  $('revV').value=k.o; $('revVV').textContent=Math.round(k.o)+'%';
+  $('revNeg').checked=(k.neg>0);
+  $('revPrev').disabled=(revIdx<=0);
+  $('revNext').disabled=(revIdx>=kfs.length-1);
+  kfSliders(k); kfRender();
+}
+/* los controles de la barra editan SIEMPRE el encuadre que se está revisando */
+function revEditar(campo, valor){
+  const k=revK(); if(!k) return;
+  k[campo]=valor;
+  kfPend=false; kfSave(); revSync(); redraw();
+}
+$('revStart').onclick=()=>{ revOn ? revSalir() : revEntrar(); };
+$('revExit').onclick=revSalir;
+$('revPrev').onclick=()=>revIr(revIdx-1, true);
+$('revNext').onclick=()=>revIr(revIdx+1, true);
+$('revPlay').onclick=revRepetir;
+$('revZ').addEventListener('input', e=>revEditar('z', parseFloat(e.target.value)));
+$('revH').addEventListener('input', e=>revEditar('h', parseFloat(e.target.value)));
+$('revV').addEventListener('input', e=>revEditar('o', parseFloat(e.target.value)));
+$('revNeg').addEventListener('change', e=>revEditar('neg', e.target.checked?160:0));
+$('revBar').addEventListener('click', e=>{
+  const d=e.target.dataset.rt; if(!d) return;
+  const k=revK(); if(!k) return;
+  k.t=Math.max(0, Math.min(vidDur()||k.t, k.t+parseFloat(d)));
+  kfSort(); revIdx=kfs.indexOf(k);
+  kfSave(); revSync(); layoutTL(); redraw();
+});
+$('revAqui').onclick=()=>{
+  const k=revK(); if(!k) return;
+  k.t=Math.max(0, vid.currentTime||0); kfSort(); revIdx=kfs.indexOf(k);
+  kfSave(); revSync(); layoutTL(); redraw();
+};
+$('revDel').onclick=()=>{
+  if(kfs.length<2) return;
+  kfs.splice(revIdx,1); revIdx=Math.min(revIdx, kfs.length-1);
+  kfSave(); layoutTL();
+  if(kfs.length<2) revSalir(); else revSync();
+  redraw();
+};
+
 
 
 /* ===== RECORTE PRECISO =====
@@ -2179,7 +2319,7 @@ function skyActive(){ return !bgImg && !bgVideo && $('paletaHora').checked && $(
    corresponde al cabezal, así el reencuadre queda pegado al time code y se respeta en
    la reproducción y en la exportación. Los quotes lo heredan solos: son tiempo absoluto. */
 let kfs=[], kfPend=false;                     // [{t, z, o, h, tr}] ordenados por t · kfPend = ajuste sin guardar
-let ENC={zoom:100,of:0,ofH:0}, ENC0={zoom:100,of:0,ofH:0};
+let ENC={zoom:100,of:0,ofH:0}, ENC0={zoom:100,of:0,ofH:0}, NEGRO=false;
 function kfMode(){ const c=$('kfOn'); return !!(c && c.checked); }          // el interruptor
 function kfOn(){ return kfMode() && kfs.length>0; }                          // hay encuadres que aplicar
 function encSliders(){ return { zoom:parseFloat($('zoom').value)||100, of:parseFloat($('of').value)||0, ofH:parseFloat($('ofH').value)||0 }; }
@@ -2202,9 +2342,16 @@ function kfActual(t){
   let i=0; while(i+1<kfs.length && kfs[i+1].t<=t) i++;
   return kfs[i];
 }
+/* tapado corto de una transición: el fundido del original son píxeles ya mezclados,
+   no se pueden limpiar — se cubren con unos cuadros de negro y se lee como un corte. */
+function negroEn(t){
+  for(const k of kfs){ if(k.neg>0 && Math.abs(t-k.t) <= (k.neg/2000)) return true; }
+  return false;
+}
 function draw(){
   ENC  = kfPend ? encSliders() : encAt(vid.currentTime||0);
   ENC0 = encAt(segIn());
+  NEGRO = kfs.length ? negroEn(vid.currentTime||0) : false;
   const [W,H] = DIMS[$('fmt').value];
   if(cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; bgCacheKey=''; }
   // capturar el primer frame del cronista cuando pasamos cerca del inicio (para el fundido final)
@@ -2265,7 +2412,8 @@ function draw(){
     const offX=dw*(ENC.ofH/100), offY=dh*(ENC.of/100);
     const fA=filtro($('aBri').value,$('aCon').value,$('aExp').value);
     ctx.save(); if(fA!=='none') ctx.filter=fA;
-    if(vid.readyState>=2) ctx.drawImage(vid, (W-dw)/2+offX, (H-dh)/2+offY, dw, dh);
+    if(NEGRO){ ctx.filter='none'; ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H); }
+    else if(vid.readyState>=2) ctx.drawImage(vid, (W-dw)/2+offX, (H-dh)/2+offY, dw, dh);
     ctx.restore();
     if(!bakingFondo) drawBgFx(W,H);   // efectos de luz sobre el video
     // veladura de abajo: responde al control "Veladura" (con un piso para que se lean subtítulo/logo/fecha)
@@ -2325,7 +2473,8 @@ function draw(){
       ctx.filter='none'; ctx.fillStyle='rgba(0,0,0,.30)'; ctx.fillRect(cx-rrW, cy-rrV, rrW*2, rrV*2);
       ctx.restore();
     }
-    if(vid.readyState>=2) ctx.drawImage(vid, cx-dw/2+offX, cy-dh/2+off, dw, dh);
+    if(NEGRO){ ctx.filter='none'; ctx.fillStyle='#000'; ctx.fillRect(cx-rrW*1.8, cy-rrV*1.8, rrW*3.6, rrV*3.6); }
+    else if(vid.readyState>=2) ctx.drawImage(vid, cx-dw/2+offX, cy-dh/2+off, dw, dh);
     ctx.restore();
   };
   // dibuja la cara del isotipo (fondo negro + logo blanco chico). full=true → ocupa el círculo COMPLETO

@@ -284,7 +284,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v50 · recorrido sobre foto</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v53 · momentos independientes</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -1287,6 +1287,7 @@ let finAnim = { active:false, theta:0, raf:0, black:false, fade:null };   // cie
 let firstFrameCv=null;   // primer frame del cronista (para el fundido final que conecta el loop)
 function captureFirstFrame(){
   try{
+    if(modoFoto){ firstFrameCv = fotoImg || null; return; }   // con foto, el "primer cuadro" es la imagen
     if(vid.readyState<2) return;
     const vw=vid.videoWidth||0, vh=vid.videoHeight||0; if(!vw||!vh) return;
     if(!firstFrameCv) firstFrameCv=document.createElement('canvas');
@@ -1616,7 +1617,9 @@ $('trimOutHere').onclick = ()=>{ tlApply('out', vid.currentTime||0); trimNumSync
 $('trimAll').onclick = ()=>{ trimIn=0; trimOut=vidDur(); layoutTL(); trimNumSync(); updateSeekLabel(); redraw(); };
 
 /* ===== keyframes de encuadre — interfaz ===== */
-function kfSig(){ return (mainVidFile? mainVidFile.name+'|'+mainVidFile.size : 'x')+'|'+Math.round(vidDur()); }
+let fotoSig='';
+function kfSig(){ return modoFoto ? ('foto|'+fotoSig)
+  : ((mainVidFile? mainVidFile.name+'|'+mainVidFile.size : 'x')+'|'+Math.round(vidDur())); }
 function kfSave(){ try{ localStorage.setItem('vn_kfs', JSON.stringify({sig:kfSig(), on:$('kfOn').checked, dur:kfDurMs(), kfs})); }catch(e){} }
 function kfRestore(){
   try{ const d=JSON.parse(localStorage.getItem('vn_kfs')||'null');
@@ -1732,6 +1735,7 @@ function kfMarcas(){
 }
 let _kfUlt=null, _kfT=-1;
 function kfSeguir(){
+  if(modoFoto) return;                        // en foto el cabezal lo maneja el propio recorrido
   if(!kfMode()){ if(kfPend){ kfPend=false; kfAviso(); } return; }
   const t=vid.currentTime||0;
   if(kfPend && vid.paused && Math.abs(t-_kfT)>0.35){ kfPend=false; kfAviso(); }
@@ -1763,18 +1767,29 @@ function fotoRecalc(){
   });
   return Math.max(1, t);
 }
+function fotoEstable(i){
+  const k=kfs[i]; if(!k) return 0;
+  const tr = i>0 ? kfTr(kfs[i-1],k)/1000 : 0;
+  return k.t + tr/2 + Math.min(0.12, (k.hold||1)/3);
+}
+function fotoIrSel(){
+  const t=fotoEstable(fotoSel), d=vidDur()||0;
+  try{ vid.currentTime = d ? Math.min(d-0.02, t) : t; }catch(e){}
+  seeking=true;
+}
 function fotoAplicar(){
   if(!modoFoto) return;
   const total=fotoRecalc();
   $('fotoTot').textContent=total.toFixed(1).replace('.',',')+' s';
-  fotoRender(); layoutTL(); redraw();
+  fotoRender(); layoutTL(); kfSave();
+  if(vid.paused) fotoIrSel();                 // mirar siempre el momento que se está editando
+  redraw();
   clearTimeout(fotoTimer);
   fotoTimer=setTimeout(()=>fotoReloj(total), 350);       // regenerar la pista es caro: se agrupa
 }
 function fotoReloj(total){
   if(!modoFoto) return;
   if(Math.abs((vidDur()||0)-total)<0.06) return;         // ya dura lo que tiene que durar
-  const antes=vid.currentTime||0;
   if(fotoURL) URL.revokeObjectURL(fotoURL);
   fotoURL=URL.createObjectURL(wavSilencio(total));
   vid.src=fotoURL;
@@ -1783,7 +1798,7 @@ function fotoReloj(total){
     loaded=true; $('play').disabled=false; $('rec').disabled=false;
     $('restart').disabled=false; $('seek').disabled=false;
     $('trimGrp').hidden=false; layoutTL(); updateSeekLabel();
-    try{ vid.currentTime=Math.min(antes,total-0.05); }catch(e){}
+    fotoIrSel();
     setStatus('Recorrido de '+total.toFixed(1).replace('.',',')+' s. Previsualizá o generá el mp4.');
     redraw();
   };
@@ -1803,14 +1818,15 @@ function fotoRender(){
       +'<div class="pre"><span class="fn" style="margin-right:2px">se queda</span>'
       +'<input class="hold" type="number" min="0.5" max="30" step="0.5" value="'+(k.hold||HOLD_DEF)+'"> s'
       +'<button data-h="1.5">vistazo</button><button data-h="3">título</button><button data-h="5">con bajada</button>'
+      +'<button data-todo="1" title="Ver la foto entera para volver a marcar el recuadro">↺ toda</button>'
       +'<button data-x="1" style="margin-left:auto">✕</button></div>';
     d.querySelector('input').onchange=e=>{ k.hold=Math.max(0.5, parseFloat(e.target.value)||HOLD_DEF); fotoAplicar(); };
     d.onclick=e=>{
       if(e.target.tagName==='INPUT') return;
       if(e.target.dataset.x){ if(kfs.length>1){ kfs.splice(i,1); fotoSel=Math.min(fotoSel,kfs.length-1); fotoAplicar(); } return; }
       if(e.target.dataset.h){ k.hold=parseFloat(e.target.dataset.h); fotoAplicar(); return; }
-      fotoSel=i; kfSliders(k); try{ vid.currentTime=k.t+0.02; }catch(_){}
-      seeking=true; fotoRender(); redraw();
+      if(e.target.dataset.todo){ fotoSel=i; k.z=100; k.o=0; k.h=0; kfSliders(k); fotoAplicar(); return; }
+      fotoSel=i; kfSliders(k); fotoIrSel(); fotoRender(); redraw();
     };
     L.appendChild(d);
   });
@@ -1822,7 +1838,10 @@ async function fotoCargar(f){
   const img=new Image();
   img.onload=()=>{
     fotoImg=img; modoFoto=true; mainVidFile=null;
+    fotoSig=(f.name||'foto')+'|'+f.size;
     if($('fullVid')) $('fullVid').checked=true;          // la foto ocupa toda la placa
+    if($('finAnimOn')) $('finAnimOn').checked=false;     // el cierre giratorio no aporta sobre una foto
+    if($('ringOn')) $('ringOn').checked=false;
     if($('kfOn')) $('kfOn').checked=true;
     const v=encSliders();
     kfs=[{t:0, z:v.zoom, o:v.of, h:v.ofH, hold:HOLD_DEF}];
@@ -1841,9 +1860,8 @@ $('fotoBtn').onclick=()=>$('fotoFile').click();
 $('fotoFile').onchange=e=>{ if(e.target.files[0]) fotoCargar(e.target.files[0]); };
 $('fotoAdd').onclick=()=>{
   if(!modoFoto) return;
-  const v=encSliders();
-  kfs.splice(fotoSel+1, 0, {t:0, z:v.zoom, o:v.of, h:v.ofH, hold:HOLD_DEF});
-  fotoSel++; fotoAplicar();
+  kfs.splice(fotoSel+1, 0, {t:0, z:100, o:0, h:0, hold:HOLD_DEF});   // vuelve a la foto entera
+  fotoSel++; kfSliders(kfs[fotoSel]); fotoAplicar();
 };
 
 /* ---- recuadro arrastrable sobre el lienzo ----
@@ -2483,7 +2501,7 @@ function draw(){
   }
 
   // ── PUBLICAR TAL CUAL: el video ocupa toda la placa (sin recuadro); el resto de los elementos van encima ──
-  const fullVid = ($('fullVid') && $('fullVid').checked && (vid.videoWidth||0) > 0);
+  const fullVid = ($('fullVid') && $('fullVid').checked && (modoFoto ? !!fotoImg : (vid.videoWidth||0) > 0));
   if(fullVid){
     const vw=srcW(), vh=srcH(), zoom=ENC.zoom/100;
     const scale=Math.max(W/vw,H/vh)*zoom, dw=vw*scale, dh=vh*scale;

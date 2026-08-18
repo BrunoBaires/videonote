@@ -147,6 +147,17 @@ video.src{display:none}
 .trim-num button{margin:0;width:auto;padding:7px 9px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);font:600 10.5px/1 var(--ui);color:var(--ink);cursor:pointer;white-space:nowrap}
 .trim-num button:hover{background:#e8ebf0;border-color:var(--rojo)}
 /* keyframes de encuadre */
+.fm{border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:8px 9px;margin-bottom:6px;cursor:pointer}
+.fm.on{border-color:var(--rojo);background:#fff4f5;box-shadow:0 0 0 2px rgba(214,0,25,.12)}
+.fm .fh{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.fm .fn{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--dim)}
+.fm .fv{font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-left:auto}
+.fm input.hold{width:56px;margin:0;padding:4px 5px;font-family:var(--mono);font-size:11px;text-align:center}
+.fm .pre{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.fm button{margin:0;width:auto;padding:4px 7px;border-radius:5px;border:1px solid var(--line);background:var(--panel);font:600 10px/1 var(--ui);cursor:pointer;color:var(--ink)}
+.fm button:hover{border-color:var(--rojo);color:var(--rojo)}
+#cv.recortando{cursor:crosshair}
+#selBox{position:absolute;border:2px solid var(--rojo);background:rgba(214,0,25,.12);pointer-events:none;display:none}
 .kf{display:flex;align-items:center;gap:6px;padding:6px 7px;border:1px solid var(--line);border-radius:7px;margin-bottom:5px;background:var(--panel2);cursor:pointer}
 .kf.on{border-color:var(--rojo);background:#fff4f5}
 .kf .t{font-family:var(--mono);font-size:11px;font-weight:700;min-width:52px}
@@ -195,7 +206,9 @@ video.src{display:none}
 .q-cols{flex:1;display:grid;grid-template-columns:1fr 330px;gap:0;min-height:0}
 @media(max-width:900px){.q-cols{grid-template-columns:1fr}}
 .q-text{overflow:auto;padding:20px 24px 90px;line-height:1.85;font-size:15.5px;position:relative;user-select:text}
-.q-side{border-left:1px solid var(--line);background:var(--panel2);overflow:auto;padding:14px}
+.q-side{border-left:1px solid var(--line);background:var(--panel2);display:flex;flex-direction:column;overflow:hidden;padding:0}
+.q-side-head{padding:12px 14px 11px;border-bottom:1px solid var(--line);background:var(--panel2);flex:0 0 auto}
+.q-side-list{flex:1 1 auto;overflow:auto;padding:12px 14px 20px;min-height:0}
 .q-spk{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin:16px 0 3px;font-weight:700}
 .q-text p{margin-bottom:4px}
 .q-w{cursor:text;border-radius:3px;padding:1px 0}
@@ -271,7 +284,7 @@ video.src{display:none}
 <div id="app" hidden>
 <header>
   <h1>Incertis · <span>Video Note</span></h1>
-  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v48 · el cambio es un movimiento</span>
+  <span style="font:600 10px/1 monospace;letter-spacing:.12em;text-transform:uppercase;color:#b0000f;border:1px solid #f0c9cd;border-radius:20px;padding:4px 9px;margin-left:4px" title="versión">v50 · recorrido sobre foto</span>
   <div class="tabs">
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
@@ -342,13 +355,19 @@ video.src{display:none}
         </div>
         <div class="grp" style="margin-top:13px">
           <span class="lbl">Encuadre vertical <span class="val" id="ofV">0 %</span></span>
-          <input type="range" id="of" min="-30" max="30" value="0">
+          <input type="range" id="of" min="-95" max="95" value="0" step="0.5">
         </div>
         <div class="grp">
           <span class="lbl">Acercar rostro (zoom) <span class="val" id="zoomV">100 %</span></span>
-          <input type="range" id="zoom" min="100" max="300" value="100">
+          <input type="range" id="zoom" min="100" max="1200" value="100">
           <span class="lbl" style="margin-top:8px">Encuadre horizontal <span class="val" id="ofHV">0 %</span></span>
-          <input type="range" id="ofH" min="-30" max="30" value="0">
+          <input type="range" id="ofH" min="-95" max="95" value="0" step="0.5">
+          <div class="grp" id="fotoGrp" hidden style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+            <span class="lbl">Momentos del recorrido <span class="val" id="fotoTot">0,0 s</span></span>
+            <div class="hint">Arrastrá un recuadro sobre la imagen para elegir qué mostrar, y decile cuánto quedarse ahí. El recuadro respeta la proporción de salida: lo que encuadrás es lo que sale.</div>
+            <div id="fotoList" style="margin-top:8px"></div>
+            <button type="button" class="genbtn go" id="fotoAdd" style="margin-top:8px">＋ Agregar un momento</button>
+          </div>
           <div class="grp" id="kfGrp" hidden style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
             <label class="chk" style="margin-top:0"><input type="checkbox" id="kfOn" checked> <b>Usar los encuadres guardados</b> <span class="counter" id="kfN">0</span></label>
             <div class="hint"><b>No hay que activar nada:</b> cada vez que soltás el zoom o el encuadre queda guardado en el momento donde esté el cabezal. El primer ajuste vale para todo el video; a partir del segundo momento el encuadre se parte y cada tramo usa el suyo. Pausá en el cambio de cámara, reencuadrá, seguí. Queda pegado al time code, así que los quotes lo heredan solos.</div>
@@ -370,6 +389,13 @@ video.src{display:none}
             <option value="contain">Completo (muestra todo el 16:9)</option>
           </select>
           <div class="hint">Usá “Completo” cuando el video es 16:9 y hay gente o datos en los costados: entra entero, con bandas arriba y abajo.</div>
+        </div>
+        <div class="grp" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+          <span class="lbl">…o subí una foto y recorrela con la cámara</span>
+          <button type="button" class="genbtn" id="fotoBtn" style="margin-top:8px">Subir una foto</button>
+          <input type="file" id="fotoFile" accept="image/*" hidden>
+          <div class="genstat" id="fotoStat"></div>
+          <div class="hint">Para tapas de diario, documentos o fotos grandes: marcás los momentos que querés mostrar y a cada uno le decís cuánto quedarse. Cuanto más grande la imagen, mejor — con menos de 2000 px de ancho el zoom no tiene de dónde sacar detalle.</div>
         </div>
         <div class="grp" id="trimGrp" hidden style="border-top:1px solid var(--line);padding-top:12px">
           <span class="lbl">Recorte del video (in / out) <span class="val" id="trimV">—</span></span>
@@ -869,7 +895,7 @@ video.src{display:none}
 
   <!-- ============ CENTRO: LIENZO ============ -->
   <div class="stage">
-    <canvas id="cv" width="1080" height="1320"></canvas>
+    <div style="position:relative;display:inline-block"><canvas id="cv" width="1080" height="1320"></canvas><div id="selBox"></div></div>
     <div class="bar">
       <button id="play" disabled>Previsualizar</button>
       <button id="rec" class="rec" disabled>Generar mp4</button>
@@ -1425,7 +1451,7 @@ $('capBtn').onclick = async () => {
 };
 
 function load(f, durHint){
-  const okType = (f.type && f.type.startsWith('video/')) || /\.(mov|mp4|m4v|webm|mkv|avi|qt|3gp)$/i.test(f.name||'');
+  const okType = (f.type && (f.type.startsWith('video/') || f.type.startsWith('audio/'))) || /\.(mov|mp4|m4v|webm|mkv|avi|qt|3gp|wav|mp3|m4a)$/i.test(f.name||'');
   if(!okType){ setStatus('Ese archivo no es un video.','err'); return; }
   const esCaptura = /^captura-/.test(f.name||'');
   const aviso = (t,c) => { setStatus(t,c); if(esCaptura) capStat(t,c); };   // que el error se vea tambien en la tarjeta de captura
@@ -1446,10 +1472,10 @@ function load(f, durHint){
       const sinDur = !vidDur();
       $('play').disabled = false; $('rec').disabled = false;
       $('drop').querySelector('strong').textContent = f.name.slice(0,30);
-      $('drop').querySelector('small').textContent = Math.round(vidDur()*10)/10 + ' s · ' + vid.videoWidth + '×' + vid.videoHeight;
+      $('drop').querySelector('small').textContent = Math.round(vidDur()*10)/10 + ' s · ' + srcW() + '×' + srcH();
       trimIn = 0; trimOut = vidDur(); recFinishing = false; seeking=false;
       $('trimGrp').hidden = false; layoutTL();
-      kfs=[]; if($('kfOn')) $('kfOn').checked=false; kfRestore(); kfRender(); kfMarcas();
+      if(!modoFoto){ kfs=[]; if($('kfOn')) $('kfOn').checked=false; kfRestore(); } kfRender(); kfMarcas();
       $('restart').disabled=false; $('seek').disabled=false; $('seek').value=0; updateSeekLabel();
       vid.currentTime = 0.05;
       if(sinDur) aviso('El video carga, pero no se pudo determinar su duración: el recorte, el anillo y el contador no van a funcionar. Si viene de una captura, volvé a capturarla.','err');
@@ -1647,6 +1673,11 @@ function kfSliders(k){
 });
 function kfGrabar(){
   if(!loaded) return;
+  if(modoFoto){                                 // en foto no se crean momentos al mover: se edita el elegido
+    const k=kfs[fotoSel]; if(!k) return;
+    const v=encSliders(); k.z=v.zoom; k.o=v.of; k.h=v.ofH;
+    kfPend=false; fotoAplicar(); return;
+  }
   const t=Math.max(0, vid.currentTime||0);
   const v=encSliders();
   const antes=kfs.length;
@@ -1709,6 +1740,167 @@ function kfSeguir(){
   if(k!==_kfUlt){ _kfUlt=k; if(vid.paused && !kfPend){ kfSliders(k); kfRender(); redraw(); } }
 }
 setInterval(kfSeguir, 300);
+
+/* ==========================================================================
+   FOTO — recorrido de cámara sobre una imagen fija
+   La línea de tiempo no se dibuja: se DERIVA. Cada momento dice cuánto quedarse
+   y el viaje entre uno y otro ya tiene su duración; el total sale de sumar.
+   Con ese total se genera la pista de silencio que le da reloj a la app.
+   ========================================================================== */
+const HOLD_DEF = 3;
+let fotoSel = 0, fotoTimer = null, fotoURL = null;
+
+function fotoStat(t,c){ const e=$('fotoStat'); if(e){ e.innerHTML=t; e.className='genstat'+(c?' '+c:''); } }
+
+/* tiempos derivados: cada momento se ubica al final de la permanencia anterior
+   más medio viaje (el movimiento va centrado, como en video) */
+function fotoRecalc(){
+  let t=0;
+  kfs.forEach((k,i)=>{
+    if(k.hold==null) k.hold=HOLD_DEF;
+    if(i===0){ k.t=0; t=k.hold; }
+    else { const tr=kfTr(kfs[i-1],k)/1000; k.t=t+tr/2; t=t+tr+k.hold; }
+  });
+  return Math.max(1, t);
+}
+function fotoAplicar(){
+  if(!modoFoto) return;
+  const total=fotoRecalc();
+  $('fotoTot').textContent=total.toFixed(1).replace('.',',')+' s';
+  fotoRender(); layoutTL(); redraw();
+  clearTimeout(fotoTimer);
+  fotoTimer=setTimeout(()=>fotoReloj(total), 350);       // regenerar la pista es caro: se agrupa
+}
+function fotoReloj(total){
+  if(!modoFoto) return;
+  if(Math.abs((vidDur()||0)-total)<0.06) return;         // ya dura lo que tiene que durar
+  const antes=vid.currentTime||0;
+  if(fotoURL) URL.revokeObjectURL(fotoURL);
+  fotoURL=URL.createObjectURL(wavSilencio(total));
+  vid.src=fotoURL;
+  vid.onloadedmetadata=()=>{
+    durFix=0; trimIn=0; trimOut=total; recFinishing=false;
+    loaded=true; $('play').disabled=false; $('rec').disabled=false;
+    $('restart').disabled=false; $('seek').disabled=false;
+    $('trimGrp').hidden=false; layoutTL(); updateSeekLabel();
+    try{ vid.currentTime=Math.min(antes,total-0.05); }catch(e){}
+    setStatus('Recorrido de '+total.toFixed(1).replace('.',',')+' s. Previsualizá o generá el mp4.');
+    redraw();
+  };
+}
+
+function fotoRender(){
+  $('fotoGrp').hidden = !modoFoto;
+  $('kfGrp').hidden = modoFoto || !loaded;              // en foto manda la lista de momentos
+  if(!modoFoto) return;
+  const L=$('fotoList'); L.innerHTML='';
+  if(!kfs.length){ L.innerHTML='<div class="q-empty" style="padding:2px">Sin momentos. Arrastrá un recuadro sobre la imagen o tocá “Agregar un momento”.</div>'; return; }
+  kfs.forEach((k,i)=>{
+    const d=document.createElement('div');
+    d.className='fm'+(i===fotoSel?' on':'');
+    d.innerHTML='<div class="fh"><span class="fn">MOMENTO '+(i+1)+'</span>'
+      +'<span class="fv">'+(i===0?'arranca':('↗ '+(kfTr(kfs[i-1],k)/1000).toFixed(1).replace('.',',')+' s de viaje'))+'</span></div>'
+      +'<div class="pre"><span class="fn" style="margin-right:2px">se queda</span>'
+      +'<input class="hold" type="number" min="0.5" max="30" step="0.5" value="'+(k.hold||HOLD_DEF)+'"> s'
+      +'<button data-h="1.5">vistazo</button><button data-h="3">título</button><button data-h="5">con bajada</button>'
+      +'<button data-x="1" style="margin-left:auto">✕</button></div>';
+    d.querySelector('input').onchange=e=>{ k.hold=Math.max(0.5, parseFloat(e.target.value)||HOLD_DEF); fotoAplicar(); };
+    d.onclick=e=>{
+      if(e.target.tagName==='INPUT') return;
+      if(e.target.dataset.x){ if(kfs.length>1){ kfs.splice(i,1); fotoSel=Math.min(fotoSel,kfs.length-1); fotoAplicar(); } return; }
+      if(e.target.dataset.h){ k.hold=parseFloat(e.target.dataset.h); fotoAplicar(); return; }
+      fotoSel=i; kfSliders(k); try{ vid.currentTime=k.t+0.02; }catch(_){}
+      seeking=true; fotoRender(); redraw();
+    };
+    L.appendChild(d);
+  });
+}
+
+async function fotoCargar(f){
+  if(!f || !/^image\//.test(f.type||'')){ fotoStat('Ese archivo no es una imagen.','err'); return; }
+  fotoStat('<span class="spin"></span>Cargando la imagen…');
+  const img=new Image();
+  img.onload=()=>{
+    fotoImg=img; modoFoto=true; mainVidFile=null;
+    if($('fullVid')) $('fullVid').checked=true;          // la foto ocupa toda la placa
+    if($('kfOn')) $('kfOn').checked=true;
+    const v=encSliders();
+    kfs=[{t:0, z:v.zoom, o:v.of, h:v.ofH, hold:HOLD_DEF}];
+    fotoSel=0;
+    $('drop').querySelector('strong').textContent=(f.name||'foto').slice(0,30);
+    const chico = img.naturalWidth < 2000;
+    fotoStat('Imagen de '+img.naturalWidth+'×'+img.naturalHeight+(chico
+      ? ' — es chica: al acercarte va a perder nitidez. Conseguila más grande si podés.'
+      : ' — buena resolución para recorrer.'), chico?'err':'ok');
+    fotoAplicar();
+  };
+  img.onerror=()=>fotoStat('No se pudo abrir la imagen.','err');
+  img.src=URL.createObjectURL(f);
+}
+$('fotoBtn').onclick=()=>$('fotoFile').click();
+$('fotoFile').onchange=e=>{ if(e.target.files[0]) fotoCargar(e.target.files[0]); };
+$('fotoAdd').onclick=()=>{
+  if(!modoFoto) return;
+  const v=encSliders();
+  kfs.splice(fotoSel+1, 0, {t:0, z:v.zoom, o:v.of, h:v.ofH, hold:HOLD_DEF});
+  fotoSel++; fotoAplicar();
+};
+
+/* ---- recuadro arrastrable sobre el lienzo ----
+   Para recorrer una tapa, buscar cada nota con tres sliders es un suplicio.
+   Se arrastra una caja y se despeja el zoom y el encuadre que la producen. */
+let selA=null;
+function fotoXY(e){
+  const r=cv.getBoundingClientRect();
+  return { x:(e.clientX-r.left)/r.width*cv.width, y:(e.clientY-r.top)/r.height*cv.height, r };
+}
+cv.addEventListener('pointerdown', e=>{
+  if(!modoFoto || !kfs.length || dragCtx || dragName) return;
+  e.preventDefault(); selA=fotoXY(e);
+  try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+});
+cv.addEventListener('pointermove', e=>{
+  if(!selA) return;
+  const p=fotoXY(e), caja=selCaja(selA, p);
+  const b=$('selBox'), esc=selA.r.width/cv.width;
+  b.style.display='block';
+  b.style.left=(caja.x*esc)+'px'; b.style.top=(caja.y*esc)+'px';
+  b.style.width=(caja.w*esc)+'px'; b.style.height=(caja.h*esc)+'px';
+});
+/* la caja respeta la proporción de salida: lo que encuadrás es lo que sale */
+function selCaja(a,b){
+  const W=cv.width, H=cv.height, ar=W/H;
+  let w=Math.abs(b.x-a.x), h=Math.abs(b.y-a.y);
+  if(w/h > ar) h=w/ar; else w=h*ar;
+  w=Math.max(40,w); h=w/ar;
+  const cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
+  return { x:cx-w/2, y:cy-h/2, w, h };
+}
+cv.addEventListener('pointerup', e=>{
+  if(!selA) return;
+  const p=fotoXY(e); $('selBox').style.display='none';
+  const caja=selCaja(selA,p); selA=null;
+  if(caja.w < 60) return;                     // fue un clic, no un arrastre
+  selAplicar(caja);
+});
+/* despeja zoom y encuadre a partir del recuadro pedido (modo pantalla completa) */
+function selAplicar(caja){
+  const k=kfs[fotoSel]; if(!k) return;
+  const W=cv.width, H=cv.height, vw=srcW(), vh=srcH();
+  const cover=Math.max(W/vw,H/vh);
+  const escAnt=cover*(k.z/100), dwAnt=vw*escAnt, dhAnt=vh*escAnt;
+  const x0=(W-dwAnt)/2+dwAnt*(k.h/100), y0=(H-dhAnt)/2+dhAnt*(k.o/100);
+  // punto de la foto que quedó en el centro del recuadro
+  const sx=((caja.x+caja.w/2)-x0)/escAnt, sy=((caja.y+caja.h/2)-y0)/escAnt;
+  const escNue=escAnt*(W/caja.w);
+  const zNue=Math.max(100, Math.min(1200, escNue/cover*100));
+  const escFin=cover*(zNue/100), dwF=vw*escFin, dhF=vh*escFin;
+  k.z=zNue;
+  k.h=Math.max(-95, Math.min(95, ((W/2-(W-dwF)/2-sx*escFin)/dwF)*100));
+  k.o=Math.max(-95, Math.min(95, ((H/2-(H-dhF)/2-sy*escFin)/dhF)*100));
+  kfSliders(k); fotoAplicar();
+}
+
 
 
 
@@ -2171,6 +2363,11 @@ function skyActive(){ return !bgImg && !bgVideo && $('paletaHora').checked && $(
    Cada keyframe guarda zoom + encuadre para un momento del video. draw() usa el que
    corresponde al cabezal, así el reencuadre queda pegado al time code y se respeta en
    la reproducción y en la exportación. Los quotes lo heredan solos: son tiempo absoluto. */
+let fotoImg=null, modoFoto=false;                 // recorrido de cámara sobre una foto fija
+function srcEl(){ return modoFoto && fotoImg ? fotoImg : vid; }
+function srcW(){ return modoFoto && fotoImg ? (fotoImg.naturalWidth||1) : (vid.videoWidth||1); }
+function srcH(){ return modoFoto && fotoImg ? (fotoImg.naturalHeight||1) : (vid.videoHeight||1); }
+function srcListo(){ return modoFoto ? !!fotoImg : vid.readyState>=2; }
 let kfs=[], kfPend=false;                     // [{t, z, o, h, tr}] ordenados por t · kfPend = ajuste sin guardar
 let ENC={zoom:100,of:0,ofH:0}, ENC0={zoom:100,of:0,ofH:0};
 function kfMode(){ const c=$('kfOn'); return !!(c && c.checked); }          // el interruptor
@@ -2178,6 +2375,20 @@ function kfOn(){ return kfMode() && kfs.length>0; }                          // 
 function encSliders(){ return { zoom:parseFloat($('zoom').value)||100, of:parseFloat($('of').value)||0, ofH:parseFloat($('ofH').value)||0 }; }
 const _lerp=(a,b,p)=>a+(b-a)*p;
 const _ease=p=>p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+/* ===== FOTO: el reloj =====
+   Toda la app cuelga de vid.currentTime. Una foto no tiene tiempo, así que en vez de
+   reescribir los 36 lugares que leen ese reloj, se genera una pista de audio en silencio
+   del largo exacto y se la carga en el reproductor. El resto sigue funcionando igual. */
+function wavSilencio(seg){
+  const sr=8000, n=Math.max(1,Math.round(seg*sr)), bytes=n*2;
+  const buf=new ArrayBuffer(44+bytes), v=new DataView(buf);
+  const w=(o,t)=>{ for(let i=0;i<t.length;i++) v.setUint8(o+i, t.charCodeAt(i)); };
+  w(0,'RIFF'); v.setUint32(4,36+bytes,true); w(8,'WAVE'); w(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  w(36,'data'); v.setUint32(40,bytes,true);
+  return new Blob([buf],{type:'audio/wav'});
+}
 function kfDurMs(){ const e=$('kfDur'); return Math.max(0, parseInt(e&&e.value,10)||0); }
 /* Cuánto dura el viaje entre dos encuadres: escala con lo que tiene que recorrer, para que
    un retoque chico no se arrastre y un salto grande no salga como latigazo. */
@@ -2274,12 +2485,12 @@ function draw(){
   // ── PUBLICAR TAL CUAL: el video ocupa toda la placa (sin recuadro); el resto de los elementos van encima ──
   const fullVid = ($('fullVid') && $('fullVid').checked && (vid.videoWidth||0) > 0);
   if(fullVid){
-    const vw=vid.videoWidth, vh=vid.videoHeight, zoom=ENC.zoom/100;
+    const vw=srcW(), vh=srcH(), zoom=ENC.zoom/100;
     const scale=Math.max(W/vw,H/vh)*zoom, dw=vw*scale, dh=vh*scale;
     const offX=dw*(ENC.ofH/100), offY=dh*(ENC.of/100);
     const fA=filtro($('aBri').value,$('aCon').value,$('aExp').value);
     ctx.save(); if(fA!=='none') ctx.filter=fA;
-    if(vid.readyState>=2) ctx.drawImage(vid, (W-dw)/2+offX, (H-dh)/2+offY, dw, dh);
+    if(srcListo()) ctx.drawImage(srcEl(), (W-dw)/2+offX, (H-dh)/2+offY, dw, dh);
     ctx.restore();
     if(!bakingFondo) drawBgFx(W,H);   // efectos de luz sobre el video
     // veladura de abajo: responde al control "Veladura" (con un piso para que se lean subtítulo/logo/fecha)
@@ -2325,7 +2536,7 @@ function draw(){
     ctx.clip();
     const fA = filtro($('aBri').value, $('aCon').value, $('aExp').value);
     if(fA !== 'none') ctx.filter = fA;
-    const vw=vid.videoWidth||1, vh=vid.videoHeight||1;
+    const vw=srcW(), vh=srcH();
     const zoom=ENC.zoom/100;
     const bands = (_fitM==='contain' && !_containF);   // círculo o sin video → letterbox con bandas desenfocadas
     const scale=(bands?Math.min((rrW*2)/vw,(rrV*2)/vh):Math.max((rrW*2)/vw,(rrV*2)/vh))*zoom;
@@ -2335,11 +2546,11 @@ function draw(){
     if(bands && vid.readyState>=2){
       ctx.save(); ctx.filter='blur('+Math.max(6,Math.round(rrW*2*0.05))+'px)';
       const cs=Math.max((rrW*2)/vw,(rrV*2)/vh)*zoom, cw=vw*cs, ch=vh*cs;
-      ctx.drawImage(vid, cx-cw/2+offX, cy-ch/2+off, cw, ch);
+      ctx.drawImage(srcEl(), cx-cw/2+offX, cy-ch/2+off, cw, ch);
       ctx.filter='none'; ctx.fillStyle='rgba(0,0,0,.30)'; ctx.fillRect(cx-rrW, cy-rrV, rrW*2, rrV*2);
       ctx.restore();
     }
-    if(vid.readyState>=2) ctx.drawImage(vid, cx-dw/2+offX, cy-dh/2+off, dw, dh);
+    if(srcListo()) ctx.drawImage(srcEl(), cx-dw/2+offX, cy-dh/2+off, dw, dh);
     ctx.restore();
   };
   // dibuja la cara del isotipo (fondo negro + logo blanco chico). full=true → ocupa el círculo COMPLETO
@@ -3992,7 +4203,11 @@ const QMAXMS=125000;
 
 function qColor(i){ return QCOL[i%QCOL.length]; }
 function qFmt(ms){ const s=Math.max(0,ms)/1000, m=Math.floor(s/60), r=s-m*60; return m+':'+(r<10?'0':'')+r.toFixed(1).replace('.',','); }
-function qStat(t,c){ const e=$('qStat'); if(!e) return; e.innerHTML=t; e.className='genstat'+(c?' '+c:''); }
+function qStat(t,c){
+  const e=$('qStat'); if(e){ e.innerHTML=t; e.className='genstat'+(c?' '+c:''); }
+  const o=$('qIaStat');                       // el editor tapa la tarjeta: el aviso tiene que verse acá también
+  if(o){ o.innerHTML=t; o.style.color = c==='err' ? 'var(--rojo)' : (c==='ok' ? '#0f8f5e' : 'var(--dim)'); }
+}
 function qSpkName(s){ if(s==null||s==='') return ''; return 'Hablante '+s; }
 
 /* --- persistencia (los quotes son contenido, van aparte de vn_cfg) --- */
@@ -4099,13 +4314,20 @@ function qRenderSide(){
   const side=$('qSide'); if(!side) return;
   if(qCands.length){ qRenderCands(); return; }   // estamos revisando la propuesta de la IA
   side.innerHTML='';
+  const head=document.createElement('div'); head.className='q-side-head';
+  const list=document.createElement('div'); list.className='q-side-list';
+  side.appendChild(head); side.appendChild(list);
   if(!quotes.length){
-    side.innerHTML='<div class="q-empty">Seleccioná un pasaje de la transcripción con el mouse y apretá “Nuevo quote”.</div>';
+    list.innerHTML='<div class="q-empty">Seleccioná un pasaje de la transcripción con el mouse y apretá “Nuevo quote”.</div>';
+    head.innerHTML='<div style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)">Tus quotes</div>';
     $('qTopInfo').textContent = subWords.length ? subWords.length+' palabras · 0 quotes' : '—';
     return;
   }
   const tot=quotes.reduce((s,q)=>s+(q.out-q.in),0);
   $('qTopInfo').textContent=quotes.length+' quotes · '+qFmt(tot)+' en total';
+  head.innerHTML='<div style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:5px">Tus quotes</div>'
+    +'<div style="font-family:var(--mono);font-size:11px">'+quotes.length+' · '+qFmt(tot)+' de video · exportar lleva ~'
+    +Math.max(1,Math.round((tot/1000+quotes.length*6)/60))+' min</div>';
   quotes.forEach((q,n)=>{
     const c=qColor(n), dur=q.out-q.in;
     const d=document.createElement('div');
@@ -4116,7 +4338,8 @@ function qRenderSide(){
       +'<span class="q-d'+(dur>QMAXMS?' warn':'')+'">'+qFmt(dur)+'</span></div>'
       +'<div class="q-t">'+txt.replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))+'</div>'
       +'<div class="q-acts">'
-      +'<button type="button" class="pri" data-act="load">Cargar</button>'
+      +'<button type="button" class="pri" data-act="mp4">⬇ Exportar mp4</button>'
+      +'<button type="button" data-act="load">Cargar</button>'
       +'<button type="button" data-act="play">▸</button>'
       +'<button type="button" data-act="del">✕</button>'
       +(q.ctx?'<button type="button" data-act="copy">⧉ epígrafe</button>':'')
@@ -4129,10 +4352,11 @@ function qRenderSide(){
       if(act==='del'){ quotes=quotes.filter(x=>x.id!==q.id); qActive=null; qSave(); qRenderAll(); return; }
       if(act==='play'){ qRenderAll(); qPreview(q); return; }
       if(act==='copy'){ try{ navigator.clipboard.writeText(q.ctx||''); }catch(_){ } e.target.textContent='copiado'; setTimeout(()=>qRenderAll(),900); return; }
+      if(act==='mp4'){ qExportarUno(q, n+1); return; }
       if(act==='load'){ qApply(q); qCloseOverlay(); return; }
       qRenderAll();
     };
-    side.appendChild(d);
+    list.appendChild(d);
   });
 }
 
@@ -4162,7 +4386,11 @@ function qRenderCard(){
       + qChip(q)
       +'<span style="font-family:var(--mono);font-size:10px;color:var(--dim)">'+qFmt(q.out-q.in)+'</span>';
     row.style.cursor='pointer';
-    row.onclick=e=>{ if(e.target.tagName==='A') return; qActive=q.id; qApply(q); qRenderAll(); };
+    row.innerHTML+='<button type="button" class="q-chip" style="border-color:var(--rojo);color:var(--rojo);font-weight:700" data-mp4="1" title="Generar el mp4 de este quote">⬇ mp4</button>';
+    row.onclick=e=>{
+      if(e.target.tagName==='A') return;
+      if(e.target.dataset.mp4){ qExportarUno(q, n+1); return; }
+      qActive=q.id; qApply(q); qRenderAll(); };
     list.appendChild(row);
     if(q.url){
       const b=document.createElement('div');
@@ -4302,9 +4530,13 @@ $('qTune').addEventListener('click', e=>{
 async function qExportAll(){
   if(qExporting){ qCancel=true; return; }
   if(!loaded){ qStat('Cargá el video del cronista primero.','err'); return; }
-  if(!quotes.length){ qStat('Todavía no hay quotes.','err'); return; }
   if(busy){ qStat('Hay una exportación en curso: esperá a que termine.','err'); return; }
+  /* Si quedaron candidatos de la IA sin agregar, se agregan solos: apretar "Exportar todos"
+     mirando una lista de propuestas quiere decir "exportá estas". */
+  if(qCands.length && qCands.some(c=>c.sel)){ qAutoRun=false; qAplicarCands(); }
+  if(!quotes.length){ qStat('Todavía no hay quotes. Seleccioná un pasaje del texto, o usá "Identificar quotes destacados".','err'); return; }
   qStopPreview();
+  qCloseOverlay();                              // que se vea el lienzo grabando y los links apareciendo
   qExporting=true; qCancel=false;
   recQueue=true; recQueueFiles=[];
   $('dl').innerHTML=''; $('dl').classList.remove('on');
@@ -4373,6 +4605,18 @@ function qRecordOnce(){
     startRecording();
     setTimeout(()=>{ if(!busy) fin(); }, 2500);   // por si el guard cortó la grabación de entrada
   });
+}
+async function qExportarUno(q, n){
+  if(qExporting || busy){ qStat('Esperá a que termine la exportación en curso.','err'); return; }
+  if(!loaded){ qStat('Cargá el video primero.','err'); return; }
+  qStopPreview(); qCloseOverlay();
+  qStat('<span class="spin"></span>Generando el mp4 del quote '+n+'…');
+  qApply(q);
+  recNameHint='Quote '+String(n).padStart(2,'0');
+  await new Promise(r=>setTimeout(r,500));
+  await qRecordOnce();
+  recNameHint='';
+  qStat('Quote '+n+' listo. El archivo está debajo del lienzo.','ok');
 }
 $('qExportAll').onclick=qExportAll;
 $('qExportAll2').onclick=qExportAll;
@@ -4497,26 +4741,28 @@ async function qIdentificar(){
 /* --- pantalla de revisión: casillas pre-tildadas, el editor decide --- */
 function qRenderCands(){
   const side=$('qSide'); side.innerHTML='';
+  const head=document.createElement('div'); head.className='q-side-head';
+  const list=document.createElement('div'); list.className='q-side-list';
+  side.appendChild(head); side.appendChild(list);
   const sel=qCands.filter(c=>c.sel);
   const seg=sel.reduce((s,c)=>s+(c.out-c.in)/1000,0);
   const mins=Math.max(1, Math.round((seg + sel.length*6)/60));   // +6 s por quote: cierre y transiciones
 
-  const cab=document.createElement('div');
-  cab.style.cssText='position:sticky;top:-14px;background:var(--panel2);padding:8px 0 10px;z-index:2';
-  cab.innerHTML='<div style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">Propuesta de la IA — revisá y decidí</div>'
+  $('qTopInfo').textContent = subWords.length+' palabras · '+quotes.length+' quotes · '
+    + qCands.filter(c=>c.sel).length+' propuestas sin agregar';
+  head.innerHTML='<div style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">Propuesta de la IA — revisá y decidí</div>'
     +'<div id="qCandInfo" style="font-family:var(--mono);font-size:11px;color:var(--ink);margin-bottom:8px"></div>';
-  side.appendChild(cab);
 
   const btns=document.createElement('div');
-  btns.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px';
+  btns.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
   const mk=(txt,pri,fn)=>{ const b=document.createElement('button'); b.type='button'; b.textContent=txt;
     b.style.cssText='margin:0;width:auto;padding:8px 11px;border-radius:6px;font:600 11px/1 var(--ui);cursor:pointer;border:1px solid '+(pri?'var(--rojo)':'var(--line)')+';background:'+(pri?'var(--rojo)':'var(--panel)')+';color:'+(pri?'#fff':'var(--ink)');
     b.onclick=fn; return b; };
   btns.appendChild(mk(qAutoRun?'Confirmar y exportar':'Agregar los seleccionados', true, qAplicarCands));
   btns.appendChild(mk('Todos', false, ()=>{ qCands.forEach(c=>c.sel=true); qRenderCands(); }));
   btns.appendChild(mk('Ninguno', false, ()=>{ qCands.forEach(c=>c.sel=false); qRenderCands(); }));
-  btns.appendChild(mk('Descartar', false, ()=>{ qCands=[]; qAutoRun=false; qIaStat(''); qRenderAll(); }));
-  side.appendChild(btns);
+  btns.appendChild(mk('Descartar', false, ()=>{ qCands=[]; qAutoRun=false; qRenderAll(); }));
+  head.appendChild(btns);
 
   qCands.forEach((c,n)=>{
     const dur=c.out-c.in;
@@ -4546,7 +4792,7 @@ function qRenderCands(){
       qRenderCands(); qRenderTune();
       const el=$('q-w-'+c.a); if(el) el.scrollIntoView({block:'center',behavior:'smooth'});
     };
-    side.appendChild(d);
+    list.appendChild(d);
   });
 
   $('qCandInfo').innerHTML = sel.length+' de '+qCands.length+' seleccionados · '
@@ -4794,6 +5040,7 @@ function cvXY(ev){ const r=cv.getBoundingClientRect(); return { x:(ev.clientX-r.
 function inName(p){ return nameBBox && p.x>=nameBBox.x0 && p.x<=nameBBox.x1 && p.y>=nameBBox.y0 && p.y<=nameBBox.y1; }
 function inCtx(p){ return ctxBBox && p.y>=ctxBBox.y && p.y<=ctxBBox.y+ctxBBox.h; }
 cv.addEventListener('pointerdown', ev=>{
+  if(typeof modoFoto!=='undefined' && modoFoto) return;   // en foto, el lienzo sirve para encuadrar
   const p=cvXY(ev);
   if(inName(p)){                     // arrastrar el nombre libremente (full screen)
     dragName=true; dragS={x:p.x,y:p.y};

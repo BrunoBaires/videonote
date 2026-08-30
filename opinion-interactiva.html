@@ -41,6 +41,11 @@ h1 span{color:var(--rojo)}
 .empty a:hover{text-decoration:underline}
 
 video{width:100%;border-radius:8px;background:#000;display:block}
+.videoWrap{position:relative}
+.caption{position:absolute;left:6%;right:6%;bottom:9%;text-align:center;
+  font-family:var(--ui);font-weight:600;font-size:clamp(13px,2.4vw,20px);line-height:1.35;
+  color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.5);
+  pointer-events:none;white-space:pre-wrap}
 
 .reactRow{display:flex;justify-content:space-between;align-items:center;margin-top:18px;
   font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
@@ -148,7 +153,10 @@ function renderPlayer(entry){
 
   wrap.innerHTML = `
     <div class="card"><div class="body">
-      <video id="oiVid" playsinline controls src="${videoUrl}"></video>
+      <div class="videoWrap">
+        <video id="oiVid" playsinline controls src="${videoUrl}"></video>
+        <div class="caption" id="oiCaption"></div>
+      </div>
       <div class="reactRow">
         <span class="no">No me gusta</span>
         <span class="neu">Neutral</span>
@@ -180,12 +188,27 @@ function renderPlayer(entry){
   `;
 
   const vid = $('oiVid');
+  const caption = $('oiCaption');
   const track = $('oiSlider');
   const thumb = $('oiThumb');
   const valLbl = $('oiVal');
   const canvas = $('oiCanvas');
   const ctx = canvas.getContext('2d');
   const durLbl = $('oiDurLbl');
+
+  // subtítulo superpuesto, sincronizado con currentTime (usa el mismo texto
+  // ya traducido que arma "Transcripción del fragmento")
+  let capIdx = -1;
+  vid.addEventListener('timeupdate', () => {
+    if (!segs.length) return;
+    const t = vid.currentTime;
+    let idx = segs.findIndex(s => t >= s.start && t < s.end);
+    if (idx !== capIdx) {
+      capIdx = idx;
+      caption.textContent = idx >= 0 ? segs[idx].text : '';
+    }
+  });
+  vid.addEventListener('seeked', () => { capIdx = -1; });
 
   let duration = (payload && payload.duration_seconds) || 0;
   let curve = []; // [{t, v}] muestreada mientras reproduce

@@ -50,14 +50,11 @@ video{width:100%;border-radius:8px;background:#000;display:block}
 
 .slider{position:relative;height:34px;margin-top:8px;border-radius:17px;
   background:linear-gradient(90deg, var(--no), var(--panel2) 50%, var(--ok));
-  border:1px solid var(--line)}
-.slider input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:34px;
-  background:transparent;position:absolute;top:0;left:0;margin:0;cursor:grab}
-.slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;
-  border-radius:50%;background:#fff;border:2px solid var(--ink);margin-top:3px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
-.slider input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:#fff;
-  border:2px solid var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.25)}
-.slider input[type=range]:active{cursor:grabbing}
+  border:1px solid var(--line);cursor:grab;touch-action:none;user-select:none}
+.slider:active{cursor:grabbing}
+.slider .thumb{position:absolute;top:4px;left:50%;width:26px;height:26px;margin-left:-13px;
+  border-radius:50%;background:#fff;border:2px solid var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.25);
+  pointer-events:none}
 
 .statLine{text-align:center;margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--dim)}
 .statLine b{color:var(--ink)}
@@ -150,8 +147,8 @@ function renderPlayer(entry){
         <span class="neu">Neutral</span>
         <span class="yes">Me gusta</span>
       </div>
-      <div class="slider">
-        <input type="range" id="oiSlider" min="-100" max="100" value="0" step="1">
+      <div class="slider" id="oiSlider">
+        <div class="thumb" id="oiThumb"></div>
       </div>
       <div class="statLine">Reacción actual: <b id="oiVal">0</b></div>
       <div class="hint">Arrastrá el control con el mouse o el dedo mientras el video reproduce. Al soltar, vuelve solo a neutral.</div>
@@ -176,7 +173,8 @@ function renderPlayer(entry){
   `;
 
   const vid = $('oiVid');
-  const slider = $('oiSlider');
+  const track = $('oiSlider');
+  const thumb = $('oiThumb');
   const valLbl = $('oiVal');
   const canvas = $('oiCanvas');
   const ctx = canvas.getContext('2d');
@@ -184,6 +182,8 @@ function renderPlayer(entry){
 
   let duration = (payload && payload.duration_seconds) || 0;
   let curve = []; // [{t, v}] muestreada mientras reproduce
+  let value = 0;  // -100..100
+  let dragging = false;
   let releaseRaf = null;
 
   vid.addEventListener('loadedmetadata', () => {
@@ -192,14 +192,23 @@ function renderPlayer(entry){
     drawCurve();
   });
 
-  function setVal(v){
-    slider.value = v;
-    valLbl.textContent = Math.round(v);
+  function applyThumb(){
+    const pct = (value + 100) / 200; // 0..1
+    thumb.style.left = (pct * 100) + '%';
+    valLbl.textContent = Math.round(value);
   }
-
+  function setVal(v){
+    value = Math.max(-100, Math.min(100, v));
+    applyThumb();
+  }
+  function valueFromClientX(clientX){
+    const r = track.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+    return Math.round(pct * 200 - 100);
+  }
   function snapToNeutral(){
     if (releaseRaf) cancelAnimationFrame(releaseRaf);
-    const start = Number(slider.value);
+    const start = value;
     const t0 = performance.now();
     const DUR = 220; // ms, mismo criterio que el prototipo original (RF-13)
     function step(now){
@@ -210,15 +219,30 @@ function renderPlayer(entry){
     releaseRaf = requestAnimationFrame(step);
   }
 
-  slider.addEventListener('input', () => { valLbl.textContent = Math.round(Number(slider.value)); });
-  ['mouseup','touchend','pointerup'].forEach(ev => slider.addEventListener(ev, snapToNeutral));
+  track.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    track.setPointerCapture(e.pointerId);
+    setVal(valueFromClientX(e.clientX));
+  });
+  track.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    setVal(valueFromClientX(e.clientX));
+  });
+  function release(){
+    if (!dragging) return;
+    dragging = false;
+    snapToNeutral();
+  }
+  track.addEventListener('pointerup', release);
+  track.addEventListener('pointercancel', release);
+  applyThumb();
 
   let sampleTimer = null;
   vid.addEventListener('play', () => {
     if (sampleTimer) clearInterval(sampleTimer);
     sampleTimer = setInterval(() => {
       if (vid.paused || vid.ended) return;
-      curve.push({ t: vid.currentTime, v: Number(slider.value) });
+      curve.push({ t: vid.currentTime, v: value });
       drawCurve();
     }, 120);
   });

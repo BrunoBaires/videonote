@@ -820,6 +820,7 @@ video.src{display:none}
           <button type="button" class="mini-btn" id="trExportTimestamps" style="margin-top:0">Exportar timestamps (.json)</button>
           <button type="button" class="mini-btn" id="trSendToOI" style="margin-top:0">Enviar a Opinión Interactiva →</button>
         </div>
+        <div class="hint">Si traducís los subtítulos (card "Subtítulos") antes de exportar o enviar, el JSON sale en el idioma traducido; si no, sale en el idioma original de la transcripción.</div>
         <button type="button" class="mini-btn" id="notaBtn" style="margin-top:12px">Convertir en nota breve (IA)</button>
         <div id="notaBox" hidden style="margin-top:8px">
           <textarea id="notaText" rows="12" placeholder="La nota aparece acá…"></textarea>
@@ -5376,7 +5377,28 @@ function vnVideoId(){
   for (let i=0;i<base.length;i++){ h = (h*31 + base.charCodeAt(i)) >>> 0; }
   return 'vn_' + h.toString(16).slice(0,8);
 }
+function tsFindSpeaker(startMs, endMs){
+  if (typeof subWords === 'undefined' || !subWords || !subWords.length) return null;
+  const inRange = subWords.filter(w => w.end > startMs && w.start < endMs);
+  if (!inRange.length) return null;
+  const counts = {};
+  inRange.forEach(w => { const s = w.speaker || 'x'; counts[s] = (counts[s]||0)+1; });
+  return Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
+}
+// Usa subCues (los bloques de subtítulo) como fuente de los segmentos: si el
+// usuario tradujo los subtítulos al español antes de exportar, el JSON sale
+// en español; si no, sale en el idioma original de la transcripción.
 function tsBuildSegments(){
+  if (typeof subCues !== 'undefined' && subCues && subCues.length){
+    return subCues.map((c, i) => ({
+      segment_id: 'seg_' + String(i+1).padStart(3,'0'),
+      start: +(c.start/1000).toFixed(2),
+      end: +(c.end/1000).toFixed(2),
+      text: (c.text||'').trim(),
+      speaker: tsFindSpeaker(c.start, c.end),
+    }));
+  }
+  // fallback: si por algún motivo no hay subCues, reconstruye oraciones desde subWords
   if (typeof subWords === 'undefined' || !subWords || !subWords.length) return [];
   const segs = []; let cur = [];
   const flush = () => {

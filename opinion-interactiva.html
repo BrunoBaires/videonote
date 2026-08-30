@@ -17,7 +17,7 @@
   --mono:"SF Mono","Menlo","Consolas",monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font-family:var(--ui);min-height:100vh}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);min-height:100vh;overscroll-behavior-x:contain}
 
 header{position:sticky;top:0;z-index:50;background:var(--panel);border-bottom:1px solid var(--line);
   display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 20px;box-shadow:0 1px 6px rgba(0,0,0,.05)}
@@ -100,6 +100,13 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 
 const $ = (id) => document.getElementById(id);
 const wrap = $('wrap');
+
+window.addEventListener('error', (e) => {
+  const bar = document.createElement('div');
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#a11d2e;color:#fff;padding:10px 14px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:11.5px;z-index:9999;white-space:pre-wrap';
+  bar.textContent = 'Error en Opinión Interactiva: ' + (e.message || (e.error && e.error.message) || e.error);
+  document.body.prepend(bar);
+});
 
 function fmtT(s){
   s = Math.max(0, s||0);
@@ -220,12 +227,14 @@ function renderPlayer(entry){
   }
 
   track.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
     dragging = true;
     track.setPointerCapture(e.pointerId);
     setVal(valueFromClientX(e.clientX));
   });
   track.addEventListener('pointermove', (e) => {
     if (!dragging) return;
+    e.preventDefault();
     setVal(valueFromClientX(e.clientX));
   });
   function release(){
@@ -281,7 +290,7 @@ function renderPlayer(entry){
         ctx.fillStyle = sign < 0 ? okGrad : (sign > 0 ? noGrad : 'transparent');
         ctx.fill();
       }
-      i = j;
+      i = (j > i) ? j : i + 1; // garantiza que siempre avance, sin esto podía quedar en loop infinito
     }
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
     ctx.beginPath();
@@ -305,10 +314,25 @@ function renderPlayer(entry){
   }
 }
 
+function renderError(err){
+  wrap.innerHTML = `
+    <div class="card"><div class="body">
+      <div class="empty" style="color:#a11d2e;text-align:left">
+        <b>Se rompió algo al armar la página.</b><br><br>
+        Mandale esto a Claude tal cual (captura o copiado):<br><br>
+        <code style="display:block;background:var(--field);padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;font-family:var(--mono);font-size:11.5px">${String((err && err.stack) || err)}</code>
+      </div>
+    </div></div>`;
+}
+
 loadHandoff().then(entry => {
   if (!entry || !entry.videoBlob) { renderEmpty(); return; }
-  renderPlayer(entry);
-}).catch(() => renderEmpty());
+  try {
+    renderPlayer(entry);
+  } catch (err) {
+    renderError(err);
+  }
+}).catch(err => renderError(err));
 </script>
 </body>
 </html>

@@ -890,6 +890,17 @@ video.src{display:none}
       </div>
     </div>
 
+    <div class="card tool" data-pane="video">
+      <div class="head" data-toggle><h2>Opinión</h2><span class="arrow">▸</span></div>
+      <div class="body collapsible">
+        <div class="hint" id="opHint">Por cada quote, arma el JSON de segmentos (contrato Incertis) con tiempos y hablante.</div>
+        <label class="chk"><input type="checkbox" id="opinionOn" checked> Bajar el .json junto al mp4 al exportar la cola</label>
+        <div id="opList" style="margin-top:10px"></div>
+        <button type="button" class="mini-btn" id="opExportAll" style="margin-top:10px">Exportar todos en un solo JSON</button>
+        <div class="genstat" id="opStat"></div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ============ CENTRO: LIENZO ============ -->
@@ -4514,6 +4525,7 @@ async function qExportAll(){
     qApply(q);
     recQuoteId=q.id;
     recNameHint='Quote '+String(i+1).padStart(2,'0');
+    if ($('opinionOn') && $('opinionOn').checked) opDownloadJSON(opBuildPayload(q), recNameHint+'.json');
     await new Promise(r=>setTimeout(r,600));
     await qRecordOnce();
     if(q.estado!=='ok') q.estado='';
@@ -5357,6 +5369,83 @@ function setStatus(t,cls){
   $('status').textContent=t;
   $('status').className='status'+(cls?' '+cls:'');
 }
+
+/* ==========================================================================
+   OPINIÓN — export JSON (contrato Incertis) por quote
+   Un segmento = una oración dentro del quote, reagrupando subWords (ya
+   vienen con timestamps por palabra y speaker) en vez del cue de subtítulo.
+   ========================================================================== */
+function vnVideoId(){
+  const base = (mainVidFile ? (mainVidFile.name+'|'+mainVidFile.size) : 'sin-archivo') + '|' + (subWords?.length||0);
+  let h = 0;
+  for (let i=0;i<base.length;i++){ h = (h*31 + base.charCodeAt(i)) >>> 0; }
+  return 'vn_' + h.toString(16).slice(0,8);
+}
+function opBuildSegments(q){
+  const ws = subWords.slice(q.a, q.b+1);
+  if (!ws.length) return [];
+  const segs = []; let cur = [];
+  const flush = () => {
+    if (!cur.length) return;
+    segs.push({
+      segment_id: 'seg_' + String(segs.length+1).padStart(3,'0'),
+      start: +((cur[0].start - q.in)/1000).toFixed(2),
+      end: +((cur[cur.length-1].end - q.in)/1000).toFixed(2),
+      text: cur.map(w=>w.text).join(' '),
+      speaker: cur[0].speaker || null,
+    });
+    cur = [];
+  };
+  ws.forEach(w => { cur.push(w); if (/[.!?…]$/.test(w.text)) flush(); });
+  flush();
+  return segs;
+}
+function opBuildPayload(q){
+  return {
+    video_id: vnVideoId() + '_q' + q.id,
+    duration_seconds: +((q.out - q.in)/1000).toFixed(2),
+    language: 'es-AR',
+    transcription_status: 'completed',
+    segments: opBuildSegments(q),
+  };
+}
+function opDownloadJSON(obj, filename){
+  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.style.display='none';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ try{document.body.removeChild(a);}catch(e){} URL.revokeObjectURL(url); }, 800);
+}
+function opFmt(ms){ const s=Math.round(ms/1000); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function opRenderList(){
+  const list = $('opList'); if(!list) return;
+  if(!quotes.length){ list.innerHTML='<div class="hint">Todavía no hay quotes.</div>'; return; }
+  list.innerHTML='';
+  quotes.forEach((q,i)=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;font-size:11.5px';
+    row.innerHTML='<span>#'+(i+1)+' · '+opFmt(q.out-q.in)+' · '+((q.ctx||'').slice(0,26))+'</span>';
+    const btn=document.createElement('button');
+    btn.type='button'; btn.className='mini-btn'; btn.style.cssText='margin:0;padding:3px 8px;font-size:10.5px';
+    btn.textContent='JSON';
+    btn.onclick=()=> opDownloadJSON(opBuildPayload(q), 'Quote '+String(i+1).padStart(2,'0')+'.json');
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+function opStat(t,c){ const el=$('opStat'); if(!el) return; el.innerHTML=t; el.className='genstat'+(c?' '+c:''); }
+if ($('opExportAll')){
+  $('opExportAll').onclick = () => {
+    if(!quotes.length){ opStat('No hay quotes para exportar.','err'); return; }
+    const payload={ video_id: vnVideoId(), generated_at: new Date().toISOString(),
+      quotes: quotes.map((q,i)=>Object.assign({quote_index:i+1}, opBuildPayload(q))) };
+    opDownloadJSON(payload, 'Opinion - todos los quotes.json');
+    opStat(quotes.length+' quote(s) exportados en un solo archivo.','ok');
+  };
+}
+document.addEventListener('click', (e)=>{ if(e.target && e.target.closest && e.target.closest('[data-toggle]')) setTimeout(opRenderList, 50); });
+opRenderList();
 </script>
 </body>
 </html>

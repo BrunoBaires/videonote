@@ -289,6 +289,7 @@ video.src{display:none}
     <button type="button" class="tab on" data-tab="video">Video</button>
     <button type="button" class="tab" data-tab="fondos">Fondos</button>
     <button type="button" class="tab" data-tab="audio">AudioNote</button>
+    <button type="button" class="tab" data-tab="oi">Opinión Interactiva</button>
   </div>
 </header>
 
@@ -815,6 +816,10 @@ video.src{display:none}
           <button type="button" class="mini-btn" id="trCopy" style="margin-top:0">Copiar</button>
           <button type="button" class="mini-btn" id="trDownload" style="margin-top:0">Descargar .txt</button>
         </div>
+        <div class="row" style="margin-top:6px">
+          <button type="button" class="mini-btn" id="trExportTimestamps" style="margin-top:0">Exportar timestamps (.json)</button>
+          <button type="button" class="mini-btn" id="trSendToOI" style="margin-top:0">Enviar a Opinión Interactiva →</button>
+        </div>
         <button type="button" class="mini-btn" id="notaBtn" style="margin-top:12px">Convertir en nota breve (IA)</button>
         <div id="notaBox" hidden style="margin-top:8px">
           <textarea id="notaText" rows="12" placeholder="La nota aparece acá…"></textarea>
@@ -890,16 +895,6 @@ video.src{display:none}
       </div>
     </div>
 
-    <div class="card tool" data-pane="video">
-      <div class="head" data-toggle><h2>Opinión</h2><span class="arrow">▸</span></div>
-      <div class="body collapsible">
-        <div class="hint" id="opHint">Por cada quote, arma el JSON de segmentos (contrato Incertis) con tiempos y hablante.</div>
-        <label class="chk"><input type="checkbox" id="opinionOn" checked> Bajar el .json junto al mp4 al exportar la cola</label>
-        <div id="opList" style="margin-top:10px"></div>
-        <button type="button" class="mini-btn" id="opExportAll" style="margin-top:10px">Exportar todos en un solo JSON</button>
-        <div class="genstat" id="opStat"></div>
-      </div>
-    </div>
 
   </div>
 
@@ -1320,6 +1315,7 @@ document.querySelectorAll('[data-toggle]').forEach(h =>
 /* ---------- pestañas Video / Fondos ---------- */
 function setTab(which){
   if(which==='audio'){ window.location.href='audionote.html'; return; }   // AudioNote es página propia (misma barra fija)
+  if(which==='oi'){ window.location.href='opinion-interactiva.html'; return; }   // Opinión Interactiva es página propia
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab===which));
   document.querySelectorAll('[data-pane]').forEach(c => { c.hidden = (c.dataset.pane !== which); });
 }
@@ -4525,7 +4521,6 @@ async function qExportAll(){
     qApply(q);
     recQuoteId=q.id;
     recNameHint='Quote '+String(i+1).padStart(2,'0');
-    if ($('opinionOn') && $('opinionOn').checked) opDownloadJSON(opBuildPayload(q), recNameHint+'.json');
     await new Promise(r=>setTimeout(r,600));
     await qRecordOnce();
     if(q.estado!=='ok') q.estado='';
@@ -5371,42 +5366,43 @@ function setStatus(t,cls){
 }
 
 /* ==========================================================================
-   OPINIÓN — export JSON (contrato Incertis) por quote
-   Un segmento = una oración dentro del quote, reagrupando subWords (ya
-   vienen con timestamps por palabra y speaker) en vez del cue de subtítulo.
+   TIMESTAMPS — export JSON del video completo (contrato Incertis)
+   Reagrupa subWords (tiempos por palabra + speaker de AssemblyAI) en
+   oraciones. No depende de haber marcado quotes.
    ========================================================================== */
 function vnVideoId(){
-  const base = (mainVidFile ? (mainVidFile.name+'|'+mainVidFile.size) : 'sin-archivo') + '|' + (subWords?.length||0);
+  const base = (mainVidFile ? (mainVidFile.name+'|'+mainVidFile.size) : 'sin-archivo') + '|' + (typeof subWords!=='undefined' && subWords ? subWords.length : 0);
   let h = 0;
   for (let i=0;i<base.length;i++){ h = (h*31 + base.charCodeAt(i)) >>> 0; }
   return 'vn_' + h.toString(16).slice(0,8);
 }
-function opBuildSegments(q){
-  const ws = subWords.slice(q.a, q.b+1);
-  if (!ws.length) return [];
+function tsBuildSegments(){
+  if (typeof subWords === 'undefined' || !subWords || !subWords.length) return [];
   const segs = []; let cur = [];
   const flush = () => {
     if (!cur.length) return;
     segs.push({
       segment_id: 'seg_' + String(segs.length+1).padStart(3,'0'),
-      start: +((cur[0].start - q.in)/1000).toFixed(2),
-      end: +((cur[cur.length-1].end - q.in)/1000).toFixed(2),
+      start: +(cur[0].start/1000).toFixed(2),
+      end: +(cur[cur.length-1].end/1000).toFixed(2),
       text: cur.map(w=>w.text).join(' '),
       speaker: cur[0].speaker || null,
     });
     cur = [];
   };
-  ws.forEach(w => { cur.push(w); if (/[.!?…]$/.test(w.text)) flush(); });
+  subWords.forEach(w => { cur.push(w); if (/[.!?…]$/.test(w.text)) flush(); });
   flush();
   return segs;
 }
-function opBuildPayload(q){
+function tsBuildPayload(){
+  const segs = tsBuildSegments();
+  const dur = (typeof vidDur === 'function' ? vidDur() : 0) || (segs.length ? segs[segs.length-1].end : 0);
   return {
-    video_id: vnVideoId() + '_q' + q.id,
-    duration_seconds: +((q.out - q.in)/1000).toFixed(2),
+    video_id: vnVideoId(),
+    duration_seconds: +Number(dur).toFixed(2),
     language: 'es-AR',
     transcription_status: 'completed',
-    segments: opBuildSegments(q),
+    segments: segs,
   };
 }
 function opDownloadJSON(obj, filename){
@@ -5417,35 +5413,58 @@ function opDownloadJSON(obj, filename){
   document.body.appendChild(a); a.click();
   setTimeout(()=>{ try{document.body.removeChild(a);}catch(e){} URL.revokeObjectURL(url); }, 800);
 }
-function opFmt(ms){ const s=Math.round(ms/1000); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
-function opRenderList(){
-  const list = $('opList'); if(!list) return;
-  if(!quotes.length){ list.innerHTML='<div class="hint">Todavía no hay quotes.</div>'; return; }
-  list.innerHTML='';
-  quotes.forEach((q,i)=>{
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;font-size:11.5px';
-    row.innerHTML='<span>#'+(i+1)+' · '+opFmt(q.out-q.in)+' · '+((q.ctx||'').slice(0,26))+'</span>';
-    const btn=document.createElement('button');
-    btn.type='button'; btn.className='mini-btn'; btn.style.cssText='margin:0;padding:3px 8px;font-size:10.5px';
-    btn.textContent='JSON';
-    btn.onclick=()=> opDownloadJSON(opBuildPayload(q), 'Quote '+String(i+1).padStart(2,'0')+'.json');
-    row.appendChild(btn);
-    list.appendChild(row);
+function trExportTimestamps(){
+  if (typeof subWords === 'undefined' || !subWords || !subWords.length){
+    trStat('Todavía no hay transcripción con tiempos — transcribí primero.', 'err');
+    return;
+  }
+  opDownloadJSON(tsBuildPayload(), 'timestamps.json');
+  trStat('Timestamps exportados.', 'ok');
+}
+if ($('trExportTimestamps')) $('trExportTimestamps').onclick = trExportTimestamps;
+
+/* ==========================================================================
+   ENVIAR A OPINIÓN INTERACTIVA — guarda el video + los timestamps en
+   IndexedDB (mismo navegador, nada sale del cliente) y abre la pestaña OI.
+   ========================================================================== */
+function vnOiOpenDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('vnHandoff', 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore('oi'); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
   });
 }
-function opStat(t,c){ const el=$('opStat'); if(!el) return; el.innerHTML=t; el.className='genstat'+(c?' '+c:''); }
-if ($('opExportAll')){
-  $('opExportAll').onclick = () => {
-    if(!quotes.length){ opStat('No hay quotes para exportar.','err'); return; }
-    const payload={ video_id: vnVideoId(), generated_at: new Date().toISOString(),
-      quotes: quotes.map((q,i)=>Object.assign({quote_index:i+1}, opBuildPayload(q))) };
-    opDownloadJSON(payload, 'Opinion - todos los quotes.json');
-    opStat(quotes.length+' quote(s) exportados en un solo archivo.','ok');
-  };
+async function vnOiSave(videoBlob, payload){
+  const db = await vnOiOpenDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('oi', 'readwrite');
+    tx.objectStore('oi').put({ videoBlob, payload, savedAt: Date.now() }, 'current');
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
 }
-document.addEventListener('click', (e)=>{ if(e.target && e.target.closest && e.target.closest('[data-toggle]')) setTimeout(opRenderList, 50); });
-opRenderList();
+async function trSendToOI(){
+  if (typeof subWords === 'undefined' || !subWords || !subWords.length){
+    trStat('Transcribí el video antes de enviarlo a Opinión Interactiva.', 'err');
+    return;
+  }
+  if (!vid || !vid.currentSrc){
+    trStat('No hay video cargado.', 'err');
+    return;
+  }
+  try {
+    trStat('<span class="spin"></span>Preparando envío…');
+    const videoBlob = await fetch(vid.currentSrc).then(r => r.blob());
+    const payload = tsBuildPayload();
+    await vnOiSave(videoBlob, payload);
+    trStat('Enviado. Abriendo Opinión Interactiva…', 'ok');
+    window.location.href = 'opinion-interactiva.html';
+  } catch (e) {
+    trStat('No se pudo enviar: ' + (e && e.message || e), 'err');
+  }
+}
+if ($('trSendToOI')) $('trSendToOI').onclick = trSendToOI;
 </script>
 </body>
 </html>

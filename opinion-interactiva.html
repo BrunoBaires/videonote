@@ -73,10 +73,29 @@ canvas{width:100%;display:block;border-radius:6px}
 .mini-btn:hover{background:var(--field)}
 .mini-btn:disabled{opacity:.5;cursor:not-allowed}
 
-.segList{margin-top:10px;max-height:200px;overflow:auto;font-size:12.5px}
-.segRow{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)}
-.segRow .t{font-family:var(--mono);color:var(--dim);flex:0 0 auto;white-space:nowrap}
-.segRow .x{color:var(--ink)}
+.segList{margin-top:10px;max-height:240px;overflow:auto;font-size:12.5px}
+.segRow{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:6px}
+.segRow:hover{background:var(--field)}
+.segRow .t{font-family:var(--mono);color:var(--dim);flex:0 0 auto;white-space:nowrap;font-size:11px}
+.segRow .x{color:var(--ink);flex:1}
+.segBadge{flex:0 0 auto;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.segBadge-ok{background:#eaf5ef;color:var(--ok)}
+.segBadge-no{background:#fbeced;color:var(--no)}
+.segBadge-none{background:var(--field);color:var(--dim);font-weight:400}
+
+.miniCurve{position:absolute;left:0;right:0;bottom:0;height:26px;pointer-events:none}
+
+.question{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.qOpts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.qOpt{font-family:var(--ui);font-size:12.5px;padding:10px 8px;border-radius:6px;border:1px solid var(--line);
+  background:var(--panel2);color:var(--ink);cursor:pointer;text-align:center}
+.qOpt:hover{background:var(--field)}
+.qOpt.picked{border-color:var(--rojo);background:#fdecec;color:var(--rojo);font-weight:600}
+
+.recRow{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.recDot{width:8px;height:8px;border-radius:50%;background:var(--no);display:none}
+.recDot.on{display:inline-block;animation:recPulse 1s infinite}
+@keyframes recPulse{0%,100%{opacity:1}50%{opacity:.3}}
 </style>
 </head>
 <body>
@@ -98,7 +117,16 @@ canvas{width:100%;display:block;border-radius:6px}
 <script>
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   const which=t.dataset.tab;
-  if(which==='video'){ window.location.href='index.html'; }
+  if(which==='video'){
+    // Si venimos de index.html, volvemos con history.back(): el navegador puede
+    // restaurar esa página desde el bfcache tal cual estaba (video cargado,
+    // transcripción, etc.) en vez de recargarla de cero y perder todo.
+    if (document.referrer && document.referrer.indexOf(location.origin) === 0 && history.length > 1) {
+      history.back();
+    } else {
+      window.location.href = 'index.html';
+    }
+  }
   else if(which==='fondos'){ window.location.href='index.html#fondos'; }
   else if(which==='audio'){ window.location.href='audionote.html'; }
 }));
@@ -155,6 +183,7 @@ function renderPlayer(entry){
     <div class="card"><div class="body">
       <div class="videoWrap">
         <video id="oiVid" playsinline controls src="${videoUrl}"></video>
+        <canvas class="miniCurve" id="oiMiniCurve"></canvas>
         <div class="caption" id="oiCaption"></div>
       </div>
       <div class="reactRow">
@@ -167,6 +196,22 @@ function renderPlayer(entry){
       </div>
       <div class="statLine">Reacción actual: <b id="oiVal">0</b></div>
       <div class="hint">Arrastrá el control con el mouse o el dedo mientras el video reproduce. Al soltar, vuelve solo a neutral.</div>
+
+      <div class="question" id="oiQuestion" hidden>
+        <h2>¿Coincidís con lo que dijo?</h2>
+        <div class="qOpts">
+          <button type="button" class="qOpt" data-v="acuerdo_total">Totalmente de acuerdo</button>
+          <button type="button" class="qOpt" data-v="acuerdo_parcial">Parcialmente de acuerdo</button>
+          <button type="button" class="qOpt" data-v="desacuerdo_parcial">Parcialmente en desacuerdo</button>
+          <button type="button" class="qOpt" data-v="desacuerdo_total">Totalmente en desacuerdo</button>
+        </div>
+        <div class="recRow">
+          <button type="button" class="mini-btn" id="oiRecBtn">🎙 Grabar tu interpretación</button>
+          <span class="recDot" id="oiRecDot"></span>
+          <span class="hint" id="oiRecStat"></span>
+        </div>
+        <audio id="oiRecPlay" controls hidden style="width:100%;margin-top:8px"></audio>
+      </div>
     </div></div>
 
     <div class="card"><div class="body">
@@ -195,6 +240,8 @@ function renderPlayer(entry){
   const canvas = $('oiCanvas');
   const ctx = canvas.getContext('2d');
   const durLbl = $('oiDurLbl');
+  const mini = $('oiMiniCurve');
+  const miniCtx = mini.getContext('2d');
 
   // subtítulo superpuesto, sincronizado con currentTime (usa el mismo texto
   // ya traducido que arma "Transcripción del fragmento")
@@ -219,6 +266,7 @@ function renderPlayer(entry){
   vid.addEventListener('loadedmetadata', () => {
     duration = vid.duration || duration;
     durLbl.textContent = fmtT(duration);
+    mini.width = mini.clientWidth; mini.height = mini.clientHeight;
     drawCurve();
   });
 
@@ -271,15 +319,21 @@ function renderPlayer(entry){
 
   let sampleTimer = null;
   vid.addEventListener('play', () => {
+    $('oiQuestion').hidden = true;
     if (sampleTimer) clearInterval(sampleTimer);
     sampleTimer = setInterval(() => {
       if (vid.paused || vid.ended) return;
       curve.push({ t: vid.currentTime, v: value });
       drawCurve();
+      drawMini();
+      renderSegList();
     }, 120);
   });
   vid.addEventListener('pause', () => { if (sampleTimer) clearInterval(sampleTimer); });
-  vid.addEventListener('ended', () => { if (sampleTimer) clearInterval(sampleTimer); });
+  vid.addEventListener('ended', () => {
+    if (sampleTimer) clearInterval(sampleTimer);
+    $('oiQuestion').hidden = false;
+  });
 
   function drawCurve(){
     const W = canvas.width, H = canvas.height, MID = H/2;
@@ -321,20 +375,101 @@ function renderPlayer(entry){
     ctx.stroke();
   }
 
+  function drawMini(){
+    const W = mini.width, H = mini.height, MID = H/2;
+    if (!W || !H) return;
+    miniCtx.clearRect(0,0,W,H);
+    miniCtx.fillStyle = 'rgba(0,0,0,.35)';
+    miniCtx.fillRect(0,0,W,H);
+    if (curve.length < 2 || !duration) return;
+    const pts = curve.map(p => ({ x: (p.t/duration) * W, y: MID - (p.v/100) * MID }));
+    miniCtx.lineWidth = 2;
+    for (let k=0; k<pts.length-1; k++){
+      miniCtx.strokeStyle = pts[k+1].y < MID ? '#3ddc8c' : (pts[k+1].y > MID ? '#ff5c5c' : 'rgba(255,255,255,.6)');
+      miniCtx.beginPath(); miniCtx.moveTo(pts[k].x, pts[k].y); miniCtx.lineTo(pts[k+1].x, pts[k+1].y); miniCtx.stroke();
+    }
+  }
+
   $('oiReset').onclick = () => { curve = []; drawCurve(); };
   $('oiExport').onclick = () => {
-    const blob = new Blob([JSON.stringify({ video_id: payload && payload.video_id, curve }, null, 2)], {type:'application/json'});
+    const blob = new Blob([JSON.stringify({ video_id: payload && payload.video_id, agreement: agreementPick, curve }, null, 2)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'curva-reaccion.json'; a.style.display='none';
     document.body.appendChild(a); a.click();
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
   };
 
-  if (segs.length) {
-    $('oiSegs').innerHTML = segs.map(s =>
-      `<div class="segRow"><span class="t">${fmtT(s.start)}–${fmtT(s.end)}</span><span class="x">${s.text}</span></div>`
-    ).join('');
+  function segStat(s){
+    const pts = curve.filter(p => p.t >= s.start && p.t < s.end);
+    if (!pts.length) return { cls: 'segBadge-none', label: 'Sin datos' };
+    const avg = pts.reduce((a,p) => a + p.v, 0) / pts.length;
+    const pct = Math.round(Math.abs(avg));
+    return avg >= 0
+      ? { cls: 'segBadge-ok', label: pct + '% aprobación' }
+      : { cls: 'segBadge-no', label: pct + '% disgusto' };
   }
+  function renderSegList(){
+    if (!segs.length) return;
+    $('oiSegs').innerHTML = segs.map((s, i) => {
+      const st = segStat(s);
+      return `<div class="segRow" data-i="${i}">
+        <span class="t">${fmtT(s.start)}–${fmtT(s.end)}</span>
+        <span class="x">${s.text}</span>
+        <span class="segBadge ${st.cls}">${st.label}</span>
+      </div>`;
+    }).join('');
+  }
+  if (segs.length) {
+    renderSegList();
+    $('oiSegs').addEventListener('click', (e) => {
+      const row = e.target.closest('.segRow'); if (!row) return;
+      const s = segs[Number(row.dataset.i)];
+      vid.currentTime = s.start;
+      vid.play();
+    });
+  }
+
+  // Pregunta final (una sola vez, al terminar el video — no en vivo)
+  let agreementPick = null;
+  document.querySelectorAll('.qOpt').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.qOpt').forEach(b => b.classList.remove('picked'));
+      btn.classList.add('picked');
+      agreementPick = btn.dataset.v;
+    };
+  });
+
+  // Grabador de interpretación abierta (mic)
+  let mediaRecorder = null, recChunks = [], recStream = null;
+  $('oiRecBtn').onclick = async () => {
+    const stat = $('oiRecStat');
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      return;
+    }
+    try {
+      recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recChunks = [];
+      mediaRecorder = new MediaRecorder(recStream);
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        recStream.getTracks().forEach(t => t.stop());
+        $('oiRecDot').classList.remove('on');
+        $('oiRecBtn').textContent = '🎙 Grabar tu interpretación';
+        stat.textContent = 'Grabación lista, abajo.';
+        const blob = new Blob(recChunks, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        const audioEl = $('oiRecPlay');
+        audioEl.src = url; audioEl.hidden = false;
+      };
+      mediaRecorder.start();
+      $('oiRecDot').classList.add('on');
+      $('oiRecBtn').textContent = '⏹ Detener grabación';
+      stat.textContent = 'Grabando…';
+    } catch (e) {
+      stat.textContent = 'No se pudo acceder al micrófono: ' + ((e && e.message) || e);
+    }
+  };
 }
 
 function renderError(err){

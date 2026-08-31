@@ -83,7 +83,10 @@ canvas{width:100%;display:block;border-radius:6px}
 .segBadge-no{background:#fbeced;color:var(--no)}
 .segBadge-none{background:var(--field);color:var(--dim);font-weight:400}
 
-.miniCurve{position:absolute;left:0;right:0;bottom:0;height:26px;pointer-events:none}
+.videoWrap.pinned{position:fixed;top:66px;right:18px;width:min(260px,40vw);z-index:60;
+  border-radius:8px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.28)}
+.videoSpacer{display:none}
+.videoSpacer.on{display:block}
 
 .question{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
 .qOpts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
@@ -181,11 +184,11 @@ function renderPlayer(entry){
 
   wrap.innerHTML = `
     <div class="card"><div class="body">
-      <div class="videoWrap">
+      <div class="videoWrap" id="oiVideoWrap">
         <video id="oiVid" playsinline controls src="${videoUrl}"></video>
-        <canvas class="miniCurve" id="oiMiniCurve"></canvas>
         <div class="caption" id="oiCaption"></div>
       </div>
+      <div class="videoSpacer" id="oiVideoSpacer" hidden></div>
       <div class="reactRow">
         <span class="no">No me gusta</span>
         <span class="neu">Neutral</span>
@@ -240,8 +243,21 @@ function renderPlayer(entry){
   const canvas = $('oiCanvas');
   const ctx = canvas.getContext('2d');
   const durLbl = $('oiDurLbl');
-  const mini = $('oiMiniCurve');
-  const miniCtx = mini.getContext('2d');
+
+  // Sticky: al scrollear más allá del video, se achica y se clava debajo del header
+  const videoWrap = $('oiVideoWrap');
+  const spacer = $('oiVideoSpacer');
+  const sentinel = document.createElement('div');
+  videoWrap.parentNode.insertBefore(sentinel, videoWrap);
+  let naturalHeight = 0;
+  vid.addEventListener('loadedmetadata', () => { naturalHeight = videoWrap.getBoundingClientRect().height; });
+  new IntersectionObserver(([entry]) => {
+    const pin = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+    if (pin && naturalHeight) spacer.style.height = naturalHeight + 'px';
+    videoWrap.classList.toggle('pinned', pin);
+    spacer.hidden = !pin;
+    spacer.classList.toggle('on', pin);
+  }, { threshold: 0 }).observe(sentinel);
 
   // subtítulo superpuesto, sincronizado con currentTime (usa el mismo texto
   // ya traducido que arma "Transcripción del fragmento")
@@ -266,7 +282,6 @@ function renderPlayer(entry){
   vid.addEventListener('loadedmetadata', () => {
     duration = vid.duration || duration;
     durLbl.textContent = fmtT(duration);
-    mini.width = mini.clientWidth; mini.height = mini.clientHeight;
     drawCurve();
   });
 
@@ -325,7 +340,6 @@ function renderPlayer(entry){
       if (vid.paused || vid.ended) return;
       curve.push({ t: vid.currentTime, v: value });
       drawCurve();
-      drawMini();
       renderSegList();
     }, 120);
   });
@@ -373,21 +387,6 @@ function renderPlayer(entry){
     ctx.beginPath();
     pts.forEach((p,idx) => idx===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
     ctx.stroke();
-  }
-
-  function drawMini(){
-    const W = mini.width, H = mini.height, MID = H/2;
-    if (!W || !H) return;
-    miniCtx.clearRect(0,0,W,H);
-    miniCtx.fillStyle = 'rgba(0,0,0,.35)';
-    miniCtx.fillRect(0,0,W,H);
-    if (curve.length < 2 || !duration) return;
-    const pts = curve.map(p => ({ x: (p.t/duration) * W, y: MID - (p.v/100) * MID }));
-    miniCtx.lineWidth = 2;
-    for (let k=0; k<pts.length-1; k++){
-      miniCtx.strokeStyle = pts[k+1].y < MID ? '#3ddc8c' : (pts[k+1].y > MID ? '#ff5c5c' : 'rgba(255,255,255,.6)');
-      miniCtx.beginPath(); miniCtx.moveTo(pts[k].x, pts[k].y); miniCtx.lineTo(pts[k+1].x, pts[k+1].y); miniCtx.stroke();
-    }
   }
 
   $('oiReset').onclick = () => { curve = []; drawCurve(); };

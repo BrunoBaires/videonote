@@ -117,6 +117,7 @@ canvas{width:100%;display:block;border-radius:6px}
   <!-- Se completa por JS: o el mensaje de "no hay nada" o el reproductor -->
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   const which=t.dataset.tab;
@@ -208,12 +209,16 @@ function renderPlayer(entry){
           <button type="button" class="qOpt" data-v="desacuerdo_parcial">Parcialmente en desacuerdo</button>
           <button type="button" class="qOpt" data-v="desacuerdo_total">Totalmente en desacuerdo</button>
         </div>
+        <div class="hint" style="margin-top:12px">¿Por qué reaccionaste así? Escribilo o grabá un audio.</div>
+        <textarea id="oiOpenText" placeholder="Escribí tu interpretación acá…" style="width:100%;min-height:60px;margin-top:6px;font-family:var(--ui);font-size:13px;padding:8px;border:1px solid var(--line);border-radius:6px"></textarea>
         <div class="recRow">
-          <button type="button" class="mini-btn" id="oiRecBtn">🎙 Grabar tu interpretación</button>
+          <button type="button" class="mini-btn" id="oiRecBtn">🎙 Grabar audio</button>
           <span class="recDot" id="oiRecDot"></span>
+          <button type="button" class="mini-btn" id="oiAiBtn">✨ Analizar con IA</button>
           <span class="hint" id="oiRecStat"></span>
         </div>
         <audio id="oiRecPlay" controls hidden style="width:100%;margin-top:8px"></audio>
+        <div id="oiAiOut" class="hint" style="display:none;margin-top:8px;background:var(--field);border-radius:6px;padding:8px"></div>
       </div>
     </div></div>
 
@@ -233,6 +238,45 @@ function renderPlayer(entry){
       <h2>Transcripción del fragmento</h2>
       <div class="segList" id="oiSegs"></div>
     </div></div>` : ''}
+
+    <div class="card"><div class="body">
+      <h2>Comparar grupos <span style="color:var(--dim);font-weight:400">— simulado, sin votantes reales todavía</span></h2>
+      <div class="hint" style="margin-bottom:10px">Los datos de esta sección son inventados para mostrar cómo se vería el producto con votantes reales.</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="oiAskInput" placeholder="Comparar mujeres 18-29 CABA con Provincia de Buenos Aires" style="flex:1;font-family:var(--ui);font-size:13px;padding:8px;border:1px solid var(--line);border-radius:6px">
+        <button type="button" class="mini-btn" id="oiAskBtn" style="margin-top:0">Preguntar</button>
+      </div>
+      <div class="hint" style="margin-top:4px">Preguntar sobre esta encuesta</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+        <div style="border:1px solid var(--line);border-radius:6px;padding:8px">
+          <div class="hint" style="color:#2a78d6;font-weight:600;margin-bottom:6px">Grupo A</div>
+          <select id="gaSexo" style="width:100%;margin-bottom:6px"><option value="">Sexo: todos</option><option>Mujeres</option><option>Hombres</option></select>
+          <select id="gaEdad" style="width:100%;margin-bottom:6px"><option value="">Edad: todas</option><option>Menos de 30</option><option>30-49</option><option>50 o más</option></select>
+          <select id="gaZona" style="width:100%"><option value="">Ubicación: todas</option><option>CABA</option><option>Provincia de Buenos Aires</option><option>Interior</option></select>
+        </div>
+        <div style="border:1px solid var(--line);border-radius:6px;padding:8px">
+          <div class="hint" style="color:#6250d6;font-weight:600;margin-bottom:6px">Grupo B</div>
+          <select id="gbSexo" style="width:100%;margin-bottom:6px"><option value="">Sexo: todos</option><option>Mujeres</option><option>Hombres</option></select>
+          <select id="gbEdad" style="width:100%;margin-bottom:6px"><option value="">Edad: todas</option><option>Menos de 30</option><option>30-49</option><option>50 o más</option></select>
+          <select id="gbZona" style="width:100%"><option value="">Ubicación: todas</option><option>CABA</option><option>Provincia de Buenos Aires</option><option>Interior</option></select>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:16px;font-size:12px;color:var(--dim);margin-top:12px">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2a78d6;margin-right:4px"></span><span id="oiALabel">Grupo A (todos)</span></span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#6250d6;margin-right:4px"></span><span id="oiBLabel">Grupo B (todos)</span></span>
+      </div>
+      <div style="position:relative;height:190px;margin-top:6px">
+        <canvas id="oiCompareChart"></canvas>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:10px;align-items:center">
+        <span class="hint">Vista previa del teñido:</span>
+        <span id="oiTintA" style="width:60px;height:24px;border-radius:6px;background:var(--field)"></span>
+        <span id="oiTintB" style="width:60px;height:24px;border-radius:6px;background:var(--field)"></span>
+      </div>
+      <div class="hint" id="oiCompareStat" style="margin-top:8px"></div>
+    </div></div>
   `;
 
   const vid = $('oiVid');
@@ -468,6 +512,136 @@ function renderPlayer(entry){
     } catch (e) {
       stat.textContent = 'No se pudo acceder al micrófono: ' + ((e && e.message) || e);
     }
+  };
+
+  // Análisis con IA de la interpretación escrita (usa la misma clave que el resto de VideoNote)
+  function keyGet(){ try{ return localStorage.getItem('vn_oai') || ''; }catch(e){ return ''; } }
+  async function gptChat(messages, opts){
+    const key = keyGet();
+    if (!key) throw new Error('Falta la clave de OpenAI (cargala en Video Note, pestaña Fondos → Crear con IA).');
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + key, 'content-type': 'application/json' },
+      body: JSON.stringify({ model: (opts && opts.model) || 'gpt-4o', temperature: (opts && opts.temperature != null) ? opts.temperature : 0.4, messages }),
+    });
+    if (!r.ok) { let m=''; try{ const j=await r.json(); m=(j.error&&j.error.message)||''; }catch(e){} throw new Error('OpenAI ' + r.status + (m ? ' · ' + m : '')); }
+    const d = await r.json();
+    return (d.choices[0].message.content || '').trim();
+  }
+  $('oiAiBtn').onclick = async () => {
+    const out = $('oiAiOut');
+    const txt = $('oiOpenText').value.trim();
+    if (!txt) { out.style.display = 'block'; out.textContent = 'Escribí algo primero (la transcripción del audio grabado no está conectada todavía).'; return; }
+    out.style.display = 'block'; out.textContent = 'Analizando…';
+    try {
+      const res = await gptChat([
+        { role: 'system', content: 'Analizá brevemente (2-3 frases) qué está interpretando esta persona sobre un fragmento de video que acaba de ver, en base a lo que escribió. No opines vos, solo resumí su interpretación con tus palabras.' },
+        { role: 'user', content: txt },
+      ]);
+      out.textContent = res;
+    } catch (e) {
+      out.textContent = 'No se pudo analizar: ' + ((e && e.message) || e);
+    }
+  };
+
+  // Comparar grupos — SIMULADO: no hay votantes reales, se genera una curva
+  // creíble a partir de una semilla determinada por los filtros elegidos.
+  function seededRand(seed){ let s = seed; return () => { s = (s*9301+49297) % 233280; return s/233280; }; }
+  function genGroupCurve(seed, bias){
+    const N = 60; const r = seededRand(seed); let v = 0; const out = [];
+    for (let i=0;i<N;i++){ v += (r()-0.5)*18 + bias; v = Math.max(-100, Math.min(100, v*0.85)); out.push(Math.round(v)); }
+    return out;
+  }
+  function groupSeed(g){ return 50 + (g.sexo||'').length*5 + (g.edad||'').length*7 + (g.zona||'').length*11; }
+  function groupBias(g){
+    return (g.sexo==='Mujeres'?4:g.sexo==='Hombres'?-3:0)
+      + (g.edad==='Menos de 30'?-3:g.edad==='50 o más'?5:0)
+      + (g.zona==='CABA'?2:g.zona==='Provincia de Buenos Aires'?-2:0);
+  }
+  function groupLabel(g, fallback){
+    const parts = [g.sexo, g.edad, g.zona].filter(Boolean);
+    return parts.length ? parts.join(', ') : fallback;
+  }
+  function tintFor(curve){
+    const avg = curve.reduce((a,b)=>a+b,0)/curve.length;
+    if (Math.abs(avg) < 8) return 'var(--field)';
+    const a = Math.min(.5, Math.abs(avg)/100*.55);
+    return avg > 0 ? `rgba(15,122,82,${a})` : `rgba(161,29,46,${a})`;
+  }
+
+  const zeroZonePlugin = {
+    id: 'oiZeroZone',
+    beforeDatasetsDraw(c){
+      const { ctx, chartArea: { left, right, top, bottom }, scales: { y } } = c;
+      const zeroY = y.getPixelForValue(0);
+      ctx.save();
+      ctx.fillStyle = 'rgba(15,122,82,0.08)'; ctx.fillRect(left, top, right-left, zeroY-top);
+      ctx.fillStyle = 'rgba(161,29,46,0.08)'; ctx.fillRect(left, zeroY, right-left, bottom-zeroY);
+      ctx.strokeStyle = '#9aa0a6'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(left, zeroY); ctx.lineTo(right, zeroY); ctx.stroke();
+      ctx.restore();
+    }
+  };
+  const compareChart = new Chart($('oiCompareChart').getContext('2d'), {
+    type: 'line', plugins: [zeroZonePlugin],
+    data: { labels: Array.from({length:60},(_,i)=>i), datasets: [
+      { data: [], borderColor: '#2a78d6', borderWidth: 2, pointRadius: 0, tension: .3 },
+      { data: [], borderColor: '#6250d6', borderWidth: 2, pointRadius: 0, tension: .3 },
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { y: { min: -100, max: 100, ticks: { color: '#9aa0a6' }, grid: { color: '#e6e6e6' } }, x: { display: false } } },
+  });
+  function readGroup(prefix){
+    return { sexo: $(prefix+'Sexo').value, edad: $(prefix+'Edad').value, zona: $(prefix+'Zona').value };
+  }
+  function updateCompare(){
+    const gA = readGroup('ga'), gB = readGroup('gb');
+    const curveA = genGroupCurve(groupSeed(gA), groupBias(gA));
+    const curveB = genGroupCurve(groupSeed(gB)+1, groupBias(gB));
+    compareChart.data.datasets[0].data = curveA;
+    compareChart.data.datasets[1].data = curveB;
+    compareChart.update();
+    $('oiALabel').textContent = groupLabel(gA, 'Grupo A (todos)');
+    $('oiBLabel').textContent = groupLabel(gB, 'Grupo B (todos)');
+    $('oiTintA').style.background = tintFor(curveA);
+    $('oiTintB').style.background = tintFor(curveB);
+  }
+  ['gaSexo','gaEdad','gaZona','gbSexo','gbEdad','gbZona'].forEach(id => $(id).addEventListener('change', updateCompare));
+  updateCompare();
+
+  function applyGroupToSelects(prefix, g){
+    if (g.sexo) $(prefix+'Sexo').value = g.sexo;
+    if (g.edad) $(prefix+'Edad').value = g.edad;
+    if (g.zona) $(prefix+'Zona').value = g.zona;
+  }
+  function naiveParse(text){
+    const t = (text||'').toLowerCase();
+    const sexo = /mujer/.test(t) ? 'Mujeres' : /hombre/.test(t) ? 'Hombres' : '';
+    const edad = /menos de 30|-30\b|18-29/.test(t) ? 'Menos de 30' : /50/.test(t) ? '50 o más' : '';
+    const zona = /provincia|pba|gba/.test(t) ? 'Provincia de Buenos Aires' : /caba/.test(t) ? 'CABA' : '';
+    return { sexo, edad, zona };
+  }
+  $('oiAskBtn').onclick = async () => {
+    const q = $('oiAskInput').value.trim() || $('oiAskInput').placeholder;
+    const stat = $('oiCompareStat');
+    stat.textContent = 'Interpretando la pregunta…';
+    let a = {}, b = {};
+    try {
+      const out = await gptChat([
+        { role: 'system', content: 'Extraé de la pregunta del usuario dos grupos demográficos a comparar (Grupo A y Grupo B), con sexo, edad y ubicación si están presentes. Respondé SOLO JSON, sin texto adicional, con esta forma exacta: {"a":{"sexo":"","edad":"","zona":""},"b":{"sexo":"","edad":"","zona":""}}. Los valores de sexo deben ser "Mujeres" o "Hombres" o vacío. Edad debe ser "Menos de 30", "30-49", "50 o más" o vacío. Zona debe ser "CABA", "Provincia de Buenos Aires", "Interior" o vacío.' },
+        { role: 'user', content: q },
+      ], { temperature: 0 });
+      const parsed = JSON.parse(out.replace(/```json|```/g, '').trim());
+      a = parsed.a || {}; b = parsed.b || {};
+      stat.textContent = 'Grupos armados con IA a partir de tu pregunta.';
+    } catch (e) {
+      const [partA, partB] = q.split(/\bcon\b/i);
+      a = naiveParse(partA); b = naiveParse(partB || 'hombres');
+      stat.textContent = 'No se pudo usar IA (' + ((e && e.message) || e) + ') — usé un parseo simple de respaldo.';
+    }
+    applyGroupToSelects('ga', a);
+    applyGroupToSelects('gb', b);
+    updateCompare();
   };
 }
 

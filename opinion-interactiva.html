@@ -339,7 +339,9 @@ function renderEmpty(){
       stStat('Video traído ✓ ('+(blob.size/1048576).toFixed(1)+' MB).','ok');
       fileReady(file);
     }catch(e){
-      let msg=(e&&e.name==='AbortError') ? 'el servidor tardó demasiado' : ((e&&e.message)||e);
+      let msg=(e&&e.name==='AbortError') ? 'el servidor tardó demasiado en responder' : ((e&&e.message)||e);
+      if(/Failed to fetch|NetworkError|load failed/i.test(String(msg)))
+        msg='se cortó la conexión con el servidor — probá de nuevo, o subí el archivo directamente con "Seleccionar archivo"';
       stStat('No se pudo traer el video: '+msg+'.','err');
     }
     $('stXBtn').disabled = false;

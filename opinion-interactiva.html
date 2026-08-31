@@ -101,6 +101,7 @@ canvas{width:100%;display:block;border-radius:6px}
 
 .cumWrap{display:none;flex-direction:column;align-items:center;gap:4px;margin-top:8px}
 .cumWrap.on{display:flex}
+.cumTag{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
 .cumPct{font-family:Georgia,serif;font-size:26px;font-weight:700;line-height:1;color:#d6493a}
 .cumLabel{font-family:var(--ui);font-size:10.5px;font-weight:600;color:var(--dim)}
 .cumBarTrack{width:26px;height:80px;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;background:var(--field);margin-top:4px}
@@ -462,11 +463,13 @@ function renderPlayer(entry){
       <div style="display:flex;gap:8px;align-items:stretch">
         <div id="oiVuLeftWrap" style="display:none;flex-direction:column;align-items:center;gap:4px">
           <span class="hint" id="oiVuLeftLabel" style="font-weight:600;white-space:nowrap"></span>
+          <div class="cumTag">ahora</div>
           <div class="vu" id="oiVuLeft">
             <div class="vuCol"><span class="vuPct" id="vuLNegPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-neg" id="vuLNegFill"></div></div></div>
             <div class="vuCol"><span class="vuPct" id="vuLPosPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-pos" id="vuLPosFill"></div></div></div>
           </div>
           <div class="cumWrap" id="cumWrapL">
+            <div class="cumTag">acumulado desde el inicio</div>
             <div class="cumPct" id="cumPctL">50%</div>
             <div class="cumLabel" id="cumLabelL">negativos</div>
             <div class="cumBarTrack"><div class="cumBarNeg" id="cumNegL"></div><div class="cumBarPos" id="cumPosL"></div></div>
@@ -479,11 +482,13 @@ function renderPlayer(entry){
         </div>
         <div id="oiVuRightWrap" style="display:flex;flex-direction:column;align-items:center;gap:4px">
           <span class="hint" id="oiVuRightLabel" style="font-weight:600;white-space:nowrap"></span>
+          <div class="cumTag">ahora</div>
           <div class="vu" id="oiVuRight">
             <div class="vuCol"><span class="vuPct" id="vuRNegPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-neg" id="vuRNegFill"></div></div></div>
             <div class="vuCol"><span class="vuPct" id="vuRPosPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-pos" id="vuRPosFill"></div></div></div>
           </div>
           <div class="cumWrap" id="cumWrapR">
+            <div class="cumTag">acumulado desde el inicio</div>
             <div class="cumPct" id="cumPctR">50%</div>
             <div class="cumLabel" id="cumLabelR">negativos</div>
             <div class="cumBarTrack"><div class="cumBarNeg" id="cumNegR"></div><div class="cumBarPos" id="cumPosR"></div></div>
@@ -534,15 +539,25 @@ function renderPlayer(entry){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div style="border:1px solid var(--line);border-radius:6px;padding:8px">
             <div class="hint" style="color:#2a78d6;font-weight:600;margin-bottom:6px">Grupo A</div>
-            <select id="gaSexo" style="width:100%;margin-bottom:6px"><option value="">Sexo: todos</option><option>Mujeres</option><option>Hombres</option></select>
-            <select id="gaEdad" style="width:100%;margin-bottom:6px"><option value="">Edad: todas</option><option>Menos de 30</option><option>30-49</option><option>50 o más</option></select>
-            <select id="gaZona" style="width:100%"><option value="">Ubicación: todas</option><option>CABA</option><option>Provincia de Buenos Aires</option><option>Interior</option></select>
+            <label class="hint" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer">
+              <input type="checkbox" id="gaUseYo"> Usar mi reacción (en vez de simular)
+            </label>
+            <div id="gaSelects">
+              <select id="gaSexo" style="width:100%;margin-bottom:6px"><option value="">Sexo: todos</option><option>Mujeres</option><option>Hombres</option></select>
+              <select id="gaEdad" style="width:100%;margin-bottom:6px"><option value="">Edad: todas</option><option>Menos de 30</option><option>30-49</option><option>50 o más</option></select>
+              <select id="gaZona" style="width:100%"><option value="">Ubicación: todas</option><option>CABA</option><option>Provincia de Buenos Aires</option><option>Interior</option></select>
+            </div>
           </div>
           <div id="oiGroupBBox" style="border:1px solid var(--line);border-radius:6px;padding:8px">
             <div class="hint" style="color:#6250d6;font-weight:600;margin-bottom:6px">Grupo B</div>
-            <select id="gbSexo" style="width:100%;margin-bottom:6px"><option value="">Sexo: todos</option><option>Mujeres</option><option>Hombres</option></select>
-            <select id="gbEdad" style="width:100%;margin-bottom:6px"><option value="">Edad: todas</option><option>Menos de 30</option><option>30-49</option><option>50 o más</option></select>
-            <select id="gbZona" style="width:100%"><option value="">Ubicación: todas</option><option>CABA</option><option>Provincia de Buenos Aires</option><option>Interior</option></select>
+            <label class="hint" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer">
+              <input type="checkbox" id="gbUseYo"> Usar mi reacción (en vez de simular)
+            </label>
+            <div id="gbSelects">
+              <select id="gbSexo" style="width:100%;margin-bottom:6px"><option value="">Sexo: todos</option><option>Mujeres</option><option>Hombres</option></select>
+              <select id="gbEdad" style="width:100%;margin-bottom:6px"><option value="">Edad: todas</option><option>Menos de 30</option><option>30-49</option><option>50 o más</option></select>
+              <select id="gbZona" style="width:100%"><option value="">Ubicación: todas</option><option>CABA</option><option>Provincia de Buenos Aires</option><option>Interior</option></select>
+            </div>
           </div>
         </div>
         <label class="hint" style="display:flex;align-items:center;gap:6px;margin-top:10px;cursor:pointer">
@@ -898,8 +913,20 @@ function renderPlayer(entry){
   function readGroup(prefix){
     return { sexo: $(prefix+'Sexo').value, edad: $(prefix+'Edad').value, zona: $(prefix+'Zona').value };
   }
+  function personalAsGroupCurve(){
+    const N = 60; const out = [];
+    for (let i=0;i<N;i++){
+      const t = (i/(N-1)) * (duration || 1);
+      const v = sampleCurveAt(curve, t);
+      out.push({ pos: Math.max(0, v), neg: Math.max(0, -v), v });
+    }
+    return out;
+  }
   function updateCompare(){
     const compareOn = $('oiCompareOn').checked;
+    const gaUseYo = $('gaUseYo').checked, gbUseYo = $('gbUseYo').checked;
+    $('gaSelects').style.display = gaUseYo ? 'none' : '';
+    $('gbSelects').style.display = gbUseYo ? 'none' : '';
     $('oiGroupBBox').style.display = compareOn ? '' : 'none';
     if ($('oiSegsBCol')) $('oiSegsBCol').style.display = compareOn ? '' : 'none';
     if (mode === 'explore') $('oiVuLeftWrap').style.display = compareOn ? 'flex' : 'none';
@@ -907,12 +934,13 @@ function renderPlayer(entry){
     document.getElementById('cumWrapR').classList.toggle('on', mode === 'explore');
 
     const gA = readGroup('ga'), gB = readGroup('gb');
-    curveA = genGroupCurve(groupSeed(gA), groupBias(gA));
-    curveB = genGroupCurve(groupSeed(gB)+1, groupBias(gB));
+    curveA = gaUseYo ? personalAsGroupCurve() : genGroupCurve(groupSeed(gA), groupBias(gA));
+    curveB = gbUseYo ? personalAsGroupCurve() : genGroupCurve(groupSeed(gB)+1, groupBias(gB));
     compareChart.data.datasets[0].data = curveA.map(p => p.v);
     compareChart.data.datasets[1].data = compareOn ? curveB.map(p => p.v) : [];
     compareChart.update();
-    const labelA = groupLabel(gA, 'Grupo A (todos)'), labelB = groupLabel(gB, 'Grupo B (todos)');
+    const labelA = gaUseYo ? 'Vos' : groupLabel(gA, 'Grupo A (todos)');
+    const labelB = gbUseYo ? 'Vos' : groupLabel(gB, 'Grupo B (todos)');
     $('oiCompareTitle').textContent = compareOn ? (labelA + ' vs ' + labelB) : labelA;
     $('oiVuLeftLabel').textContent = labelA;
     $('oiVuLeftLabel').style.color = '#2a78d6';
@@ -931,7 +959,7 @@ function renderPlayer(entry){
       }
     }
   }
-  ['gaSexo','gaEdad','gaZona','gbSexo','gbEdad','gbZona'].forEach(id => $(id).addEventListener('change', updateCompare));
+  ['gaSexo','gaEdad','gaZona','gbSexo','gbEdad','gbZona','gaUseYo','gbUseYo'].forEach(id => $(id).addEventListener('change', updateCompare));
   $('oiCompareOn').addEventListener('change', updateCompare);
   updateCompare();
 
@@ -983,7 +1011,8 @@ function renderPlayer(entry){
     out.textContent = 'Generando…';
     const compareOn = $('oiCompareOn').checked;
     const gA = readGroup('ga'), gB = readGroup('gb');
-    const labelA = groupLabel(gA, 'el grupo A'), labelB = groupLabel(gB, 'el grupo B');
+    const labelA = $('gaUseYo').checked ? 'vos' : groupLabel(gA, 'el grupo A');
+    const labelB = $('gbUseYo').checked ? 'vos' : groupLabel(gB, 'el grupo B');
     const rows = segs.map((s) => {
       const a = segStat(curveA.map((p,j)=>({t:(j/curveA.length)*duration, v:p.v})), s);
       const b = compareOn ? segStat(curveB.map((p,j)=>({t:(j/curveB.length)*duration, v:p.v})), s) : null;

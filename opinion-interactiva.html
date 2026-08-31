@@ -53,13 +53,13 @@ video{width:100%;border-radius:8px;background:#000;display:block}
 .reactRow .yes{color:var(--ok)}
 .reactRow .neu{color:var(--dim)}
 
-.slider{position:relative;height:34px;margin-top:8px;border-radius:17px;
-  background:linear-gradient(90deg, var(--no), var(--panel2) 50%, var(--ok));
-  border:1px solid var(--line);cursor:grab;touch-action:none;user-select:none}
-.slider:active{cursor:grabbing}
-.slider .thumb{position:absolute;top:4px;left:50%;width:26px;height:26px;margin-left:-13px;
-  border-radius:50%;background:#fff;border:2px solid var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.25);
-  pointer-events:none}
+.tapRow{display:flex;gap:12px;margin-top:10px}
+.tapBtn{flex:1;padding:22px 12px;border-radius:12px;border:none;font-family:var(--disp);
+  font-weight:600;font-size:16px;letter-spacing:.03em;text-transform:uppercase;cursor:pointer;
+  color:#fff;transition:transform .08s}
+.tapBtn:active{transform:scale(0.96)}
+.tapBtn-neg{background:var(--no)}
+.tapBtn-pos{background:var(--ok)}
 
 .statLine{text-align:center;margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--dim)}
 .statLine b{color:var(--ink)}
@@ -190,16 +190,12 @@ function renderPlayer(entry){
         <div class="caption" id="oiCaption"></div>
       </div>
       <div class="videoSpacer" id="oiVideoSpacer" hidden></div>
-      <div class="reactRow">
-        <span class="no">No me gusta</span>
-        <span class="neu">Neutral</span>
-        <span class="yes">Me gusta</span>
-      </div>
-      <div class="slider" id="oiSlider">
-        <div class="thumb" id="oiThumb"></div>
+      <div class="hint" style="margin-top:14px">Cada vez que escuches algo que te resulte <b>negativo</b>, apretá el botón rojo. Cuando algo te suene <b>positivo</b>, el verde.</div>
+      <div class="tapRow">
+        <button type="button" class="tapBtn tapBtn-neg" id="oiBtnNeg">No me gusta</button>
+        <button type="button" class="tapBtn tapBtn-pos" id="oiBtnPos">Me gusta</button>
       </div>
       <div class="statLine">Reacción actual: <b id="oiVal">0</b></div>
-      <div class="hint">Arrastrá el control con el mouse o el dedo mientras el video reproduce. Al soltar, vuelve solo a neutral.</div>
 
       <div class="question" id="oiQuestion" hidden>
         <h2>¿Coincidís con lo que dijo?</h2>
@@ -281,8 +277,6 @@ function renderPlayer(entry){
 
   const vid = $('oiVid');
   const caption = $('oiCaption');
-  const track = $('oiSlider');
-  const thumb = $('oiThumb');
   const valLbl = $('oiVal');
   const canvas = $('oiCanvas');
   const ctx = canvas.getContext('2d');
@@ -320,7 +314,6 @@ function renderPlayer(entry){
   let duration = (payload && payload.duration_seconds) || 0;
   let curve = []; // [{t, v}] muestreada mientras reproduce
   let value = 0;  // -100..100
-  let dragging = false;
   let releaseRaf = null;
 
   vid.addEventListener('loadedmetadata', () => {
@@ -329,25 +322,15 @@ function renderPlayer(entry){
     drawCurve();
   });
 
-  function applyThumb(){
-    const pct = (value + 100) / 200; // 0..1
-    thumb.style.left = (pct * 100) + '%';
-    valLbl.textContent = Math.round(value);
-  }
   function setVal(v){
     value = Math.max(-100, Math.min(100, v));
-    applyThumb();
-  }
-  function valueFromClientX(clientX){
-    const r = track.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
-    return Math.round(pct * 200 - 100);
+    valLbl.textContent = Math.round(value);
   }
   function snapToNeutral(){
     if (releaseRaf) cancelAnimationFrame(releaseRaf);
     const start = value;
     const t0 = performance.now();
-    const DUR = 220; // ms, mismo criterio que el prototipo original (RF-13)
+    const DUR = 500; // pulso más largo que el de un drag: acá es todo el gesto, no solo el retorno
     function step(now){
       const p = Math.min(1, (now - t0) / DUR);
       setVal(start * (1 - p));
@@ -355,26 +338,12 @@ function renderPlayer(entry){
     }
     releaseRaf = requestAnimationFrame(step);
   }
-
-  track.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    dragging = true;
-    track.setPointerCapture(e.pointerId);
-    setVal(valueFromClientX(e.clientX));
-  });
-  track.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    e.preventDefault();
-    setVal(valueFromClientX(e.clientX));
-  });
-  function release(){
-    if (!dragging) return;
-    dragging = false;
+  function tap(dir){
+    setVal(dir * 100);
     snapToNeutral();
   }
-  track.addEventListener('pointerup', release);
-  track.addEventListener('pointercancel', release);
-  applyThumb();
+  $('oiBtnNeg').addEventListener('click', () => tap(-1));
+  $('oiBtnPos').addEventListener('click', () => tap(1));
 
   let sampleTimer = null;
   vid.addEventListener('play', () => {

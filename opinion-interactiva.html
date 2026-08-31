@@ -418,24 +418,24 @@ function renderPlayer(entry){
     <div style="text-align:right;margin-bottom:6px">
       <button type="button" class="mini-btn" id="oiClear" style="margin-top:0">↺ Cargar otro video</button>
     </div>
-    <div class="card"><div class="body">
-      <div class="videoRow" id="oiVideoRow">
-        <div class="videoWrap" id="oiVideoWrap">
-          <video id="oiVid" playsinline controls src="${videoUrl}"></video>
-          <div class="caption" id="oiCaption"></div>
+    <div class="videoRow" id="oiVideoRow">
+      <div class="videoWrap" id="oiVideoWrap">
+        <video id="oiVid" playsinline controls src="${videoUrl}"></video>
+        <div class="caption" id="oiCaption"></div>
+      </div>
+      <div class="vu">
+        <div class="vuCol">
+          <span class="vuPct" id="vuNegPct">0%</span>
+          <div class="vuTrack"><div class="vuFill vuFill-neg" id="vuNegFill"></div></div>
         </div>
-        <div class="vu">
-          <div class="vuCol">
-            <span class="vuPct" id="vuNegPct">0%</span>
-            <div class="vuTrack"><div class="vuFill vuFill-neg" id="vuNegFill"></div></div>
-          </div>
-          <div class="vuCol">
-            <span class="vuPct" id="vuPosPct">0%</span>
-            <div class="vuTrack"><div class="vuFill vuFill-pos" id="vuPosFill"></div></div>
-          </div>
+        <div class="vuCol">
+          <span class="vuPct" id="vuPosPct">0%</span>
+          <div class="vuTrack"><div class="vuFill vuFill-pos" id="vuPosFill"></div></div>
         </div>
       </div>
-      <div class="hint" id="oiTapHint" style="margin-top:14px">Cada vez que escuches algo que te resulte <b>negativo</b>, apretá el botón rojo. Cuando algo te suene <b>positivo</b>, el verde.</div>
+    </div>
+    <div class="card"><div class="body">
+      <div class="hint" id="oiTapHint" style="margin-top:0">Cada vez que escuches algo que te resulte <b>negativo</b>, apretá el botón rojo. Cuando algo te suene <b>positivo</b>, el verde.</div>
       <div class="tapRow" id="oiTapRow">
         <button type="button" class="tapBtn tapBtn-neg" id="oiBtnNeg">No me gusta</button>
         <button type="button" class="tapBtn tapBtn-pos" id="oiBtnPos">Me gusta</button>
@@ -619,7 +619,7 @@ function renderPlayer(entry){
     $('vuPosPct').textContent = Math.round(pos) + '%';
   }
   let decayLast = performance.now();
-  const DECAY_HALF_LIFE = 0.25; // segundos: mismo ritmo "orgánico" que la caída de antes
+  const DECAY_HALF_LIFE = 0.35; // segundos, calibrado con clicks reales (150-350ms entre toques)
   function decayLoop(now){
     const dt = (now - decayLast) / 1000;
     decayLast = now;
@@ -632,7 +632,7 @@ function renderPlayer(entry){
     // La caída nunca se detiene (por eso se siente inmediata como antes); cada
     // toque suma encima de lo que quedó. Repiquetear rápido le gana a la caída
     // y sostiene el valor cerca del máximo; al parar, cae solo, sin pausa previa.
-    setVal(Math.max(-100, Math.min(100, value + dir * 40)));
+    setVal(Math.max(-100, Math.min(100, value + dir * 55)));
   }
   $('oiBtnNeg').addEventListener('click', () => tap(-1));
   $('oiBtnPos').addEventListener('click', () => tap(1));

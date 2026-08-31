@@ -419,6 +419,9 @@ function renderPlayer(entry){
   const segs = (payload && payload.segments) || [];
 
   wrap.innerHTML = `
+    <div style="text-align:right;margin-bottom:6px">
+      <button type="button" class="mini-btn" id="oiClear" style="margin-top:0">↺ Cargar otro video</button>
+    </div>
     <div class="card"><div class="body">
       <div class="videoRow" id="oiVideoRow">
         <div class="videoWrap" id="oiVideoWrap">
@@ -555,6 +558,18 @@ function renderPlayer(entry){
   const ctx = canvas.getContext('2d');
   const durLbl = $('oiDurLbl');
 
+  $('oiClear').addEventListener('click', async () => {
+    try {
+      const db = await openDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('oi', 'readwrite');
+        tx.objectStore('oi').delete('current');
+        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+      });
+    } catch (e) {}
+    location.reload();
+  });
+
   // Sticky: al scrollear más allá del video, se achica y se clava debajo del header
   const videoWrap = $('oiVideoRow');
   const spacer = $('oiVideoSpacer');
@@ -631,11 +646,12 @@ function renderPlayer(entry){
     $('vuNegPct').textContent = Math.round(neg) + '%';
     $('vuPosPct').textContent = Math.round(pos) + '%';
   }
-  function snapToNeutral(){
+  let decayTimer = null;
+  function startDecay(){
     if (releaseRaf) cancelAnimationFrame(releaseRaf);
     const start = value;
     const t0 = performance.now();
-    const DUR = 500; // pulso más largo que el de un drag: acá es todo el gesto, no solo el retorno
+    const DUR = 700; // recién cuando dejás de tocar, cae — no en cada toque
     function step(now){
       const p = Math.min(1, (now - t0) / DUR);
       setVal(start * (1 - p));
@@ -644,8 +660,13 @@ function renderPlayer(entry){
     releaseRaf = requestAnimationFrame(step);
   }
   function tap(dir){
-    setVal(dir * 100);
-    snapToNeutral();
+    // Prueba de fuerza: cada toque suma un empujón (no salta directo a 100).
+    // Repiquetear rápido en la misma dirección lo sostiene cerca del máximo;
+    // dejar de tocar un rato es lo único que lo hace caer.
+    if (releaseRaf) cancelAnimationFrame(releaseRaf);
+    if (decayTimer) clearTimeout(decayTimer);
+    setVal(value + dir * 40);
+    decayTimer = setTimeout(startDecay, 450);
   }
   $('oiBtnNeg').addEventListener('click', () => tap(-1));
   $('oiBtnPos').addEventListener('click', () => tap(1));

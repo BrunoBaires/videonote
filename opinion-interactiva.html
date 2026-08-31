@@ -41,10 +41,10 @@ h1 span{color:var(--rojo)}
 .empty a{color:var(--rojo);font-weight:600;text-decoration:none}
 .empty a:hover{text-decoration:underline}
 
-video{max-height:42vh;width:auto;max-width:100%;display:block;margin:0 auto;border-radius:8px;background:#000}
+video{width:100%;display:block;border-radius:8px;background:#000}
 .videoWrap{position:relative}
 .caption{position:absolute;left:6%;right:6%;bottom:9%;text-align:center;
-  font-family:var(--ui);font-weight:600;font-size:clamp(13px,2.4vw,20px);line-height:1.35;
+  font-family:var(--ui);font-weight:600;font-size:clamp(11px,2.4vw,15px);line-height:1.3;
   color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.5);
   pointer-events:none;white-space:pre-wrap}
 
@@ -84,28 +84,24 @@ canvas{width:100%;display:block;border-radius:6px}
 .segBadge-no{background:#fbeced;color:var(--no)}
 .segBadge-none{background:var(--field);color:var(--dim);font-weight:400}
 
-.videoRow{display:flex;gap:10px;align-items:stretch}
+/* Video chico, fijo arriba (sticky) desde el arranque — no gigante que después achica */
+.videoRow{position:sticky;top:60px;z-index:60;display:flex;gap:10px;align-items:stretch;
+  max-width:340px;margin:0 auto 4px;background:var(--panel);padding:6px;border-radius:8px;
+  box-shadow:0 6px 18px rgba(0,0,0,.18)}
 .videoRow .videoWrap{flex:1;min-width:0}
-.videoRow.pinned{position:fixed;top:66px;right:18px;width:min(300px,60vw);z-index:60;
-  border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.28);background:var(--panel);padding:6px}
-.videoSpacer{display:none}
-.videoSpacer.on{display:block}
-.vu{display:flex;gap:8px;flex:0 0 auto}
-.vuCol{display:flex;flex-direction:column;align-items:center;gap:6px;width:30px}
-.vuPct{font-family:var(--mono);font-size:11px;color:var(--dim);font-weight:600}
-.vuTrack{flex:1;width:100%;min-height:70px;background:var(--field);border-radius:8px;
+.vu{display:flex;gap:6px;flex:0 0 auto}
+.vuCol{display:flex;flex-direction:column;align-items:center;gap:4px;width:24px}
+.vuPct{font-family:var(--mono);font-size:9.5px;color:var(--dim);font-weight:600}
+.vuTrack{flex:1;width:100%;min-height:56px;background:var(--field);border-radius:6px;
   display:flex;align-items:flex-end;overflow:hidden}
-.vuFill{width:100%;height:0%;transition:height .09s linear;border-radius:8px}
+.vuFill{width:100%;height:0%;transition:height .09s linear;border-radius:6px}
 .vuFill-neg{background:var(--no)}
 .vuFill-pos{background:var(--ok)}
-.videoRow.pinned .vu{display:none}
+
+.voted{display:none;text-align:center;padding:16px 0}
+.voted.on{display:block}
 
 .question{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
-.qOpts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
-.qOpt{font-family:var(--ui);font-size:12.5px;padding:10px 8px;border-radius:6px;border:1px solid var(--line);
-  background:var(--panel2);color:var(--ink);cursor:pointer;text-align:center}
-.qOpt:hover{background:var(--field)}
-.qOpt.picked{border-color:var(--rojo);background:#fdecec;color:var(--rojo);font-weight:600}
 
 .recRow{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
 .recDot{width:8px;height:8px;border-radius:50%;background:var(--no);display:none}
@@ -439,24 +435,20 @@ function renderPlayer(entry){
           </div>
         </div>
       </div>
-      <div class="videoSpacer" id="oiVideoSpacer" hidden></div>
-      <div class="hint" style="margin-top:14px">Cada vez que escuches algo que te resulte <b>negativo</b>, apretá el botón rojo. Cuando algo te suene <b>positivo</b>, el verde.</div>
-      <div class="tapRow">
+      <div class="hint" id="oiTapHint" style="margin-top:14px">Cada vez que escuches algo que te resulte <b>negativo</b>, apretá el botón rojo. Cuando algo te suene <b>positivo</b>, el verde.</div>
+      <div class="tapRow" id="oiTapRow">
         <button type="button" class="tapBtn tapBtn-neg" id="oiBtnNeg">No me gusta</button>
         <button type="button" class="tapBtn tapBtn-pos" id="oiBtnPos">Me gusta</button>
+      </div>
+      <div class="voted" id="oiVoted">
+        <div class="hint">Ya votaste este video.</div>
+        <button type="button" class="mini-btn" id="oiRevote" style="margin-top:8px">↺ Repetir votación</button>
       </div>
       <div class="statLine">Reacción actual: <b id="oiVal">0</b></div>
 
       <div class="question" id="oiQuestion" hidden>
-        <h2>¿Coincidís con lo que dijo?</h2>
-        <div class="hint" style="margin-bottom:8px">Esto es sobre el contenido de lo que dijo — los hechos, el argumento — no sobre cómo lo dijo, ni sobre la persona.</div>
-        <div class="qOpts">
-          <button type="button" class="qOpt" data-v="acuerdo_total">Totalmente de acuerdo</button>
-          <button type="button" class="qOpt" data-v="acuerdo_parcial">Parcialmente de acuerdo</button>
-          <button type="button" class="qOpt" data-v="desacuerdo_parcial">Parcialmente en desacuerdo</button>
-          <button type="button" class="qOpt" data-v="desacuerdo_total">Totalmente en desacuerdo</button>
-        </div>
-        <div class="hint" style="margin-top:12px">¿Por qué reaccionaste así? Escribilo o grabá un audio.</div>
+        <h2>¿Por qué reaccionaste así?</h2>
+        <div class="hint" style="margin-bottom:8px">Opcional — escribilo o grabá un audio.</div>
         <textarea id="oiOpenText" placeholder="Escribí tu interpretación acá…" style="width:100%;min-height:60px;margin-top:6px;font-family:var(--ui);padding:8px;border:1px solid var(--line);border-radius:6px"></textarea>
         <div class="recRow">
           <button type="button" class="mini-btn" id="oiRecBtn">🎙 Grabar audio</button>
@@ -527,6 +519,8 @@ function renderPlayer(entry){
         </div>
       </div>
       <div class="hint" style="margin-top:6px">Pican en vivo mientras el video reproduce, con la reacción simulada de cada grupo en ese instante.</div>
+      <div class="statLine" id="oiCompareTitle" style="text-align:left;font-weight:600;margin-top:10px"></div>
+      <div class="hint" style="margin-top:2px">La línea vertical sigue al video. Clickeá el gráfico para saltar a ese punto.</div>
       <div style="position:relative;height:190px;margin-top:6px">
         <canvas id="oiCompareChart"></canvas>
       </div>
@@ -558,32 +552,10 @@ function renderPlayer(entry){
   const ctx = canvas.getContext('2d');
   const durLbl = $('oiDurLbl');
 
-  $('oiClear').addEventListener('click', async () => {
-    try {
-      const db = await openDB();
-      await new Promise((resolve, reject) => {
-        const tx = db.transaction('oi', 'readwrite');
-        tx.objectStore('oi').delete('current');
-        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
-      });
-    } catch (e) {}
-    location.reload();
+  $('oiClear').addEventListener('click', () => {
+    try { indexedDB.deleteDatabase('vnHandoff'); } catch (e) {}
+    location.href = location.pathname + '?nuevo=1';
   });
-
-  // Sticky: al scrollear más allá del video, se achica y se clava debajo del header
-  const videoWrap = $('oiVideoRow');
-  const spacer = $('oiVideoSpacer');
-  const sentinel = document.createElement('div');
-  videoWrap.parentNode.insertBefore(sentinel, videoWrap);
-  let naturalHeight = 0;
-  vid.addEventListener('loadedmetadata', () => { naturalHeight = videoWrap.getBoundingClientRect().height; });
-  new IntersectionObserver(([entry]) => {
-    const pin = !entry.isIntersecting && entry.boundingClientRect.top < 0;
-    if (pin && naturalHeight) spacer.style.height = naturalHeight + 'px';
-    videoWrap.classList.toggle('pinned', pin);
-    spacer.hidden = !pin;
-    spacer.classList.toggle('on', pin);
-  }, { threshold: 0 }).observe(sentinel);
 
   function sampleGroupAt(curveArr, t){
     if (!curveArr.length || !duration) return 0;
@@ -646,27 +618,21 @@ function renderPlayer(entry){
     $('vuNegPct').textContent = Math.round(neg) + '%';
     $('vuPosPct').textContent = Math.round(pos) + '%';
   }
-  let decayTimer = null;
-  function startDecay(){
-    if (releaseRaf) cancelAnimationFrame(releaseRaf);
-    const start = value;
-    const t0 = performance.now();
-    const DUR = 700; // recién cuando dejás de tocar, cae — no en cada toque
-    function step(now){
-      const p = Math.min(1, (now - t0) / DUR);
-      setVal(start * (1 - p));
-      if (p < 1) releaseRaf = requestAnimationFrame(step);
-    }
-    releaseRaf = requestAnimationFrame(step);
+  let decayLast = performance.now();
+  const DECAY_HALF_LIFE = 0.25; // segundos: mismo ritmo "orgánico" que la caída de antes
+  function decayLoop(now){
+    const dt = (now - decayLast) / 1000;
+    decayLast = now;
+    if (Math.abs(value) > 0.5) setVal(value * Math.pow(0.5, dt / DECAY_HALF_LIFE));
+    else if (value !== 0) setVal(0);
+    releaseRaf = requestAnimationFrame(decayLoop);
   }
+  releaseRaf = requestAnimationFrame(decayLoop);
   function tap(dir){
-    // Prueba de fuerza: cada toque suma un empujón (no salta directo a 100).
-    // Repiquetear rápido en la misma dirección lo sostiene cerca del máximo;
-    // dejar de tocar un rato es lo único que lo hace caer.
-    if (releaseRaf) cancelAnimationFrame(releaseRaf);
-    if (decayTimer) clearTimeout(decayTimer);
-    setVal(value + dir * 40);
-    decayTimer = setTimeout(startDecay, 450);
+    // La caída nunca se detiene (por eso se siente inmediata como antes); cada
+    // toque suma encima de lo que quedó. Repiquetear rápido le gana a la caída
+    // y sostiene el valor cerca del máximo; al parar, cae solo, sin pausa previa.
+    setVal(Math.max(-100, Math.min(100, value + dir * 40)));
   }
   $('oiBtnNeg').addEventListener('click', () => tap(-1));
   $('oiBtnPos').addEventListener('click', () => tap(1));
@@ -686,6 +652,21 @@ function renderPlayer(entry){
   vid.addEventListener('ended', () => {
     if (sampleTimer) clearInterval(sampleTimer);
     $('oiQuestion').hidden = false;
+    $('oiTapRow').hidden = true;
+    $('oiTapHint').hidden = true;
+    $('oiVoted').classList.add('on');
+  });
+  $('oiRevote').addEventListener('click', () => {
+    curve = [];
+    setVal(0);
+    drawCurve();
+    renderSegList();
+    $('oiTapRow').hidden = false;
+    $('oiTapHint').hidden = false;
+    $('oiVoted').classList.remove('on');
+    $('oiQuestion').hidden = true;
+    vid.currentTime = 0;
+    vid.play();
   });
 
   function drawCurve(){
@@ -730,7 +711,7 @@ function renderPlayer(entry){
 
   $('oiReset').onclick = () => { curve = []; drawCurve(); };
   $('oiExport').onclick = () => {
-    const blob = new Blob([JSON.stringify({ video_id: payload && payload.video_id, agreement: agreementPick, curve }, null, 2)], {type:'application/json'});
+    const blob = new Blob([JSON.stringify({ video_id: payload && payload.video_id, curve }, null, 2)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'curva-reaccion.json'; a.style.display='none';
     document.body.appendChild(a); a.click();
@@ -770,16 +751,6 @@ function renderPlayer(entry){
     renderSegList();
     wireSegList($('oiSegs'));
   }
-
-  // Pregunta final (una sola vez, al terminar el video — no en vivo)
-  let agreementPick = null;
-  document.querySelectorAll('.qOpt').forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll('.qOpt').forEach(b => b.classList.remove('picked'));
-      btn.classList.add('picked');
-      agreementPick = btn.dataset.v;
-    };
-  });
 
   // Grabador de interpretación abierta (mic)
   let mediaRecorder = null, recChunks = [], recStream = null;
@@ -881,15 +852,40 @@ function renderPlayer(entry){
       ctx.restore();
     }
   };
+  const playheadPlugin = {
+    id: 'oiPlayhead',
+    afterDatasetsDraw(c){
+      if (!duration) return;
+      const { ctx, chartArea: { top, bottom }, scales: { x } } = c;
+      const idx = (vid.currentTime / duration) * (x.max || 59);
+      const px = x.getPixelForValue(idx);
+      ctx.save();
+      ctx.strokeStyle = '#eb6834'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
+      ctx.restore();
+    }
+  };
   const compareChart = new Chart($('oiCompareChart').getContext('2d'), {
-    type: 'line', plugins: [zeroZonePlugin],
+    type: 'line', plugins: [zeroZonePlugin, playheadPlugin],
     data: { labels: Array.from({length:60},(_,i)=>i), datasets: [
       { data: [], borderColor: '#2a78d6', borderWidth: 2, pointRadius: 0, tension: .3 },
       { data: [], borderColor: '#6250d6', borderWidth: 2, pointRadius: 0, tension: .3 },
     ]},
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-      scales: { y: { min: -100, max: 100, ticks: { color: '#9aa0a6' }, grid: { color: '#e6e6e6' } }, x: { display: false } } },
+      scales: { y: { min: -100, max: 100, ticks: { color: '#9aa0a6' }, grid: { color: '#e6e6e6' } }, x: { display: false } },
+      onClick(evt){
+        if (!duration) return;
+        const pos = Chart.helpers.getRelativePosition(evt, compareChart);
+        const idx = compareChart.scales.x.getValueForPixel(pos.x);
+        const t = Math.max(0, Math.min(duration, (idx / 59) * duration));
+        vid.currentTime = t;
+        vid.play();
+      },
+    },
   });
+  // la línea testigo se redibuja sola con cada timeupdate (más abajo ya se llama compareChart.update())
+  vid.addEventListener('timeupdate', () => { if (compareChart) compareChart.update('none'); });
+
   function readGroup(prefix){
     return { sexo: $(prefix+'Sexo').value, edad: $(prefix+'Edad').value, zona: $(prefix+'Zona').value };
   }
@@ -900,8 +896,10 @@ function renderPlayer(entry){
     compareChart.data.datasets[0].data = curveA;
     compareChart.data.datasets[1].data = curveB;
     compareChart.update();
-    $('oiALabel').textContent = groupLabel(gA, 'Grupo A (todos)');
-    $('oiBLabel').textContent = groupLabel(gB, 'Grupo B (todos)');
+    const labelA = groupLabel(gA, 'Grupo A (todos)'), labelB = groupLabel(gB, 'Grupo B (todos)');
+    $('oiALabel').textContent = labelA;
+    $('oiBLabel').textContent = labelB;
+    $('oiCompareTitle').textContent = labelA + ' vs ' + labelB;
     $('oiTintA').style.background = tintFor(curveA);
     $('oiTintB').style.background = tintFor(curveB);
     if (segs.length && $('oiSegsA')) {
@@ -963,14 +961,19 @@ function renderError(err){
     </div></div>`;
 }
 
-loadHandoff().then(entry => {
-  if (!entry || !entry.videoBlob) { renderEmpty(); return; }
-  try {
-    renderPlayer(entry);
-  } catch (err) {
-    renderError(err);
-  }
-}).catch(err => renderError(err));
+const forzarNuevo = new URLSearchParams(location.search).has('nuevo');
+if (forzarNuevo) {
+  renderEmpty();
+} else {
+  loadHandoff().then(entry => {
+    if (!entry || !entry.videoBlob) { renderEmpty(); return; }
+    try {
+      renderPlayer(entry);
+    } catch (err) {
+      renderError(err);
+    }
+  }).catch(err => renderError(err));
+}
 </script>
 </body>
 </html>

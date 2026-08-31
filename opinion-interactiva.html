@@ -86,7 +86,7 @@ canvas{width:100%;display:block;border-radius:6px}
 
 /* Video chico, SIEMPRE fijo arriba — fixed, no sticky, para que no dependa de layout */
 .videoRow{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:60;
-  display:flex;gap:10px;align-items:stretch;width:min(340px,92vw);
+  display:flex;gap:8px;align-items:stretch;width:min(420px,94vw);
   background:var(--panel);padding:6px;border-radius:8px;
   box-shadow:0 6px 18px rgba(0,0,0,.18)}
 .videoRowSpacer{width:100%}
@@ -103,8 +103,18 @@ canvas{width:100%;display:block;border-radius:6px}
 .voted{display:none;text-align:center;padding:16px 0}
 .voted.on{display:block}
 
-.bigPlay{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
-.bigPlay video{width:100%;display:block;border-radius:8px;background:#000}
+.modeToggle{display:flex;gap:8px;margin-bottom:10px}
+.modeBtn{flex:1;font-family:var(--ui);font-size:12.5px;padding:9px 10px;border-radius:8px;
+  border:1px solid var(--line);background:var(--panel2);color:var(--dim);cursor:pointer}
+.modeBtn.on{background:var(--panel);color:var(--ink);border-color:var(--rojo);font-weight:600}
+
+.report{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.report summary{padding:10px 12px;font-family:var(--ui);font-size:13px;font-weight:600;cursor:pointer;
+  list-style:none;display:flex;justify-content:space-between;align-items:center;background:var(--panel2)}
+.report summary::-webkit-details-marker{display:none}
+.report .body{padding:12px;font-size:13.5px;line-height:1.65;color:var(--ink)}
+.report a{color:var(--rojo);text-decoration:none;font-weight:600}
+.report a:hover{text-decoration:underline}
 
 .question{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
 
@@ -420,191 +430,128 @@ function renderPlayer(entry){
   const segs = (payload && payload.segments) || [];
 
   wrap.innerHTML = `
-    <div class="bigPlay" id="oiBigPlay" hidden>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div class="hint" id="oiBigTitle" style="font-weight:600;color:var(--ink)"></div>
-        <button type="button" class="mini-btn" id="oiBigClose" style="margin-top:0">✕ Cerrar</button>
-      </div>
-      <div style="display:flex;gap:10px;align-items:stretch">
-        <div class="vu" id="oiBigLeft" style="transform:scale(1.15);transform-origin:right center">
-          <div class="vuCol"><span class="vuPct" id="bigLNegPct">0%</span><div class="vuTrack" style="min-height:140px"><div class="vuFill vuFill-neg" id="bigLNegFill"></div></div></div>
-          <div class="vuCol"><span class="vuPct" id="bigLPosPct">0%</span><div class="vuTrack" style="min-height:140px"><div class="vuFill vuFill-pos" id="bigLPosFill"></div></div></div>
-        </div>
-        <div class="videoWrap" id="oiBigVideoWrap" style="flex:1;min-width:0"></div>
-        <div class="vu" id="oiBigRight" style="transform:scale(1.15);transform-origin:left center">
-          <div class="vuCol"><span class="vuPct" id="bigRNegPct">0%</span><div class="vuTrack" style="min-height:140px"><div class="vuFill vuFill-neg" id="bigRNegFill"></div></div></div>
-          <div class="vuCol"><span class="vuPct" id="bigRPosPct">0%</span><div class="vuTrack" style="min-height:140px"><div class="vuFill vuFill-pos" id="bigRPosFill"></div></div></div>
-        </div>
-      </div>
-    </div>
     <div style="text-align:right;margin-bottom:6px">
       <button type="button" class="mini-btn" id="oiClear" style="margin-top:0">↺ Cargar otro video</button>
     </div>
+
+    <div class="modeToggle">
+      <button type="button" class="modeBtn on" id="oiModeVote">Estoy votando</button>
+      <button type="button" class="modeBtn" id="oiModeExplore">Explorando resultados</button>
+    </div>
+
     <div class="videoRow" id="oiVideoRow">
+      <div class="vu" id="oiVuLeft" style="display:none">
+        <div class="vuCol"><span class="vuPct" id="vuLNegPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-neg" id="vuLNegFill"></div></div></div>
+        <div class="vuCol"><span class="vuPct" id="vuLPosPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-pos" id="vuLPosFill"></div></div></div>
+      </div>
       <div class="videoWrap" id="oiVideoWrap">
         <video id="oiVid" playsinline controls src="${videoUrl}"></video>
         <div class="caption" id="oiCaption"></div>
       </div>
-      <div class="vu">
-        <div class="vuCol">
-          <span class="vuPct" id="vuNegPct">0%</span>
-          <div class="vuTrack"><div class="vuFill vuFill-neg" id="vuNegFill"></div></div>
-        </div>
-        <div class="vuCol">
-          <span class="vuPct" id="vuPosPct">0%</span>
-          <div class="vuTrack"><div class="vuFill vuFill-pos" id="vuPosFill"></div></div>
-        </div>
+      <div class="vu" id="oiVuRight">
+        <div class="vuCol"><span class="vuPct" id="vuRNegPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-neg" id="vuRNegFill"></div></div></div>
+        <div class="vuCol"><span class="vuPct" id="vuRPosPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-pos" id="vuRPosFill"></div></div></div>
       </div>
     </div>
     <div class="videoRowSpacer" id="oiVideoSpacer"></div>
-    <div class="card"><div class="body">
-      <div class="hint" id="oiTapHint" style="margin-top:0">Cada vez que escuches algo que te resulte <b>negativo</b>, apretá el botón rojo. Cuando algo te suene <b>positivo</b>, el verde.</div>
-      <div class="tapRow" id="oiTapRow">
-        <button type="button" class="tapBtn tapBtn-neg" id="oiBtnNeg">No me gusta</button>
-        <button type="button" class="tapBtn tapBtn-pos" id="oiBtnPos">Me gusta</button>
-      </div>
-      <div class="voted" id="oiVoted">
-        <div class="hint">Ya votaste este video.</div>
-        <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
-          <button type="button" class="mini-btn" id="oiRevote">↺ Repetir votación</button>
-          <button type="button" class="mini-btn" id="oiWatchBack">▶ Ver mis reacciones</button>
+    <div class="hint" id="oiVuCaption" style="text-align:center;margin-bottom:14px"></div>
+
+    <div id="oiPaneVote">
+      <div class="card"><div class="body">
+        <div class="hint" id="oiTapHint">Cada vez que escuches algo que te resulte <b>negativo</b>, apretá el botón rojo. Cuando algo te suene <b>positivo</b>, el verde.</div>
+        <div class="tapRow" id="oiTapRow">
+          <button type="button" class="tapBtn tapBtn-neg" id="oiBtnNeg">No me gusta</button>
+          <button type="button" class="tapBtn tapBtn-pos" id="oiBtnPos">Me gusta</button>
         </div>
-      </div>
-      <div class="statLine">Reacción actual: <b id="oiVal">0</b></div>
-
-    </div></div>
-
-    <div class="card"><div class="body">
-      <h2>Tu curva de reacción</h2>
-      <div class="hint" style="margin-bottom:8px">Verde = aprobación, rojo = rechazo. Se arma en vivo mientras mirás el video.</div>
-      <button type="button" class="mini-btn" id="oiPlayFromCurve" style="margin-bottom:8px">▶ Reproducir</button>
-      <canvas id="oiCanvas" width="760" height="220"></canvas>
-      <div class="axis"><span>0:00</span><span id="oiDurLbl">0:00</span></div>
-      <div class="actions">
-        <button type="button" class="mini-btn" id="oiReset">↺ Reiniciar curva</button>
-        <button type="button" class="mini-btn" id="oiExport">Descargar curva (.json)</button>
-      </div>
-    </div></div>
-
-    ${segs.length ? `
-    <div class="card"><div class="body">
-      <h2>Frases a las que reaccionaste</h2>
-      <div class="segList" id="oiSegs"></div>
-    </div></div>` : ''}
-
-    <div class="card"><div class="body">
-      <h2>Comparar grupos <span style="color:var(--dim);font-weight:400">— simulado, sin votantes reales todavía</span></h2>
-      <div class="hint" style="margin-bottom:10px">Los datos de esta sección son inventados para mostrar cómo se vería el producto con votantes reales.</div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
-        <div style="border:1px solid var(--line);border-radius:6px;padding:8px">
-          <div class="hint" style="color:#2a78d6;font-weight:600;margin-bottom:6px">Grupo A</div>
-          <select id="gaSexo" style="width:100%;margin-bottom:6px"><option value="">Sexo: todos</option><option>Mujeres</option><option>Hombres</option></select>
-          <select id="gaEdad" style="width:100%;margin-bottom:6px"><option value="">Edad: todas</option><option>Menos de 30</option><option>30-49</option><option>50 o más</option></select>
-          <select id="gaZona" style="width:100%"><option value="">Ubicación: todas</option><option>CABA</option><option>Provincia de Buenos Aires</option><option>Interior</option></select>
+        <div class="voted" id="oiVoted">
+          <div class="hint">Ya votaste este video.</div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+            <button type="button" class="mini-btn" id="oiRevote">↺ Repetir votación</button>
+            <button type="button" class="mini-btn" id="oiWatchBack">▶ Ver mis reacciones</button>
+          </div>
         </div>
-        <div style="border:1px solid var(--line);border-radius:6px;padding:8px">
-          <div class="hint" style="color:#6250d6;font-weight:600;margin-bottom:6px">Grupo B</div>
-          <select id="gbSexo" style="width:100%;margin-bottom:6px"><option value="">Sexo: todos</option><option>Mujeres</option><option>Hombres</option></select>
-          <select id="gbEdad" style="width:100%;margin-bottom:6px"><option value="">Edad: todas</option><option>Menos de 30</option><option>30-49</option><option>50 o más</option></select>
-          <select id="gbZona" style="width:100%"><option value="">Ubicación: todas</option><option>CABA</option><option>Provincia de Buenos Aires</option><option>Interior</option></select>
-        </div>
-      </div>
-
-      <div style="display:flex;align-items:center;gap:10px;margin-top:14px">
-        <div class="statLine" id="oiCompareTitle" style="text-align:left;font-weight:600;margin:0"></div>
-        <button type="button" class="mini-btn" id="oiCompareWatch" style="margin-top:0">▶ Ver</button>
-      </div>
-      <div class="hint" style="margin-top:2px">La línea vertical sigue al video. Arrastrala (o clickeá) para saltar a ese punto.</div>
-      <div style="position:relative;height:190px;margin-top:6px">
-        <canvas id="oiCompareChart"></canvas>
-      </div>
-      <div style="display:flex;gap:16px;margin-top:10px;align-items:center">
-        <span class="hint">Vista previa del teñido:</span>
-        <span id="oiTintA" style="width:60px;height:24px;border-radius:6px;background:var(--field)"></span>
-        <span id="oiTintB" style="width:60px;height:24px;border-radius:6px;background:var(--field)"></span>
-      </div>
-      <div class="hint" id="oiCompareStat" style="margin-top:8px"></div>
+        <div class="statLine">Reacción actual: <b id="oiVal">0</b></div>
+      </div></div>
 
       ${segs.length ? `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
-        <div>
-          <div class="hint" style="color:#2a78d6;font-weight:600;margin-bottom:4px">Frases — Grupo A</div>
-          <div class="segList" id="oiSegsA"></div>
+      <div class="card"><div class="body">
+        <h2>Frases a las que reaccionaste</h2>
+        <div class="segList" id="oiSegs"></div>
+      </div></div>` : ''}
+    </div>
+
+    <div id="oiPaneExplore" style="display:none">
+      <div class="card"><div class="body">
+        <h2>Comparar grupos <span style="color:var(--dim);font-weight:400">— simulado, sin votantes reales todavía</span></h2>
+        <div class="hint" style="margin-bottom:10px">Los datos de esta sección son inventados para mostrar cómo se vería el producto con votantes reales.</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="border:1px solid var(--line);border-radius:6px;padding:8px">
+            <div class="hint" style="color:#2a78d6;font-weight:600;margin-bottom:6px">Grupo A</div>
+            <select id="gaSexo" style="width:100%;margin-bottom:6px"><option value="">Sexo: todos</option><option>Mujeres</option><option>Hombres</option></select>
+            <select id="gaEdad" style="width:100%;margin-bottom:6px"><option value="">Edad: todas</option><option>Menos de 30</option><option>30-49</option><option>50 o más</option></select>
+            <select id="gaZona" style="width:100%"><option value="">Ubicación: todas</option><option>CABA</option><option>Provincia de Buenos Aires</option><option>Interior</option></select>
+          </div>
+          <div id="oiGroupBBox" style="border:1px solid var(--line);border-radius:6px;padding:8px">
+            <div class="hint" style="color:#6250d6;font-weight:600;margin-bottom:6px">Grupo B</div>
+            <select id="gbSexo" style="width:100%;margin-bottom:6px"><option value="">Sexo: todos</option><option>Mujeres</option><option>Hombres</option></select>
+            <select id="gbEdad" style="width:100%;margin-bottom:6px"><option value="">Edad: todas</option><option>Menos de 30</option><option>30-49</option><option>50 o más</option></select>
+            <select id="gbZona" style="width:100%"><option value="">Ubicación: todas</option><option>CABA</option><option>Provincia de Buenos Aires</option><option>Interior</option></select>
+          </div>
         </div>
-        <div>
-          <div class="hint" style="color:#6250d6;font-weight:600;margin-bottom:4px">Frases — Grupo B</div>
-          <div class="segList" id="oiSegsB"></div>
+        <label class="hint" style="display:flex;align-items:center;gap:6px;margin-top:10px;cursor:pointer">
+          <input type="checkbox" id="oiCompareOn" checked> Comparar con un segundo grupo
+        </label>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-top:14px">
+          <div class="statLine" id="oiCompareTitle" style="text-align:left;font-weight:600;margin:0"></div>
         </div>
-      </div>` : ''}
-    </div></div>
+        <div class="hint" style="margin-top:2px">La línea vertical sigue al video. Arrastrala (o clickeá) para saltar a ese punto.</div>
+        <div style="position:relative;height:190px;margin-top:6px">
+          <canvas id="oiCompareChart"></canvas>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:10px;align-items:center">
+          <span class="hint">Vista previa del teñido:</span>
+          <span id="oiTintA" style="width:60px;height:24px;border-radius:6px;background:var(--field)"></span>
+          <span id="oiTintB" style="width:60px;height:24px;border-radius:6px;background:var(--field)"></span>
+        </div>
+
+        <div style="margin-top:16px">
+          <details class="report" id="oiReport">
+            <summary>Informe (simulado, generado por IA) <span id="oiReportChevron">▾</span></summary>
+            <div class="body">
+              <button type="button" class="mini-btn" id="oiReportBtn">✨ Generar informe</button>
+              <div id="oiReportOut" style="margin-top:10px"></div>
+            </div>
+          </details>
+        </div>
+
+        ${segs.length ? `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px" id="oiSegsGrid">
+          <div>
+            <div class="hint" style="color:#2a78d6;font-weight:600;margin-bottom:4px">Frases — Grupo A</div>
+            <div class="segList" id="oiSegsA"></div>
+          </div>
+          <div id="oiSegsBCol">
+            <div class="hint" style="color:#6250d6;font-weight:600;margin-bottom:4px">Frases — Grupo B</div>
+            <div class="segList" id="oiSegsB"></div>
+          </div>
+        </div>` : ''}
+      </div></div>
+    </div>
   `;
 
   const vid = $('oiVid');
   const caption = $('oiCaption');
   const valLbl = $('oiVal');
-  const canvas = $('oiCanvas');
-  const ctx = canvas.getContext('2d');
-  const durLbl = $('oiDurLbl');
 
   $('oiClear').addEventListener('click', () => {
     try { indexedDB.deleteDatabase('vnHandoff'); } catch (e) {}
     location.href = location.pathname + '?nuevo=1';
   });
 
-  // Reproductor grande: mueve el <video> real adentro (misma instancia, no lo
-  // clona) con barras a los costados. Un lado si es tu propia reacción, dos
-  // si es una comparación entre grupos.
-  let bigSyncRaf = null;
-  function closeBigPlay(){
-    if (bigSyncRaf) cancelAnimationFrame(bigSyncRaf);
-    vid.pause();
-    $('oiVideoWrap').appendChild(vid);
-    $('oiBigPlay').hidden = true;
-  }
-  function fillBar(prefix, v){
-    const neg = Math.max(0, -v), pos = Math.max(0, v);
-    $(prefix+'NegFill').style.height = neg + '%';
-    $(prefix+'PosFill').style.height = pos + '%';
-    $(prefix+'NegPct').textContent = Math.round(neg) + '%';
-    $(prefix+'PosPct').textContent = Math.round(pos) + '%';
-  }
-  function openBigPlay({ title, sides, sampler }){
-    $('oiBigTitle').textContent = 'Ejecutando: ' + title;
-    $('oiBigVideoWrap').appendChild(vid);
-    $('oiBigLeft').style.display = sides === 2 ? 'flex' : 'none';
-    $('oiBigRight').style.display = 'flex';
-    $('oiBigPlay').hidden = false;
-    $('oiBigPlay').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (bigSyncRaf) cancelAnimationFrame(bigSyncRaf);
-    function tick(){
-      const s = sampler(vid.currentTime) || {};
-      if (sides === 2) fillBar('bigL', s.left || 0);
-      fillBar('bigR', sides === 2 ? (s.right || 0) : (s.left || 0));
-      bigSyncRaf = requestAnimationFrame(tick);
-    }
-    tick();
-    vid.currentTime = 0;
-    vid.play();
-  }
-  $('oiBigClose').addEventListener('click', closeBigPlay);
-
-  function sampleCurveAt(curveArr, t){
-    if (!curveArr.length) return 0;
-    let best = curveArr[0], bestDiff = Infinity;
-    for (const p of curveArr) { const d = Math.abs(p.t - t); if (d < bestDiff) { bestDiff = d; best = p; } }
-    return best.v;
-  }
-  $('oiWatchBack').addEventListener('click', () => {
-    openBigPlay({
-      title: 'Mis reacciones',
-      sides: 1,
-      sampler: (t) => ({ left: sampleCurveAt(curve, t) }),
-    });
-  });
-
-  // El video es "fixed" (siempre visible, no depende de sticky/scroll), así que
-  // reservamos su alto real en el spacer para que no tape el contenido de abajo.
+  // El video es "fixed": siempre visible, mismo tamaño, nunca cambia de lugar.
+  // Reservamos su alto real en el spacer para que no tape el contenido de abajo.
   const videoRowEl = $('oiVideoRow');
   const spacerEl = $('oiVideoSpacer');
   function syncSpacerHeight(){ spacerEl.style.height = videoRowEl.getBoundingClientRect().height + 'px'; }
@@ -612,81 +559,44 @@ function renderPlayer(entry){
   window.addEventListener('resize', syncSpacerHeight);
   setTimeout(syncSpacerHeight, 50);
 
-  function sampleGroupAt(curveArr, t){
-    if (!curveArr.length || !duration) return 0;
-    const idx = Math.max(0, Math.min(curveArr.length-1, Math.floor((t/duration) * curveArr.length)));
-    return curveArr[idx];
-  }
-  function groupVU(prefix, v){
-    const neg = Math.max(0, -v), pos = Math.max(0, v);
-    if ($(prefix+'NegFill')) $(prefix+'NegFill').style.height = neg + '%';
-    if ($(prefix+'PosFill')) $(prefix+'PosFill').style.height = pos + '%';
-    if ($(prefix+'NegPct')) $(prefix+'NegPct').textContent = Math.round(neg) + '%';
-    if ($(prefix+'PosPct')) $(prefix+'PosPct').textContent = Math.round(pos) + '%';
-  }
-  let capIdx = -1;
-  vid.addEventListener('timeupdate', () => {
-    if (!segs.length) { /* sin transcripción igual sincronizamos los VU-metros de grupo */ }
-    else {
-      const t = vid.currentTime;
-      let idx = segs.findIndex(s => t >= s.start && t < s.end);
-      if (idx !== capIdx) { capIdx = idx; caption.textContent = idx >= 0 ? segs[idx].text : ''; }
-    }
-    if (curveA.length) groupVU('ga', sampleGroupAt(curveA, vid.currentTime));
-    if (curveB.length) groupVU('gb', sampleGroupAt(curveB, vid.currentTime));
-  });
-  vid.addEventListener('seeked', () => { capIdx = -1; });
-
-  // Reproducir como quote: al hacer click en una frase, arranca ahí y se
-  // detiene sola al llegar al final de ese tramo.
-  let quoteEnd = null;
-  vid.addEventListener('timeupdate', () => {
-    if (quoteEnd != null && vid.currentTime >= quoteEnd) {
-      vid.pause();
-      quoteEnd = null;
-    }
-  });
-  function playAsQuote(seg){
-    quoteEnd = seg.end;
-    vid.currentTime = seg.start;
-    vid.play();
-  }
-
   let duration = (payload && payload.duration_seconds) || 0;
-  let curve = []; // [{t, v}] muestreada mientras reproduce
-  let value = 0;  // -100..100
+  let curve = [];   // [{t, v}] tu reacción, muestreada mientras votás en vivo
+  let value = 0;    // -100..100, valor en vivo del modo "votar"
   let releaseRaf = null;
-  let curveA = [], curveB = []; // simuladas, para el vúmetro de grupos en vivo
+  let curveA = [], curveB = [];
+  let mode = 'vote';        // 'vote' | 'explore'
+  let watchingBack = false; // "Ver mis reacciones": el video se reproduce solo con tu curva ya grabada
 
-  vid.addEventListener('loadedmetadata', () => {
-    duration = vid.duration || duration;
-    durLbl.textContent = fmtT(duration);
-    drawCurve();
-  });
+  vid.addEventListener('loadedmetadata', () => { duration = vid.duration || duration; });
 
+  function fillSide(side, v){ // side: 'L' | 'R'
+    const neg = Math.max(0, -v), pos = Math.max(0, v);
+    $('vu'+side+'NegFill').style.height = neg + '%';
+    $('vu'+side+'PosFill').style.height = pos + '%';
+    $('vu'+side+'NegPct').textContent = Math.round(neg) + '%';
+    $('vu'+side+'PosPct').textContent = Math.round(pos) + '%';
+  }
+
+  // ---------- Modo: Estoy votando ----------
   function setVal(v){
     value = Math.max(-100, Math.min(100, v));
     valLbl.textContent = Math.round(value);
-    const neg = Math.max(0, -value), pos = Math.max(0, value);
-    $('vuNegFill').style.height = neg + '%';
-    $('vuPosFill').style.height = pos + '%';
-    $('vuNegPct').textContent = Math.round(neg) + '%';
-    $('vuPosPct').textContent = Math.round(pos) + '%';
+    if (mode === 'vote' && !watchingBack) fillSide('R', value);
   }
   let decayLast = performance.now();
-  const DECAY_HALF_LIFE = 0.35; // segundos, calibrado con clicks reales (150-350ms entre toques)
+  const DECAY_HALF_LIFE = 0.35; // calibrado con clicks reales (150-350ms entre toques)
   function decayLoop(now){
     const dt = (now - decayLast) / 1000;
     decayLast = now;
-    if (Math.abs(value) > 0.5) setVal(value * Math.pow(0.5, dt / DECAY_HALF_LIFE));
-    else if (value !== 0) setVal(0);
+    if (mode === 'vote' && !watchingBack) {
+      if (Math.abs(value) > 0.5) setVal(value * Math.pow(0.5, dt / DECAY_HALF_LIFE));
+      else if (value !== 0) setVal(0);
+    }
     releaseRaf = requestAnimationFrame(decayLoop);
   }
   releaseRaf = requestAnimationFrame(decayLoop);
   function tap(dir){
-    // La caída nunca se detiene (por eso se siente inmediata como antes); cada
-    // toque suma encima de lo que quedó. Repiquetear rápido le gana a la caída
-    // y sostiene el valor cerca del máximo; al parar, cae solo, sin pausa previa.
+    // Prueba de fuerza: cada toque suma; repiquetear rápido sostiene cerca del máximo.
     setVal(Math.max(-100, Math.min(100, value + dir * 55)));
   }
   $('oiBtnNeg').addEventListener('click', () => tap(-1));
@@ -695,24 +605,31 @@ function renderPlayer(entry){
   let sampleTimer = null;
   vid.addEventListener('play', () => {
     if (sampleTimer) clearInterval(sampleTimer);
-    sampleTimer = setInterval(() => {
-      if (vid.paused || vid.ended) return;
-      curve.push({ t: vid.currentTime, v: value });
-      drawCurve();
-      renderSegList();
-    }, 120);
+    if (mode === 'vote' && !watchingBack) {
+      sampleTimer = setInterval(() => {
+        if (vid.paused || vid.ended) return;
+        curve.push({ t: vid.currentTime, v: value });
+        renderSegList();
+      }, 120);
+    }
   });
   vid.addEventListener('pause', () => { if (sampleTimer) clearInterval(sampleTimer); });
   vid.addEventListener('ended', () => {
     if (sampleTimer) clearInterval(sampleTimer);
-    $('oiTapRow').style.display = 'none';
-    $('oiTapHint').style.display = 'none';
-    $('oiVoted').classList.add('on');
+    if (watchingBack) {
+      watchingBack = false;
+      $('oiVuCaption').textContent = '';
+      return;
+    }
+    if (mode === 'vote') {
+      $('oiTapRow').style.display = 'none';
+      $('oiTapHint').style.display = 'none';
+      $('oiVoted').classList.add('on');
+    }
   });
   $('oiRevote').addEventListener('click', () => {
     curve = [];
     setVal(0);
-    drawCurve();
     renderSegList();
     $('oiTapRow').style.display = '';
     $('oiTapHint').style.display = '';
@@ -720,56 +637,63 @@ function renderPlayer(entry){
     vid.currentTime = 0;
     vid.play();
   });
+  function sampleCurveAt(curveArr, t){
+    if (!curveArr.length) return 0;
+    let best = curveArr[0], bestDiff = Infinity;
+    for (const p of curveArr) { const d = Math.abs(p.t - t); if (d < bestDiff) { bestDiff = d; best = p; } }
+    return best.v;
+  }
+  $('oiWatchBack').addEventListener('click', () => {
+    watchingBack = true;
+    $('oiVoted').classList.remove('on');
+    $('oiVuCaption').textContent = 'Reproduciendo tu reacción grabada…';
+    vid.currentTime = 0;
+    vid.play();
+  });
 
-  function drawCurve(){
-    const W = canvas.width, H = canvas.height, MID = H/2;
-    ctx.clearRect(0,0,W,H);
-    ctx.strokeStyle = '#dce0e6'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, MID); ctx.lineTo(W, MID); ctx.stroke();
-    if (curve.length < 2 || !duration){ return; }
-
-    const okGrad = ctx.createLinearGradient(0, 0, 0, MID);
-    okGrad.addColorStop(0, 'rgba(15,122,82,.85)');
-    okGrad.addColorStop(1, 'rgba(15,122,82,.15)');
-    const noGrad = ctx.createLinearGradient(0, MID, 0, H);
-    noGrad.addColorStop(0, 'rgba(161,29,46,.15)');
-    noGrad.addColorStop(1, 'rgba(161,29,46,.85)');
-
-    const pts = curve.map(p => ({ x: (p.t/duration) * W, y: MID - (p.v/100) * MID }));
-
-    // relleno por tramos de signo (para que el gradiente verde/rojo quede prolijo)
-    let i = 0;
-    while (i < pts.length - 1) {
-      let j = i;
-      const sign = Math.sign(pts[i].y - MID) || 0;
-      while (j < pts.length - 1 && (Math.sign(pts[j+1].y - MID) || sign) === sign) j++;
-      const seg = pts.slice(i, j+1);
-      if (seg.length >= 2) {
-        ctx.beginPath();
-        ctx.moveTo(seg[0].x, MID);
-        seg.forEach(p => ctx.lineTo(p.x, p.y));
-        ctx.lineTo(seg[seg.length-1].x, MID);
-        ctx.closePath();
-        ctx.fillStyle = sign < 0 ? okGrad : (sign > 0 ? noGrad : 'transparent');
-        ctx.fill();
-      }
-      i = (j > i) ? j : i + 1; // garantiza que siempre avance, sin esto podía quedar en loop infinito
+  // ---------- Subtítulo superpuesto + "reproducir como quote" ----------
+  let capIdx = -1;
+  let quoteEnd = null;
+  vid.addEventListener('timeupdate', () => {
+    if (segs.length) {
+      const t = vid.currentTime;
+      let idx = segs.findIndex(s => t >= s.start && t < s.end);
+      if (idx !== capIdx) { capIdx = idx; caption.textContent = idx >= 0 ? segs[idx].text : ''; }
     }
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
-    ctx.beginPath();
-    pts.forEach((p,idx) => idx===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-    ctx.stroke();
+    if (quoteEnd != null && vid.currentTime >= quoteEnd) { vid.pause(); quoteEnd = null; }
+    if (watchingBack) fillSide('R', sampleCurveAt(curve, vid.currentTime));
+    if (mode === 'explore') {
+      const compareOn = $('oiCompareOn').checked;
+      fillSide('L', sampleGroupAt(curveA, vid.currentTime));
+      fillSide('R', sampleGroupAt(compareOn ? curveB : curveA, vid.currentTime));
+    }
+  });
+  vid.addEventListener('seeked', () => { capIdx = -1; });
+  function playAsQuote(seg){
+    quoteEnd = seg.end;
+    vid.currentTime = seg.start;
+    vid.play();
   }
 
-  $('oiReset').onclick = () => { curve = []; drawCurve(); };
-  $('oiExport').onclick = () => {
-    const blob = new Blob([JSON.stringify({ video_id: payload && payload.video_id, curve }, null, 2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'curva-reaccion.json'; a.style.display='none';
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-  };
+  // ---------- Toggle de modo ----------
+  function setMode(m){
+    mode = m;
+    $('oiModeVote').classList.toggle('on', m === 'vote');
+    $('oiModeExplore').classList.toggle('on', m === 'explore');
+    $('oiPaneVote').style.display = m === 'vote' ? '' : 'none';
+    $('oiPaneExplore').style.display = m === 'explore' ? '' : 'none';
+    $('oiVuCaption').textContent = '';
+    if (m === 'vote') {
+      $('oiVuLeft').style.display = 'none';
+      fillSide('R', value);
+    } else {
+      updateCompare();
+    }
+  }
+  $('oiModeVote').addEventListener('click', () => setMode('vote'));
+  $('oiModeExplore').addEventListener('click', () => setMode('explore'));
 
+  // ---------- Listas de frases (compartidas entre modo votar y explorar) ----------
   function segStat(curveArr, s){
     const pts = curveArr.filter(p => p.t >= s.start && p.t < s.end);
     if (!pts.length) return { cls: 'segBadge-none', label: 'Sin datos' };
@@ -804,31 +728,38 @@ function renderPlayer(entry){
     wireSegList($('oiSegs'));
   }
 
-  $('oiPlayFromCurve').addEventListener('click', () => { vid.play(); });
-
-  // Comparar grupos — SIMULADO: no hay votantes reales, se genera una curva
-  // creíble a partir de una semilla determinada por los filtros elegidos.
+  // ---------- Comparar grupos — SIMULADO ----------
+  // Diferencias marcadas entre grupos (antes eran demasiado sutiles) y muestreo
+  // interpolado entre puntos, para que el movimiento de las barras sea fluido
+  // en vez de saltar entre valores fijos.
   function seededRand(seed){ let s = seed; return () => { s = (s*9301+49297) % 233280; return s/233280; }; }
   function genGroupCurve(seed, bias){
-    const N = 60; const r = seededRand(seed); let v = 0; const out = [];
-    for (let i=0;i<N;i++){ v += (r()-0.5)*18 + bias; v = Math.max(-100, Math.min(100, v*0.85)); out.push(Math.round(v)); }
+    const N = 60; const r = seededRand(seed); let v = bias; const out = [];
+    for (let i=0;i<N;i++){ v += (r()-0.5)*14 + (bias - v)*0.08; v = Math.max(-100, Math.min(100, v)); out.push(v); }
     return out;
   }
   function groupSeed(g){ return 50 + (g.sexo||'').length*5 + (g.edad||'').length*7 + (g.zona||'').length*11; }
   function groupBias(g){
-    return (g.sexo==='Mujeres'?4:g.sexo==='Hombres'?-3:0)
-      + (g.edad==='Menos de 30'?-3:g.edad==='50 o más'?5:0)
-      + (g.zona==='CABA'?2:g.zona==='Provincia de Buenos Aires'?-2:0);
+    return (g.sexo==='Mujeres'?25:g.sexo==='Hombres'?-20:0)
+      + (g.edad==='Menos de 30'?-18:g.edad==='50 o más'?28:0)
+      + (g.zona==='CABA'?14:g.zona==='Provincia de Buenos Aires'?-12:0);
   }
   function groupLabel(g, fallback){
     const parts = [g.sexo, g.edad, g.zona].filter(Boolean);
     return parts.length ? parts.join(', ') : fallback;
   }
-  function tintFor(curve){
-    const avg = curve.reduce((a,b)=>a+b,0)/curve.length;
+  function tintFor(curveArr){
+    const avg = curveArr.reduce((a,b)=>a+b,0)/curveArr.length;
     if (Math.abs(avg) < 8) return 'var(--field)';
     const a = Math.min(.5, Math.abs(avg)/100*.55);
     return avg > 0 ? `rgba(15,122,82,${a})` : `rgba(161,29,46,${a})`;
+  }
+  function sampleGroupAt(curveArr, t){
+    if (!curveArr.length || !duration) return 0;
+    const N = curveArr.length;
+    const pos = Math.max(0, Math.min(N - 1, (t / duration) * (N - 1)));
+    const i0 = Math.floor(pos), i1 = Math.min(N - 1, i0 + 1), frac = pos - i0;
+    return curveArr[i0] * (1 - frac) + curveArr[i1] * frac;
   }
 
   const zeroZonePlugin = {
@@ -854,7 +785,6 @@ function renderPlayer(entry){
       ctx.save();
       ctx.strokeStyle = '#eb6834'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
-      // manija: indica que la línea se puede arrastrar para navegar el video
       ctx.fillStyle = '#eb6834';
       ctx.beginPath(); ctx.arc(px, top + 7, 6, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
@@ -872,45 +802,41 @@ function renderPlayer(entry){
       scales: { y: { min: -100, max: 100, ticks: { color: '#9aa0a6' }, grid: { color: '#e6e6e6' } }, x: { display: false } },
     },
   });
-  // la línea testigo se redibuja sola con cada timeupdate (más abajo ya se llama compareChart.update())
   vid.addEventListener('timeupdate', () => { if (compareChart) compareChart.update('none'); });
 
   function readGroup(prefix){
     return { sexo: $(prefix+'Sexo').value, edad: $(prefix+'Edad').value, zona: $(prefix+'Zona').value };
   }
   function updateCompare(){
+    const compareOn = $('oiCompareOn').checked;
+    $('oiGroupBBox').style.display = compareOn ? '' : 'none';
+    if ($('oiSegsBCol')) $('oiSegsBCol').style.display = compareOn ? '' : 'none';
+    if (mode === 'explore') $('oiVuLeft').style.display = compareOn ? 'flex' : 'none';
+
     const gA = readGroup('ga'), gB = readGroup('gb');
     curveA = genGroupCurve(groupSeed(gA), groupBias(gA));
     curveB = genGroupCurve(groupSeed(gB)+1, groupBias(gB));
     compareChart.data.datasets[0].data = curveA;
-    compareChart.data.datasets[1].data = curveB;
+    compareChart.data.datasets[1].data = compareOn ? curveB : [];
     compareChart.update();
     const labelA = groupLabel(gA, 'Grupo A (todos)'), labelB = groupLabel(gB, 'Grupo B (todos)');
-    $('oiCompareTitle').textContent = labelA + ' vs ' + labelB;
+    $('oiCompareTitle').textContent = compareOn ? (labelA + ' vs ' + labelB) : labelA;
     $('oiTintA').style.background = tintFor(curveA);
-    $('oiTintB').style.background = tintFor(curveB);
+    $('oiTintB').style.background = compareOn ? tintFor(curveB) : 'var(--field)';
     if (segs.length && $('oiSegsA')) {
       const ptsA = curveA.map((v, i) => ({ t: (i / curveA.length) * duration, v }));
-      const ptsB = curveB.map((v, i) => ({ t: (i / curveB.length) * duration, v }));
       $('oiSegsA').innerHTML = buildSegListHTML(ptsA);
-      $('oiSegsB').innerHTML = buildSegListHTML(ptsB);
       wireSegList($('oiSegsA'));
-      wireSegList($('oiSegsB'));
+      if (compareOn) {
+        const ptsB = curveB.map((v, i) => ({ t: (i / curveB.length) * duration, v }));
+        $('oiSegsB').innerHTML = buildSegListHTML(ptsB);
+        wireSegList($('oiSegsB'));
+      }
     }
   }
   ['gaSexo','gaEdad','gaZona','gbSexo','gbEdad','gbZona'].forEach(id => $(id).addEventListener('change', updateCompare));
+  $('oiCompareOn').addEventListener('change', updateCompare);
   updateCompare();
-
-  $('oiCompareWatch').addEventListener('click', () => {
-    openBigPlay({
-      title: $('oiCompareTitle').textContent,
-      sides: 2,
-      sampler: (t) => ({
-        left: sampleGroupAt(curveA, t),
-        right: sampleGroupAt(curveB, t),
-      }),
-    });
-  });
 
   // Arrastrar la línea testigo del gráfico también navega el video, no solo clickear
   let scrubbing = false;
@@ -926,6 +852,65 @@ function renderPlayer(entry){
   compareCanvas.addEventListener('pointerdown', (e) => { scrubbing = true; compareCanvas.style.cursor = 'grabbing'; seekFromEvent(e); vid.play(); });
   compareCanvas.addEventListener('pointermove', (e) => { if (scrubbing) seekFromEvent(e); });
   window.addEventListener('pointerup', () => { scrubbing = false; compareCanvas.style.cursor = 'grab'; });
+
+  // ---------- Informe con IA (colapsado, con links a los momentos citados) ----------
+  function keyGet(){ try{ return localStorage.getItem('vn_oai') || ''; }catch(e){ return ''; } }
+  async function gptChat(messages, opts){
+    const key = keyGet();
+    if (!key) throw new Error('Falta la clave de OpenAI (cargala en Video Note, pestaña Fondos → Crear con IA).');
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + key, 'content-type': 'application/json' },
+      body: JSON.stringify({ model: (opts && opts.model) || 'gpt-4o', temperature: (opts && opts.temperature != null) ? opts.temperature : 0.5, messages }),
+    });
+    if (!r.ok) { let m=''; try{ const j=await r.json(); m=(j.error&&j.error.message)||''; }catch(e){} throw new Error('OpenAI ' + r.status + (m ? ' · ' + m : '')); }
+    const d = await r.json();
+    return (d.choices[0].message.content || '').trim();
+  }
+  function linkifyReport(text){
+    let html = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n+/g,'<br>');
+    segs.forEach((s, i) => {
+      const t = s.text.trim();
+      if (t.length < 6) return;
+      const at = html.indexOf(t);
+      if (at === -1) return;
+      const link = `<a href="#" data-i="${i}">"${t}"</a>`;
+      html = html.slice(0, at) + link + html.slice(at + t.length);
+    });
+    return '<p>' + html + '</p>';
+  }
+  $('oiReportBtn').addEventListener('click', async () => {
+    const out = $('oiReportOut');
+    if (!segs.length) { out.textContent = 'No hay transcripción para armar el informe.'; return; }
+    $('oiReportBtn').disabled = true;
+    out.textContent = 'Generando…';
+    const compareOn = $('oiCompareOn').checked;
+    const gA = readGroup('ga'), gB = readGroup('gb');
+    const labelA = groupLabel(gA, 'el grupo A'), labelB = groupLabel(gB, 'el grupo B');
+    const rows = segs.map((s) => {
+      const a = segStat(curveA.map((v,j)=>({t:(j/curveA.length)*duration, v})), s);
+      const b = compareOn ? segStat(curveB.map((v,j)=>({t:(j/curveB.length)*duration, v})), s) : null;
+      return `- "${s.text.trim()}" → ${labelA}: ${a.label}` + (b ? ` · ${labelB}: ${b.label}` : '');
+    }).join('\n');
+    try {
+      const res = await gptChat([
+        { role: 'system', content: 'Sos un analista de opinión pública. Con estos datos simulados de reacción por frase, escribí un informe breve (4 a 6 frases) en español rioplatense, destacando contrastes entre los grupos. Citá 2 o 3 frases EXACTAS entre comillas, tal cual te las paso (no las parafrasees), junto con su porcentaje.' },
+        { role: 'user', content: rows },
+      ]);
+      out.innerHTML = linkifyReport(res);
+      out.querySelectorAll('a[data-i]').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          playAsQuote(segs[Number(a.dataset.i)]);
+        });
+      });
+    } catch (e) {
+      out.textContent = 'No se pudo generar: ' + ((e && e.message) || e);
+    }
+    $('oiReportBtn').disabled = false;
+  });
+
+  setMode('vote');
 }
 
 function renderError(err){

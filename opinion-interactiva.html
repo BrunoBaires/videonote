@@ -436,10 +436,6 @@ function renderPlayer(entry){
     </div>
 
     <div class="videoRow" id="oiVideoRow">
-      <div class="modeToggle">
-        <button type="button" class="modeBtn on" id="oiModeVote">Estoy votando</button>
-        <button type="button" class="modeBtn" id="oiModeExplore">Explorando resultados</button>
-      </div>
       <div style="display:flex;gap:8px;align-items:stretch">
         <div id="oiVuLeftWrap" style="display:none;flex-direction:column;align-items:center;gap:4px">
           <span class="hint" id="oiVuLeftLabel" style="font-weight:600;white-space:nowrap"></span>
@@ -462,7 +458,12 @@ function renderPlayer(entry){
       </div>
       <div class="hint" id="oiVuCaption" style="text-align:center;margin-top:8px"></div>
 
-      <div id="oiVoteControls" style="margin-top:10px">
+      <div class="modeToggle" style="margin-top:10px">
+        <button type="button" class="modeBtn on" id="oiModeVote">Así votaste</button>
+        <button type="button" class="modeBtn" id="oiModeExplore">Comparar resultados</button>
+      </div>
+
+      <div id="oiVoteControls">
         <div class="hint" id="oiTapHint">Cada vez que escuches algo que te resulte <b>negativo</b>, apretá el botón rojo. Cuando algo te suene <b>positivo</b>, el verde.</div>
         <div class="tapRow" id="oiTapRow">
           <button type="button" class="tapBtn tapBtn-neg" id="oiBtnNeg">No me gusta</button>
@@ -525,7 +526,7 @@ function renderPlayer(entry){
 
         <div style="margin-top:16px">
           <details class="report" id="oiReport">
-            <summary>Informe (simulado, generado por IA) <span id="oiReportChevron">▾</span></summary>
+            <summary>📝 Informe (simulado, generado por IA) <span id="oiReportChevron">▾</span></summary>
             <div class="body">
               <button type="button" class="mini-btn" id="oiReportBtn">✨ Generar informe</button>
               <div id="oiReportOut" style="margin-top:10px"></div>

@@ -103,6 +103,9 @@ canvas{width:100%;display:block;border-radius:6px}
 .voted{display:none;text-align:center;padding:16px 0}
 .voted.on{display:block}
 
+.bigPlay{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.bigPlay video{width:100%;display:block;border-radius:8px;background:#000}
+
 .question{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
 
 .recRow{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
@@ -417,6 +420,23 @@ function renderPlayer(entry){
   const segs = (payload && payload.segments) || [];
 
   wrap.innerHTML = `
+    <div class="bigPlay" id="oiBigPlay" hidden>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div class="hint" id="oiBigTitle" style="font-weight:600;color:var(--ink)"></div>
+        <button type="button" class="mini-btn" id="oiBigClose" style="margin-top:0">✕ Cerrar</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:stretch">
+        <div class="vu" id="oiBigLeft" style="transform:scale(1.15);transform-origin:right center">
+          <div class="vuCol"><span class="vuPct" id="bigLNegPct">0%</span><div class="vuTrack" style="min-height:140px"><div class="vuFill vuFill-neg" id="bigLNegFill"></div></div></div>
+          <div class="vuCol"><span class="vuPct" id="bigLPosPct">0%</span><div class="vuTrack" style="min-height:140px"><div class="vuFill vuFill-pos" id="bigLPosFill"></div></div></div>
+        </div>
+        <div class="videoWrap" id="oiBigVideoWrap" style="flex:1;min-width:0"></div>
+        <div class="vu" id="oiBigRight" style="transform:scale(1.15);transform-origin:left center">
+          <div class="vuCol"><span class="vuPct" id="bigRNegPct">0%</span><div class="vuTrack" style="min-height:140px"><div class="vuFill vuFill-neg" id="bigRNegFill"></div></div></div>
+          <div class="vuCol"><span class="vuPct" id="bigRPosPct">0%</span><div class="vuTrack" style="min-height:140px"><div class="vuFill vuFill-pos" id="bigRPosFill"></div></div></div>
+        </div>
+      </div>
+    </div>
     <div style="text-align:right;margin-bottom:6px">
       <button type="button" class="mini-btn" id="oiClear" style="margin-top:0">↺ Cargar otro video</button>
     </div>
@@ -445,7 +465,10 @@ function renderPlayer(entry){
       </div>
       <div class="voted" id="oiVoted">
         <div class="hint">Ya votaste este video.</div>
-        <button type="button" class="mini-btn" id="oiRevote" style="margin-top:8px">↺ Repetir votación</button>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+          <button type="button" class="mini-btn" id="oiRevote">↺ Repetir votación</button>
+          <button type="button" class="mini-btn" id="oiWatchBack">▶ Ver mis reacciones</button>
+        </div>
       </div>
       <div class="statLine">Reacción actual: <b id="oiVal">0</b></div>
 
@@ -488,7 +511,10 @@ function renderPlayer(entry){
         </div>
       </div>
 
-      <div class="statLine" id="oiCompareTitle" style="text-align:left;font-weight:600;margin-top:14px"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:14px">
+        <div class="statLine" id="oiCompareTitle" style="text-align:left;font-weight:600;margin:0"></div>
+        <button type="button" class="mini-btn" id="oiCompareWatch" style="margin-top:0">▶ Ver</button>
+      </div>
       <div class="hint" style="margin-top:2px">La línea vertical sigue al video. Arrastrala (o clickeá) para saltar a ese punto.</div>
       <div style="position:relative;height:190px;margin-top:6px">
         <canvas id="oiCompareChart"></canvas>
@@ -524,6 +550,57 @@ function renderPlayer(entry){
   $('oiClear').addEventListener('click', () => {
     try { indexedDB.deleteDatabase('vnHandoff'); } catch (e) {}
     location.href = location.pathname + '?nuevo=1';
+  });
+
+  // Reproductor grande: mueve el <video> real adentro (misma instancia, no lo
+  // clona) con barras a los costados. Un lado si es tu propia reacción, dos
+  // si es una comparación entre grupos.
+  let bigSyncRaf = null;
+  function closeBigPlay(){
+    if (bigSyncRaf) cancelAnimationFrame(bigSyncRaf);
+    vid.pause();
+    $('oiVideoWrap').appendChild(vid);
+    $('oiBigPlay').hidden = true;
+  }
+  function fillBar(prefix, v){
+    const neg = Math.max(0, -v), pos = Math.max(0, v);
+    $(prefix+'NegFill').style.height = neg + '%';
+    $(prefix+'PosFill').style.height = pos + '%';
+    $(prefix+'NegPct').textContent = Math.round(neg) + '%';
+    $(prefix+'PosPct').textContent = Math.round(pos) + '%';
+  }
+  function openBigPlay({ title, sides, sampler }){
+    $('oiBigTitle').textContent = 'Ejecutando: ' + title;
+    $('oiBigVideoWrap').appendChild(vid);
+    $('oiBigLeft').style.display = sides === 2 ? 'flex' : 'none';
+    $('oiBigRight').style.display = 'flex';
+    $('oiBigPlay').hidden = false;
+    $('oiBigPlay').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (bigSyncRaf) cancelAnimationFrame(bigSyncRaf);
+    function tick(){
+      const s = sampler(vid.currentTime) || {};
+      if (sides === 2) fillBar('bigL', s.left || 0);
+      fillBar('bigR', sides === 2 ? (s.right || 0) : (s.left || 0));
+      bigSyncRaf = requestAnimationFrame(tick);
+    }
+    tick();
+    vid.currentTime = 0;
+    vid.play();
+  }
+  $('oiBigClose').addEventListener('click', closeBigPlay);
+
+  function sampleCurveAt(curveArr, t){
+    if (!curveArr.length) return 0;
+    let best = curveArr[0], bestDiff = Infinity;
+    for (const p of curveArr) { const d = Math.abs(p.t - t); if (d < bestDiff) { bestDiff = d; best = p; } }
+    return best.v;
+  }
+  $('oiWatchBack').addEventListener('click', () => {
+    openBigPlay({
+      title: 'Mis reacciones',
+      sides: 1,
+      sampler: (t) => ({ left: sampleCurveAt(curve, t) }),
+    });
   });
 
   // El video es "fixed" (siempre visible, no depende de sticky/scroll), así que
@@ -823,6 +900,17 @@ function renderPlayer(entry){
   }
   ['gaSexo','gaEdad','gaZona','gbSexo','gbEdad','gbZona'].forEach(id => $(id).addEventListener('change', updateCompare));
   updateCompare();
+
+  $('oiCompareWatch').addEventListener('click', () => {
+    openBigPlay({
+      title: $('oiCompareTitle').textContent,
+      sides: 2,
+      sampler: (t) => ({
+        left: sampleGroupAt(curveA, t),
+        right: sampleGroupAt(curveB, t),
+      }),
+    });
+  });
 
   // Arrastrar la línea testigo del gráfico también navega el video, no solo clickear
   let scrubbing = false;

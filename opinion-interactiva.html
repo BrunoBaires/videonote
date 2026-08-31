@@ -99,6 +99,15 @@ canvas{width:100%;display:block;border-radius:6px}
 .vuFill-neg{background:var(--no)}
 .vuFill-pos{background:var(--ok)}
 
+.cumWrap{display:none;flex-direction:column;align-items:center;gap:4px;margin-top:8px}
+.cumWrap.on{display:flex}
+.cumPct{font-family:Georgia,serif;font-size:26px;font-weight:700;line-height:1;color:#d6493a}
+.cumLabel{font-family:var(--ui);font-size:10.5px;font-weight:600;color:var(--dim)}
+.cumBarTrack{width:26px;height:80px;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;background:var(--field);margin-top:4px}
+.cumBarNeg{width:100%;height:50%;background:#d6493a;transition:height .3s}
+.cumBarPos{width:100%;height:50%;background:#7ed957;transition:height .3s}
+.cumVotes{font-family:var(--mono);font-size:9px;color:var(--dim);white-space:nowrap}
+
 .voted{display:none;text-align:center;padding:16px 0}
 .voted.on{display:block}
 
@@ -443,18 +452,33 @@ function renderPlayer(entry){
             <div class="vuCol"><span class="vuPct" id="vuLNegPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-neg" id="vuLNegFill"></div></div></div>
             <div class="vuCol"><span class="vuPct" id="vuLPosPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-pos" id="vuLPosFill"></div></div></div>
           </div>
+          <div class="cumWrap" id="cumWrapL">
+            <div class="cumPct" id="cumPctL">50%</div>
+            <div class="cumLabel" id="cumLabelL">negativos</div>
+            <div class="cumBarTrack"><div class="cumBarNeg" id="cumNegL"></div><div class="cumBarPos" id="cumPosL"></div></div>
+            <div class="cumVotes" id="cumVotesL">0 votos</div>
+          </div>
         </div>
         <div class="videoWrap" id="oiVideoWrap">
           <video id="oiVid" playsinline controls src="${videoUrl}"></video>
           <div class="caption" id="oiCaption"></div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div id="oiVuRightWrap" style="display:flex;flex-direction:column;align-items:center;gap:4px">
           <span class="hint" id="oiVuRightLabel" style="font-weight:600;white-space:nowrap"></span>
           <div class="vu" id="oiVuRight">
             <div class="vuCol"><span class="vuPct" id="vuRNegPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-neg" id="vuRNegFill"></div></div></div>
             <div class="vuCol"><span class="vuPct" id="vuRPosPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-pos" id="vuRPosFill"></div></div></div>
           </div>
+          <div class="cumWrap" id="cumWrapR">
+            <div class="cumPct" id="cumPctR">50%</div>
+            <div class="cumLabel" id="cumLabelR">negativos</div>
+            <div class="cumBarTrack"><div class="cumBarNeg" id="cumNegR"></div><div class="cumBarPos" id="cumPosR"></div></div>
+            <div class="cumVotes" id="cumVotesR">0 votos</div>
+          </div>
         </div>
+      </div>
+      <div style="text-align:center;margin-top:6px">
+        <button type="button" class="mini-btn" id="oiGoReport" style="display:none;margin-top:0">📝 Ver informe</button>
       </div>
       <div class="hint" id="oiVuCaption" style="text-align:center;margin-top:8px"></div>
 
@@ -567,6 +591,22 @@ function renderPlayer(entry){
   let value = 0;    // -100..100, valor en vivo del modo "votar"
   let releaseRaf = null;
   let curveA = [], curveB = [];
+  let accL = { pos: 0, neg: 0, n: 0 }, accR = { pos: 0, neg: 0, n: 0 };
+  function resetAcc(){ accL = { pos: 0, neg: 0, n: 0 }; accR = { pos: 0, neg: 0, n: 0 }; }
+  function accumulate(side, s){
+    const acc = side === 'L' ? accL : accR;
+    acc.pos += s.pos; acc.neg += s.neg; acc.n++;
+    const total = acc.pos + acc.neg;
+    const negPct = total ? Math.round((acc.neg / total) * 100) : 50;
+    const posPct = 100 - negPct;
+    const lean = negPct >= 50;
+    $('cumPct'+side).textContent = (lean ? negPct : posPct) + '%';
+    $('cumPct'+side).style.color = lean ? '#d6493a' : '#5cb83f';
+    $('cumLabel'+side).textContent = lean ? 'negativos' : 'positivos';
+    $('cumNeg'+side).style.height = negPct + '%';
+    $('cumPos'+side).style.height = posPct + '%';
+    $('cumVotes'+side).textContent = (acc.n * 40) + ' votos'; // escala simulada, no es un conteo real
+  }
   let mode = 'vote';        // 'vote' | 'explore'
   let watchingBack = false; // "Ver mis reacciones": el video se reproduce solo con tu curva ya grabada
 
@@ -674,6 +714,8 @@ function renderPlayer(entry){
       fillSideRaw('L', sA.neg, sA.pos);
       const sR = compareOn ? sampleGroupAt(curveB, vid.currentTime) : sA;
       fillSideRaw('R', sR.neg, sR.pos);
+      accumulate('L', sA);
+      accumulate('R', sR);
     }
   });
   vid.addEventListener('seeked', () => { capIdx = -1; });
@@ -692,17 +734,26 @@ function renderPlayer(entry){
     $('oiPaneVote').style.display = m === 'vote' ? '' : 'none';
     $('oiPaneExplore').style.display = m === 'explore' ? '' : 'none';
     $('oiVuCaption').textContent = '';
+    $('oiGoReport').style.display = m === 'explore' ? '' : 'none';
+    document.getElementById('cumWrapR').classList.toggle('on', m === 'explore');
+    document.getElementById('cumWrapL').classList.toggle('on', false);
     if (m === 'vote') {
       $('oiVuLeftWrap').style.display = 'none';
       $('oiVuRightLabel').textContent = 'Vos';
       $('oiVuRightLabel').style.color = '';
       fillSide('R', value);
     } else {
+      resetAcc();
       updateCompare();
     }
   }
   $('oiModeVote').addEventListener('click', () => setMode('vote'));
   $('oiModeExplore').addEventListener('click', () => setMode('explore'));
+  $('oiGoReport').addEventListener('click', () => {
+    const rep = $('oiReport');
+    rep.open = true;
+    rep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   // ---------- Listas de frases (compartidas entre modo votar y explorar) ----------
   function segStat(curveArr, s){
@@ -838,6 +889,8 @@ function renderPlayer(entry){
     $('oiGroupBBox').style.display = compareOn ? '' : 'none';
     if ($('oiSegsBCol')) $('oiSegsBCol').style.display = compareOn ? '' : 'none';
     if (mode === 'explore') $('oiVuLeftWrap').style.display = compareOn ? 'flex' : 'none';
+    document.getElementById('cumWrapL').classList.toggle('on', mode === 'explore' && compareOn);
+    document.getElementById('cumWrapR').classList.toggle('on', mode === 'explore');
 
     const gA = readGroup('ga'), gB = readGroup('gb');
     curveA = genGroupCurve(groupSeed(gA), groupBias(gA));

@@ -84,10 +84,12 @@ canvas{width:100%;display:block;border-radius:6px}
 .segBadge-no{background:#fbeced;color:var(--no)}
 .segBadge-none{background:var(--field);color:var(--dim);font-weight:400}
 
-/* Video chico, fijo arriba (sticky) desde el arranque — no gigante que después achica */
-.videoRow{position:sticky;top:60px;z-index:60;display:flex;gap:10px;align-items:stretch;
-  max-width:340px;margin:0 auto 4px;background:var(--panel);padding:6px;border-radius:8px;
+/* Video chico, SIEMPRE fijo arriba — fixed, no sticky, para que no dependa de layout */
+.videoRow{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:60;
+  display:flex;gap:10px;align-items:stretch;width:min(340px,92vw);
+  background:var(--panel);padding:6px;border-radius:8px;
   box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.videoRowSpacer{width:100%}
 .videoRow .videoWrap{flex:1;min-width:0}
 .vu{display:flex;gap:6px;flex:0 0 auto}
 .vuCol{display:flex;flex-direction:column;align-items:center;gap:4px;width:24px}
@@ -434,6 +436,7 @@ function renderPlayer(entry){
         </div>
       </div>
     </div>
+    <div class="videoRowSpacer" id="oiVideoSpacer"></div>
     <div class="card"><div class="body">
       <div class="hint" id="oiTapHint" style="margin-top:0">Cada vez que escuches algo que te resulte <b>negativo</b>, apretá el botón rojo. Cuando algo te suene <b>positivo</b>, el verde.</div>
       <div class="tapRow" id="oiTapRow">
@@ -446,24 +449,12 @@ function renderPlayer(entry){
       </div>
       <div class="statLine">Reacción actual: <b id="oiVal">0</b></div>
 
-      <div class="question" id="oiQuestion" hidden>
-        <h2>¿Por qué reaccionaste así?</h2>
-        <div class="hint" style="margin-bottom:8px">Opcional — escribilo o grabá un audio.</div>
-        <textarea id="oiOpenText" placeholder="Escribí tu interpretación acá…" style="width:100%;min-height:60px;margin-top:6px;font-family:var(--ui);padding:8px;border:1px solid var(--line);border-radius:6px"></textarea>
-        <div class="recRow">
-          <button type="button" class="mini-btn" id="oiRecBtn">🎙 Grabar audio</button>
-          <span class="recDot" id="oiRecDot"></span>
-          <button type="button" class="mini-btn" id="oiAiBtn">✨ Analizar con IA</button>
-          <span class="hint" id="oiRecStat"></span>
-        </div>
-        <audio id="oiRecPlay" controls hidden style="width:100%;margin-top:8px"></audio>
-        <div id="oiAiOut" class="hint" style="display:none;margin-top:8px;background:var(--field);border-radius:6px;padding:8px"></div>
-      </div>
     </div></div>
 
     <div class="card"><div class="body">
-      <h2>Curva de reacción</h2>
+      <h2>Tu curva de reacción</h2>
       <div class="hint" style="margin-bottom:8px">Verde = aprobación, rojo = rechazo. Se arma en vivo mientras mirás el video.</div>
+      <button type="button" class="mini-btn" id="oiPlayFromCurve" style="margin-bottom:8px">▶ Reproducir</button>
       <canvas id="oiCanvas" width="760" height="220"></canvas>
       <div class="axis"><span>0:00</span><span id="oiDurLbl">0:00</span></div>
       <div class="actions">
@@ -474,18 +465,13 @@ function renderPlayer(entry){
 
     ${segs.length ? `
     <div class="card"><div class="body">
-      <h2>Transcripción del fragmento</h2>
+      <h2>Frases a las que reaccionaste</h2>
       <div class="segList" id="oiSegs"></div>
     </div></div>` : ''}
 
     <div class="card"><div class="body">
       <h2>Comparar grupos <span style="color:var(--dim);font-weight:400">— simulado, sin votantes reales todavía</span></h2>
       <div class="hint" style="margin-bottom:10px">Los datos de esta sección son inventados para mostrar cómo se vería el producto con votantes reales.</div>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="oiAskInput" placeholder="Comparar mujeres 18-29 CABA con Provincia de Buenos Aires" style="flex:1;font-family:var(--ui);padding:8px;border:1px solid var(--line);border-radius:6px">
-        <button type="button" class="mini-btn" id="oiAskBtn" style="margin-top:0">Preguntar</button>
-      </div>
-      <div class="hint" style="margin-top:4px">Preguntar sobre esta encuesta</div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
         <div style="border:1px solid var(--line);border-radius:6px;padding:8px">
@@ -502,25 +488,8 @@ function renderPlayer(entry){
         </div>
       </div>
 
-      <div style="display:flex;gap:24px;align-items:flex-end;margin-top:12px;flex-wrap:wrap">
-        <div>
-          <div class="hint" style="color:#2a78d6;font-weight:600;margin-bottom:4px"><span id="oiALabel">Grupo A (todos)</span></div>
-          <div class="vu" style="transform:scale(.82);transform-origin:left bottom">
-            <div class="vuCol"><span class="vuPct" id="gaNegPct">0%</span><div class="vuTrack" style="min-height:50px"><div class="vuFill vuFill-neg" id="gaNegFill"></div></div></div>
-            <div class="vuCol"><span class="vuPct" id="gaPosPct">0%</span><div class="vuTrack" style="min-height:50px"><div class="vuFill vuFill-pos" id="gaPosFill"></div></div></div>
-          </div>
-        </div>
-        <div>
-          <div class="hint" style="color:#6250d6;font-weight:600;margin-bottom:4px"><span id="oiBLabel">Grupo B (todos)</span></div>
-          <div class="vu" style="transform:scale(.82);transform-origin:left bottom">
-            <div class="vuCol"><span class="vuPct" id="gbNegPct">0%</span><div class="vuTrack" style="min-height:50px"><div class="vuFill vuFill-neg" id="gbNegFill"></div></div></div>
-            <div class="vuCol"><span class="vuPct" id="gbPosPct">0%</span><div class="vuTrack" style="min-height:50px"><div class="vuFill vuFill-pos" id="gbPosFill"></div></div></div>
-          </div>
-        </div>
-      </div>
-      <div class="hint" style="margin-top:6px">Pican en vivo mientras el video reproduce, con la reacción simulada de cada grupo en ese instante.</div>
-      <div class="statLine" id="oiCompareTitle" style="text-align:left;font-weight:600;margin-top:10px"></div>
-      <div class="hint" style="margin-top:2px">La línea vertical sigue al video. Clickeá el gráfico para saltar a ese punto.</div>
+      <div class="statLine" id="oiCompareTitle" style="text-align:left;font-weight:600;margin-top:14px"></div>
+      <div class="hint" style="margin-top:2px">La línea vertical sigue al video. Arrastrala (o clickeá) para saltar a ese punto.</div>
       <div style="position:relative;height:190px;margin-top:6px">
         <canvas id="oiCompareChart"></canvas>
       </div>
@@ -556,6 +525,15 @@ function renderPlayer(entry){
     try { indexedDB.deleteDatabase('vnHandoff'); } catch (e) {}
     location.href = location.pathname + '?nuevo=1';
   });
+
+  // El video es "fixed" (siempre visible, no depende de sticky/scroll), así que
+  // reservamos su alto real en el spacer para que no tape el contenido de abajo.
+  const videoRowEl = $('oiVideoRow');
+  const spacerEl = $('oiVideoSpacer');
+  function syncSpacerHeight(){ spacerEl.style.height = videoRowEl.getBoundingClientRect().height + 'px'; }
+  vid.addEventListener('loadedmetadata', syncSpacerHeight);
+  window.addEventListener('resize', syncSpacerHeight);
+  setTimeout(syncSpacerHeight, 50);
 
   function sampleGroupAt(curveArr, t){
     if (!curveArr.length || !duration) return 0;
@@ -639,7 +617,6 @@ function renderPlayer(entry){
 
   let sampleTimer = null;
   vid.addEventListener('play', () => {
-    $('oiQuestion').hidden = true;
     if (sampleTimer) clearInterval(sampleTimer);
     sampleTimer = setInterval(() => {
       if (vid.paused || vid.ended) return;
@@ -651,9 +628,8 @@ function renderPlayer(entry){
   vid.addEventListener('pause', () => { if (sampleTimer) clearInterval(sampleTimer); });
   vid.addEventListener('ended', () => {
     if (sampleTimer) clearInterval(sampleTimer);
-    $('oiQuestion').hidden = false;
-    $('oiTapRow').hidden = true;
-    $('oiTapHint').hidden = true;
+    $('oiTapRow').style.display = 'none';
+    $('oiTapHint').style.display = 'none';
     $('oiVoted').classList.add('on');
   });
   $('oiRevote').addEventListener('click', () => {
@@ -661,10 +637,9 @@ function renderPlayer(entry){
     setVal(0);
     drawCurve();
     renderSegList();
-    $('oiTapRow').hidden = false;
-    $('oiTapHint').hidden = false;
+    $('oiTapRow').style.display = '';
+    $('oiTapHint').style.display = '';
     $('oiVoted').classList.remove('on');
-    $('oiQuestion').hidden = true;
     vid.currentTime = 0;
     vid.play();
   });
@@ -752,67 +727,7 @@ function renderPlayer(entry){
     wireSegList($('oiSegs'));
   }
 
-  // Grabador de interpretación abierta (mic)
-  let mediaRecorder = null, recChunks = [], recStream = null;
-  $('oiRecBtn').onclick = async () => {
-    const stat = $('oiRecStat');
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-      return;
-    }
-    try {
-      recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recChunks = [];
-      mediaRecorder = new MediaRecorder(recStream);
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
-      mediaRecorder.onstop = () => {
-        recStream.getTracks().forEach(t => t.stop());
-        $('oiRecDot').classList.remove('on');
-        $('oiRecBtn').textContent = '🎙 Grabar tu interpretación';
-        stat.textContent = 'Grabación lista, abajo.';
-        const blob = new Blob(recChunks, { type: 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        const audioEl = $('oiRecPlay');
-        audioEl.src = url; audioEl.hidden = false;
-      };
-      mediaRecorder.start();
-      $('oiRecDot').classList.add('on');
-      $('oiRecBtn').textContent = '⏹ Detener grabación';
-      stat.textContent = 'Grabando…';
-    } catch (e) {
-      stat.textContent = 'No se pudo acceder al micrófono: ' + ((e && e.message) || e);
-    }
-  };
-
-  // Análisis con IA de la interpretación escrita (usa la misma clave que el resto de VideoNote)
-  function keyGet(){ try{ return localStorage.getItem('vn_oai') || ''; }catch(e){ return ''; } }
-  async function gptChat(messages, opts){
-    const key = keyGet();
-    if (!key) throw new Error('Falta la clave de OpenAI (cargala en Video Note, pestaña Fondos → Crear con IA).');
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + key, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: (opts && opts.model) || 'gpt-4o', temperature: (opts && opts.temperature != null) ? opts.temperature : 0.4, messages }),
-    });
-    if (!r.ok) { let m=''; try{ const j=await r.json(); m=(j.error&&j.error.message)||''; }catch(e){} throw new Error('OpenAI ' + r.status + (m ? ' · ' + m : '')); }
-    const d = await r.json();
-    return (d.choices[0].message.content || '').trim();
-  }
-  $('oiAiBtn').onclick = async () => {
-    const out = $('oiAiOut');
-    const txt = $('oiOpenText').value.trim();
-    if (!txt) { out.style.display = 'block'; out.textContent = 'Escribí algo primero (la transcripción del audio grabado no está conectada todavía).'; return; }
-    out.style.display = 'block'; out.textContent = 'Analizando…';
-    try {
-      const res = await gptChat([
-        { role: 'system', content: 'Analizá brevemente (2-3 frases) qué está interpretando esta persona sobre un fragmento de video que acaba de ver, en base a lo que escribió. No opines vos, solo resumí su interpretación con tus palabras.' },
-        { role: 'user', content: txt },
-      ]);
-      out.textContent = res;
-    } catch (e) {
-      out.textContent = 'No se pudo analizar: ' + ((e && e.message) || e);
-    }
-  };
+  $('oiPlayFromCurve').addEventListener('click', () => { vid.play(); });
 
   // Comparar grupos — SIMULADO: no hay votantes reales, se genera una curva
   // creíble a partir de una semilla determinada por los filtros elegidos.
@@ -862,6 +777,11 @@ function renderPlayer(entry){
       ctx.save();
       ctx.strokeStyle = '#eb6834'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
+      // manija: indica que la línea se puede arrastrar para navegar el video
+      ctx.fillStyle = '#eb6834';
+      ctx.beginPath(); ctx.arc(px, top + 7, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(px, top + 7, 6, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     }
   };
@@ -873,14 +793,6 @@ function renderPlayer(entry){
     ]},
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
       scales: { y: { min: -100, max: 100, ticks: { color: '#9aa0a6' }, grid: { color: '#e6e6e6' } }, x: { display: false } },
-      onClick(evt){
-        if (!duration) return;
-        const pos = Chart.helpers.getRelativePosition(evt, compareChart);
-        const idx = compareChart.scales.x.getValueForPixel(pos.x);
-        const t = Math.max(0, Math.min(duration, (idx / 59) * duration));
-        vid.currentTime = t;
-        vid.play();
-      },
     },
   });
   // la línea testigo se redibuja sola con cada timeupdate (más abajo ya se llama compareChart.update())
@@ -897,8 +809,6 @@ function renderPlayer(entry){
     compareChart.data.datasets[1].data = curveB;
     compareChart.update();
     const labelA = groupLabel(gA, 'Grupo A (todos)'), labelB = groupLabel(gB, 'Grupo B (todos)');
-    $('oiALabel').textContent = labelA;
-    $('oiBLabel').textContent = labelB;
     $('oiCompareTitle').textContent = labelA + ' vs ' + labelB;
     $('oiTintA').style.background = tintFor(curveA);
     $('oiTintB').style.background = tintFor(curveB);
@@ -914,40 +824,20 @@ function renderPlayer(entry){
   ['gaSexo','gaEdad','gaZona','gbSexo','gbEdad','gbZona'].forEach(id => $(id).addEventListener('change', updateCompare));
   updateCompare();
 
-  function applyGroupToSelects(prefix, g){
-    if (g.sexo) $(prefix+'Sexo').value = g.sexo;
-    if (g.edad) $(prefix+'Edad').value = g.edad;
-    if (g.zona) $(prefix+'Zona').value = g.zona;
+  // Arrastrar la línea testigo del gráfico también navega el video, no solo clickear
+  let scrubbing = false;
+  function seekFromEvent(e){
+    if (!duration) return;
+    const pos = Chart.helpers.getRelativePosition(e, compareChart);
+    const idx = compareChart.scales.x.getValueForPixel(pos.x);
+    const t = Math.max(0, Math.min(duration, (idx / 59) * duration));
+    vid.currentTime = t;
   }
-  function naiveParse(text){
-    const t = (text||'').toLowerCase();
-    const sexo = /mujer/.test(t) ? 'Mujeres' : /hombre/.test(t) ? 'Hombres' : '';
-    const edad = /menos de 30|-30\b|18-29/.test(t) ? 'Menos de 30' : /50/.test(t) ? '50 o más' : '';
-    const zona = /provincia|pba|gba/.test(t) ? 'Provincia de Buenos Aires' : /caba/.test(t) ? 'CABA' : '';
-    return { sexo, edad, zona };
-  }
-  $('oiAskBtn').onclick = async () => {
-    const q = $('oiAskInput').value.trim() || $('oiAskInput').placeholder;
-    const stat = $('oiCompareStat');
-    stat.textContent = 'Interpretando la pregunta…';
-    let a = {}, b = {};
-    try {
-      const out = await gptChat([
-        { role: 'system', content: 'Extraé de la pregunta del usuario dos grupos demográficos a comparar (Grupo A y Grupo B), con sexo, edad y ubicación si están presentes. Respondé SOLO JSON, sin texto adicional, con esta forma exacta: {"a":{"sexo":"","edad":"","zona":""},"b":{"sexo":"","edad":"","zona":""}}. Los valores de sexo deben ser "Mujeres" o "Hombres" o vacío. Edad debe ser "Menos de 30", "30-49", "50 o más" o vacío. Zona debe ser "CABA", "Provincia de Buenos Aires", "Interior" o vacío.' },
-        { role: 'user', content: q },
-      ], { temperature: 0 });
-      const parsed = JSON.parse(out.replace(/```json|```/g, '').trim());
-      a = parsed.a || {}; b = parsed.b || {};
-      stat.textContent = 'Grupos armados con IA a partir de tu pregunta.';
-    } catch (e) {
-      const [partA, partB] = q.split(/\bcon\b/i);
-      a = naiveParse(partA); b = naiveParse(partB || 'hombres');
-      stat.textContent = 'No se pudo usar IA (' + ((e && e.message) || e) + ') — usé un parseo simple de respaldo.';
-    }
-    applyGroupToSelects('ga', a);
-    applyGroupToSelects('gb', b);
-    updateCompare();
-  };
+  const compareCanvas = $('oiCompareChart');
+  compareCanvas.style.cursor = 'grab';
+  compareCanvas.addEventListener('pointerdown', (e) => { scrubbing = true; compareCanvas.style.cursor = 'grabbing'; seekFromEvent(e); vid.play(); });
+  compareCanvas.addEventListener('pointermove', (e) => { if (scrubbing) seekFromEvent(e); });
+  window.addEventListener('pointerup', () => { scrubbing = false; compareCanvas.style.cursor = 'grab'; });
 }
 
 function renderError(err){

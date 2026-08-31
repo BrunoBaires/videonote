@@ -85,11 +85,10 @@ canvas{width:100%;display:block;border-radius:6px}
 .segBadge-none{background:var(--field);color:var(--dim);font-weight:400}
 
 /* Video chico, SIEMPRE fijo arriba — fixed, no sticky, para que no dependa de layout */
-.videoRow{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:60;
-  display:flex;flex-direction:column;width:min(820px,94vw);
+.videoRow{position:sticky;top:60px;z-index:60;
+  display:flex;flex-direction:column;width:100%;
   background:var(--panel);padding:8px;border-radius:8px;
   box-shadow:0 6px 18px rgba(0,0,0,.18)}
-.videoRowSpacer{width:100%}
 .videoRow .videoWrap{flex:1;min-width:0}
 .vu{display:flex;gap:6px;flex:0 0 auto}
 .vuCol{display:flex;flex-direction:column;align-items:center;gap:4px;width:24px}
@@ -462,11 +461,8 @@ function renderPlayer(entry){
         </div>
       </div>
       <div class="hint" id="oiVuCaption" style="text-align:center;margin-top:8px"></div>
-    </div>
-    <div class="videoRowSpacer" id="oiVideoSpacer"></div>
 
-    <div id="oiPaneVote">
-      <div class="card"><div class="body">
+      <div id="oiVoteControls" style="margin-top:10px">
         <div class="hint" id="oiTapHint">Cada vez que escuches algo que te resulte <b>negativo</b>, apretá el botón rojo. Cuando algo te suene <b>positivo</b>, el verde.</div>
         <div class="tapRow" id="oiTapRow">
           <button type="button" class="tapBtn tapBtn-neg" id="oiBtnNeg">No me gusta</button>
@@ -480,8 +476,10 @@ function renderPlayer(entry){
           </div>
         </div>
         <div class="statLine">Reacción actual: <b id="oiVal">0</b></div>
-      </div></div>
+      </div>
+    </div>
 
+    <div id="oiPaneVote">
       ${segs.length ? `
       <div class="card"><div class="body">
         <h2>Frases a las que reaccionaste</h2>
@@ -561,12 +559,7 @@ function renderPlayer(entry){
 
   // El video es "fixed": siempre visible, mismo tamaño, nunca cambia de lugar.
   // Reservamos su alto real en el spacer para que no tape el contenido de abajo.
-  const videoRowEl = $('oiVideoRow');
-  const spacerEl = $('oiVideoSpacer');
-  function syncSpacerHeight(){ spacerEl.style.height = videoRowEl.getBoundingClientRect().height + 'px'; }
-  vid.addEventListener('loadedmetadata', syncSpacerHeight);
-  window.addEventListener('resize', syncSpacerHeight);
-  setTimeout(syncSpacerHeight, 50);
+  // Con "sticky" el navegador reserva el espacio solo — no hace falta espaciador manual.
 
   let duration = (payload && payload.duration_seconds) || 0;
   let curve = [];   // [{t, v}] tu reacción, muestreada mientras votás en vivo
@@ -694,6 +687,7 @@ function renderPlayer(entry){
     mode = m;
     $('oiModeVote').classList.toggle('on', m === 'vote');
     $('oiModeExplore').classList.toggle('on', m === 'explore');
+    $('oiVoteControls').style.display = m === 'vote' ? '' : 'none';
     $('oiPaneVote').style.display = m === 'vote' ? '' : 'none';
     $('oiPaneExplore').style.display = m === 'explore' ? '' : 'none';
     $('oiVuCaption').textContent = '';

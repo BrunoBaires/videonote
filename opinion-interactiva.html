@@ -179,15 +179,238 @@ function loadHandoff(){
   }));
 }
 
+function aaiGet(){ try{ return localStorage.getItem('vn_aai')||''; }catch(e){ return ''; } }
+function aaiSet(v){ try{ if(v) localStorage.setItem('vn_aai', v); else localStorage.removeItem('vn_aai'); }catch(e){} }
+function oaiGet(){ try{ return localStorage.getItem('vn_oai')||''; }catch(e){ return ''; } }
+function oaiSet(v){ try{ if(v) localStorage.setItem('vn_oai', v); else localStorage.removeItem('vn_oai'); }catch(e){} }
+
+async function gptChatSetup(messages, opts){
+  const key = oaiGet();
+  if (!key) throw new Error('Falta la clave de OpenAI.');
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + key, 'content-type': 'application/json' },
+    body: JSON.stringify({ model: (opts && opts.model) || 'gpt-4o', temperature: (opts && opts.temperature != null) ? opts.temperature : 0.4, messages }),
+  });
+  if (!r.ok) { let m=''; try{ const j=await r.json(); m=(j.error&&j.error.message)||''; }catch(e){} throw new Error('OpenAI ' + r.status + (m ? ' · ' + m : '')); }
+  const d = await r.json();
+  return (d.choices[0].message.content || '').trim();
+}
+
+function buildCues(words){
+  const cues=[]; if(!words||!words.length) return cues;
+  const MAXW=9, MAXC=56, GAP=650;
+  let cur=null;
+  for(const w of words){
+    const tx=(w.text||'').trim(); if(!tx) continue;
+    if(cur){
+      const gap=w.start-cur.endRaw;
+      const nextLen=cur.text.length+1+tx.length;
+      const endsSent=/[.?!…:]$/.test(cur.lastWord);
+      if(cur.n>=MAXW || nextLen>MAXC || gap>GAP || endsSent){ cues.push(cur); cur=null; }
+    }
+    if(!cur) cur={start:w.start, endRaw:w.end, text:tx, n:1, lastWord:tx};
+    else { cur.text+=' '+tx; cur.endRaw=w.end; cur.n++; cur.lastWord=tx; }
+  }
+  if(cur) cues.push(cur);
+  for(let i=0;i<cues.length;i++){
+    cues[i].end = (i<cues.length-1) ? Math.min(cues[i+1].start, cues[i].endRaw+1200) : cues[i].endRaw+900;
+  }
+  return cues;
+}
+
+function parseJsonArray(s){
+  if(!s) return null;
+  let t=s.replace(/```json|```/gi,'').trim();
+  try{ const a=JSON.parse(t); return Array.isArray(a)?a:null; }catch(e){}
+  const i=t.indexOf('['), j=t.lastIndexOf(']');
+  if(i>=0 && j>i){ try{ const a=JSON.parse(t.slice(i,j+1)); return Array.isArray(a)?a:null; }catch(e){} }
+  return null;
+}
+const SUB_TR_SYS =
+  'Sos traductor de subtítulos periodísticos al español rioplatense (Argentina): natural, claro y fiel al sentido, registro de noticiero.\n'+
+  'Te paso un array JSON de N segmentos consecutivos de habla continua.\n'+
+  'Devolvé SOLO un array JSON con EXACTAMENTE N elementos, en el mismo orden, donde el elemento i es la traducción del segmento i.\n'+
+  'No repitas texto entre segmentos, no fusiones ni dividas segmentos.';
+async function translateBatch(lines, ctxPrev, ctxNext){
+  const N=lines.length;
+  const ctxMsg=(ctxPrev||ctxNext)
+    ? [{role:'system', content:'Contexto (NO traducir, sólo para continuidad). Antes: «'+(ctxPrev||'—')+'». Después: «'+(ctxNext||'—')+'».'}]
+    : [];
+  const ask=async (temp)=>{
+    const out=await gptChatSetup([{role:'system',content:SUB_TR_SYS}, ...ctxMsg, {role:'user',content:JSON.stringify(lines)}], {model:'gpt-4o', temperature:temp});
+    return parseJsonArray(out);
+  };
+  let arr=await ask(0.2);
+  if(arr && arr.length===N) return arr.map(x=>String(x==null?'':x));
+  arr=await ask(0);
+  if(arr && arr.length===N) return arr.map(x=>String(x==null?'':x));
+  return null;
+}
+
 function renderEmpty(){
   wrap.innerHTML = `
     <div class="card"><div class="body">
-      <div class="empty">
-        No hay ningún video esperando acá todavía.<br><br>
-        Andá a <a href="index.html">Video Note</a>, transcribí un video y usá el botón
-        <b>"Enviar a Opinión Interactiva →"</b> en la card de Transcripción.
+      <div class="hint">Subí un video o pegá un link de X, transcribilo y arrancá directo acá — sin pasar por Video Note. (Si ya lo enviaste desde ahí, esto no debería aparecer.)</div>
+
+      <div style="margin-top:14px">
+        <input type="file" id="stFile" accept="video/*,audio/*" style="display:block;margin-bottom:8px">
+        <div style="display:flex;gap:8px;margin-bottom:6px">
+          <input type="text" id="stXUrl" placeholder="…o pegá un link de un posteo de X" style="flex:1;font-family:var(--ui);padding:8px;border:1px solid var(--line);border-radius:6px">
+          <button type="button" class="mini-btn" id="stXBtn" style="margin-top:0">Traer video</button>
+        </div>
+        <div class="genstat" id="stFileStat"></div>
       </div>
+
+      <div id="stKeys" style="margin-top:14px;display:none">
+        <div class="hint" style="margin-bottom:6px">Claves de API (se guardan en este navegador; si ya las cargaste en Video Note, ya están acá)</div>
+        <input type="text" id="stAaiKey" placeholder="AssemblyAI API key" style="width:100%;margin-bottom:6px;font-family:var(--ui);padding:8px;border:1px solid var(--line);border-radius:6px">
+        <input type="text" id="stOaiKey" placeholder="OpenAI API key (para traducir)" style="width:100%;font-family:var(--ui);padding:8px;border:1px solid var(--line);border-radius:6px">
+      </div>
+
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="mini-btn" id="stTranscribe" style="margin-top:0" disabled>Transcribir</button>
+        <button type="button" class="mini-btn" id="stTranslate" style="margin-top:0" disabled>Traducir al español</button>
+        <button type="button" class="mini-btn" id="stGo" style="margin-top:0" disabled>Continuar →</button>
+      </div>
+      <div class="genstat" id="stStat" style="margin-top:8px"></div>
     </div></div>`;
+
+  const aai = aaiGet(), oai = oaiGet();
+  if (!aai || !oai) $('stKeys').style.display = 'block';
+  if (aai) $('stAaiKey').value = aai;
+  if (oai) $('stOaiKey').value = oai;
+  $('stAaiKey').addEventListener('change', () => aaiSet($('stAaiKey').value.trim()));
+  $('stOaiKey').addEventListener('change', () => oaiSet($('stOaiKey').value.trim()));
+
+  let stFile = null, stSubWords = [], stSubCues = [], stDuration = 0;
+  function stStat(t,c){ $('stStat').innerHTML=t; $('stStat').className='genstat'+(c?' '+c:''); }
+  function fileReady(f){
+    stFile = f;
+    $('stFileStat').textContent = f.name + ' (' + (f.size/1048576).toFixed(1) + ' MB)';
+    $('stTranscribe').disabled = false;
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.onloadedmetadata = () => { stDuration = v.duration || 0; URL.revokeObjectURL(v.src); };
+    v.src = URL.createObjectURL(f);
+  }
+  $('stFile').addEventListener('change', () => { if ($('stFile').files[0]) fileReady($('stFile').files[0]); });
+
+  const XCHUNK = 6*1024*1024;
+  async function xTrozo(url, desde, hasta){
+    const ctl = new AbortController();
+    const reloj = setTimeout(() => ctl.abort(), 50000);
+    try { return await fetch('/api/xvideo?download=1&url='+encodeURIComponent(url), { headers:{ 'Range':'bytes='+desde+'-'+hasta }, signal: ctl.signal }); }
+    finally { clearTimeout(reloj); }
+  }
+  $('stXBtn').addEventListener('click', async () => {
+    const url = ($('stXUrl').value||'').trim();
+    if (!url) { stStat('Pegá el link del posteo de X.','err'); return; }
+    $('stXBtn').disabled = true;
+    stStat('<span class="spin"></span>Buscando el video…');
+    try{
+      const partes=[]; let desde=0, total=null, vueltas=0;
+      while(total===null || desde<total){
+        if(++vueltas>400) throw new Error('demasiados trozos');
+        const r = await xTrozo(url, desde, desde+XCHUNK-1);
+        if(!r.ok && r.status!==206){ let m=''; try{ const j=await r.json(); m=j.error||''; }catch(e){} throw new Error(m||('HTTP '+r.status)); }
+        const cr = r.headers.get('content-range');
+        if(cr){ const t=parseInt(cr.split('/')[1],10); if(isFinite(t)) total=t; }
+        const b = await r.blob();
+        if(!b.size) break;
+        partes.push(b); desde+=b.size;
+        if(r.status!==206){ total=desde; break; }
+        stStat('<span class="spin"></span>Bajando… '+(desde/1048576).toFixed(1)+(total?(' de '+(total/1048576).toFixed(1)):'')+' MB');
+      }
+      const blob = new Blob(partes,{type:'video/mp4'});
+      if(blob.size<1000) throw new Error('el archivo vino vacío');
+      const file = new File([blob], 'x-'+Date.now()+'.mp4', {type:'video/mp4'});
+      stStat('Video traído ✓ ('+(blob.size/1048576).toFixed(1)+' MB).','ok');
+      fileReady(file);
+    }catch(e){
+      let msg=(e&&e.name==='AbortError') ? 'el servidor tardó demasiado' : ((e&&e.message)||e);
+      stStat('No se pudo traer el video: '+msg+'.','err');
+    }
+    $('stXBtn').disabled = false;
+  });
+
+  $('stTranscribe').addEventListener('click', async () => {
+    const key = aaiGet();
+    if (!key) { stStat('Falta la clave de AssemblyAI (arriba).','err'); $('stKeys').style.display='block'; return; }
+    if (!stFile) { stStat('Subí un video primero.','err'); return; }
+    $('stTranscribe').disabled = true;
+    try{
+      stStat('<span class="spin"></span>Subiendo el audio…');
+      const up = await fetch('https://api.assemblyai.com/v2/upload', { method:'POST', headers:{ 'authorization':key }, body: stFile });
+      if(!up.ok) throw new Error('upload '+up.status);
+      const { upload_url } = await up.json();
+      stStat('<span class="spin"></span>Transcribiendo… (puede tardar)');
+      const body = { audio_url: upload_url, language_detection: true, speaker_labels: true };
+      const cr = await fetch('https://api.assemblyai.com/v2/transcript', { method:'POST', headers:{ 'authorization':key, 'content-type':'application/json' }, body: JSON.stringify(body) });
+      if(!cr.ok) throw new Error('create '+cr.status);
+      const job = await cr.json();
+      let st = job.status, id = job.id;
+      while (st==='queued' || st==='processing'){
+        await new Promise(r=>setTimeout(r,3000));
+        const pr = await fetch('https://api.assemblyai.com/v2/transcript/'+id, { headers:{ 'authorization':key } });
+        const d = await pr.json(); st = d.status; if (d.words) stSubWords = d.words; if (d.error) throw new Error(d.error);
+      }
+      if (st==='completed'){
+        stSubCues = buildCues(stSubWords);
+        stStat('Transcripción lista · '+stSubCues.length+' subtítulos.','ok');
+        $('stTranslate').disabled = false;
+        $('stGo').disabled = false;
+      } else throw new Error('estado: '+st);
+    }catch(e){ stStat('Falló: '+((e&&e.message)||e),'err'); }
+    $('stTranscribe').disabled = false;
+  });
+
+  $('stTranslate').addEventListener('click', async () => {
+    if (!oaiGet()) { stStat('Falta la clave de OpenAI (arriba).','err'); $('stKeys').style.display='block'; return; }
+    if (!stSubCues.length) { stStat('Transcribí primero.','err'); return; }
+    $('stTranslate').disabled = true;
+    const texts = stSubCues.map(c => (c.text||'').replace(/\s+/g,' ').trim());
+    const N = texts.length, BATCH = 24;
+    stStat('<span class="spin"></span>Traduciendo… 0/'+N);
+    try{
+      const result = new Array(N); let done=0, fail=0;
+      for (let s=0; s<N; s+=BATCH){
+        const slice = texts.slice(s, s+BATCH);
+        const ctxPrev = texts[s-1]||'', ctxNext = texts[s+slice.length]||'';
+        let tr = null;
+        try{ tr = await translateBatch(slice, ctxPrev, ctxNext); }catch(e){ tr=null; }
+        for (let i=0;i<slice.length;i++){
+          const v = (tr && tr[i]!=null) ? String(tr[i]).replace(/\s+/g,' ').trim() : '';
+          if (v) result[s+i]=v; else { result[s+i]=texts[s+i]; fail++; }
+        }
+        done = Math.min(N, s+slice.length);
+        stStat('<span class="spin"></span>Traduciendo… '+done+'/'+N);
+      }
+      for (let i=0;i<N;i++) stSubCues[i].text = result[i];
+      stStat('Traducido al español ✓'+(fail?(' ('+fail+' sin traducir)'):'.'),'ok');
+    }catch(e){ stStat('No se pudo traducir: '+((e&&e.message)||e),'err'); }
+    $('stTranslate').disabled = false;
+  });
+
+  $('stGo').addEventListener('click', () => {
+    if (!stSubCues.length || !stFile) { stStat('Transcribí el video antes de continuar.','err'); return; }
+    const dur = stDuration || (stSubCues.length ? stSubCues[stSubCues.length-1].end/1000 : 0);
+    const payload = {
+      video_id: 'oi_' + Date.now().toString(16),
+      duration_seconds: +Number(dur).toFixed(2),
+      language: 'es',
+      transcription_status: 'completed',
+      segments: stSubCues.map((c,i) => ({
+        segment_id: 'seg_'+String(i+1).padStart(3,'0'),
+        start: +(c.start/1000).toFixed(2),
+        end: +(c.end/1000).toFixed(2),
+        text: (c.text||'').trim(),
+        speaker: null,
+      })),
+    };
+    try { renderPlayer({ videoBlob: stFile, payload }); }
+    catch (err) { renderError(err); }
+  });
 }
 
 function renderPlayer(entry){
@@ -284,10 +507,23 @@ function renderPlayer(entry){
         </div>
       </div>
 
-      <div style="display:flex;gap:16px;font-size:12px;color:var(--dim);margin-top:12px">
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2a78d6;margin-right:4px"></span><span id="oiALabel">Grupo A (todos)</span></span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#6250d6;margin-right:4px"></span><span id="oiBLabel">Grupo B (todos)</span></span>
+      <div style="display:flex;gap:24px;align-items:flex-end;margin-top:12px;flex-wrap:wrap">
+        <div>
+          <div class="hint" style="color:#2a78d6;font-weight:600;margin-bottom:4px"><span id="oiALabel">Grupo A (todos)</span></div>
+          <div class="vu" style="transform:scale(.82);transform-origin:left bottom">
+            <div class="vuCol"><span class="vuPct" id="gaNegPct">0%</span><div class="vuTrack" style="min-height:50px"><div class="vuFill vuFill-neg" id="gaNegFill"></div></div></div>
+            <div class="vuCol"><span class="vuPct" id="gaPosPct">0%</span><div class="vuTrack" style="min-height:50px"><div class="vuFill vuFill-pos" id="gaPosFill"></div></div></div>
+          </div>
+        </div>
+        <div>
+          <div class="hint" style="color:#6250d6;font-weight:600;margin-bottom:4px"><span id="oiBLabel">Grupo B (todos)</span></div>
+          <div class="vu" style="transform:scale(.82);transform-origin:left bottom">
+            <div class="vuCol"><span class="vuPct" id="gbNegPct">0%</span><div class="vuTrack" style="min-height:50px"><div class="vuFill vuFill-neg" id="gbNegFill"></div></div></div>
+            <div class="vuCol"><span class="vuPct" id="gbPosPct">0%</span><div class="vuTrack" style="min-height:50px"><div class="vuFill vuFill-pos" id="gbPosFill"></div></div></div>
+          </div>
+        </div>
       </div>
+      <div class="hint" style="margin-top:6px">Pican en vivo mientras el video reproduce, con la reacción simulada de cada grupo en ese instante.</div>
       <div style="position:relative;height:190px;margin-top:6px">
         <canvas id="oiCompareChart"></canvas>
       </div>
@@ -334,17 +570,28 @@ function renderPlayer(entry){
     spacer.classList.toggle('on', pin);
   }, { threshold: 0 }).observe(sentinel);
 
-  // subtítulo superpuesto, sincronizado con currentTime (usa el mismo texto
-  // ya traducido que arma "Transcripción del fragmento")
+  function sampleGroupAt(curveArr, t){
+    if (!curveArr.length || !duration) return 0;
+    const idx = Math.max(0, Math.min(curveArr.length-1, Math.floor((t/duration) * curveArr.length)));
+    return curveArr[idx];
+  }
+  function groupVU(prefix, v){
+    const neg = Math.max(0, -v), pos = Math.max(0, v);
+    if ($(prefix+'NegFill')) $(prefix+'NegFill').style.height = neg + '%';
+    if ($(prefix+'PosFill')) $(prefix+'PosFill').style.height = pos + '%';
+    if ($(prefix+'NegPct')) $(prefix+'NegPct').textContent = Math.round(neg) + '%';
+    if ($(prefix+'PosPct')) $(prefix+'PosPct').textContent = Math.round(pos) + '%';
+  }
   let capIdx = -1;
   vid.addEventListener('timeupdate', () => {
-    if (!segs.length) return;
-    const t = vid.currentTime;
-    let idx = segs.findIndex(s => t >= s.start && t < s.end);
-    if (idx !== capIdx) {
-      capIdx = idx;
-      caption.textContent = idx >= 0 ? segs[idx].text : '';
+    if (!segs.length) { /* sin transcripción igual sincronizamos los VU-metros de grupo */ }
+    else {
+      const t = vid.currentTime;
+      let idx = segs.findIndex(s => t >= s.start && t < s.end);
+      if (idx !== capIdx) { capIdx = idx; caption.textContent = idx >= 0 ? segs[idx].text : ''; }
     }
+    if (curveA.length) groupVU('ga', sampleGroupAt(curveA, vid.currentTime));
+    if (curveB.length) groupVU('gb', sampleGroupAt(curveB, vid.currentTime));
   });
   vid.addEventListener('seeked', () => { capIdx = -1; });
 
@@ -367,6 +614,7 @@ function renderPlayer(entry){
   let curve = []; // [{t, v}] muestreada mientras reproduce
   let value = 0;  // -100..100
   let releaseRaf = null;
+  let curveA = [], curveB = []; // simuladas, para el vúmetro de grupos en vivo
 
   vid.addEventListener('loadedmetadata', () => {
     duration = vid.duration || duration;
@@ -626,8 +874,8 @@ function renderPlayer(entry){
   }
   function updateCompare(){
     const gA = readGroup('ga'), gB = readGroup('gb');
-    const curveA = genGroupCurve(groupSeed(gA), groupBias(gA));
-    const curveB = genGroupCurve(groupSeed(gB)+1, groupBias(gB));
+    curveA = genGroupCurve(groupSeed(gA), groupBias(gA));
+    curveB = genGroupCurve(groupSeed(gB)+1, groupBias(gB));
     compareChart.data.datasets[0].data = curveA;
     compareChart.data.datasets[1].data = curveB;
     compareChart.update();

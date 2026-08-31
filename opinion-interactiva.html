@@ -40,7 +40,7 @@ h1 span{color:var(--rojo)}
 .empty a{color:var(--rojo);font-weight:600;text-decoration:none}
 .empty a:hover{text-decoration:underline}
 
-video{width:100%;border-radius:8px;background:#000;display:block}
+video{max-height:42vh;width:auto;max-width:100%;display:block;margin:0 auto;border-radius:8px;background:#000}
 .videoWrap{position:relative}
 .caption{position:absolute;left:6%;right:6%;bottom:9%;text-align:center;
   font-family:var(--ui);font-weight:600;font-size:clamp(13px,2.4vw,20px);line-height:1.35;
@@ -199,6 +199,7 @@ function renderPlayer(entry){
 
       <div class="question" id="oiQuestion" hidden>
         <h2>¿Coincidís con lo que dijo?</h2>
+        <div class="hint" style="margin-bottom:8px">Esto es sobre el contenido de lo que dijo — los hechos, el argumento — no sobre cómo lo dijo, ni sobre la persona.</div>
         <div class="qOpts">
           <button type="button" class="qOpt" data-v="acuerdo_total">Totalmente de acuerdo</button>
           <button type="button" class="qOpt" data-v="acuerdo_parcial">Parcialmente de acuerdo</button>
@@ -272,6 +273,18 @@ function renderPlayer(entry){
         <span id="oiTintB" style="width:60px;height:24px;border-radius:6px;background:var(--field)"></span>
       </div>
       <div class="hint" id="oiCompareStat" style="margin-top:8px"></div>
+
+      ${segs.length ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+        <div>
+          <div class="hint" style="color:#2a78d6;font-weight:600;margin-bottom:4px">Frases — Grupo A</div>
+          <div class="segList" id="oiSegsA"></div>
+        </div>
+        <div>
+          <div class="hint" style="color:#6250d6;font-weight:600;margin-bottom:4px">Frases — Grupo B</div>
+          <div class="segList" id="oiSegsB"></div>
+        </div>
+      </div>` : ''}
     </div></div>
   `;
 
@@ -310,6 +323,21 @@ function renderPlayer(entry){
     }
   });
   vid.addEventListener('seeked', () => { capIdx = -1; });
+
+  // Reproducir como quote: al hacer click en una frase, arranca ahí y se
+  // detiene sola al llegar al final de ese tramo.
+  let quoteEnd = null;
+  vid.addEventListener('timeupdate', () => {
+    if (quoteEnd != null && vid.currentTime >= quoteEnd) {
+      vid.pause();
+      quoteEnd = null;
+    }
+  });
+  function playAsQuote(seg){
+    quoteEnd = seg.end;
+    vid.currentTime = seg.start;
+    vid.play();
+  }
 
   let duration = (payload && payload.duration_seconds) || 0;
   let curve = []; // [{t, v}] muestreada mientras reproduce
@@ -411,8 +439,8 @@ function renderPlayer(entry){
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
   };
 
-  function segStat(s){
-    const pts = curve.filter(p => p.t >= s.start && p.t < s.end);
+  function segStat(curveArr, s){
+    const pts = curveArr.filter(p => p.t >= s.start && p.t < s.end);
     if (!pts.length) return { cls: 'segBadge-none', label: 'Sin datos' };
     const avg = pts.reduce((a,p) => a + p.v, 0) / pts.length;
     const pct = Math.round(Math.abs(avg));
@@ -420,10 +448,9 @@ function renderPlayer(entry){
       ? { cls: 'segBadge-ok', label: pct + '% aprobación' }
       : { cls: 'segBadge-no', label: pct + '% disgusto' };
   }
-  function renderSegList(){
-    if (!segs.length) return;
-    $('oiSegs').innerHTML = segs.map((s, i) => {
-      const st = segStat(s);
+  function buildSegListHTML(curveArr){
+    return segs.map((s, i) => {
+      const st = segStat(curveArr, s);
       return `<div class="segRow" data-i="${i}">
         <span class="t">${fmtT(s.start)}–${fmtT(s.end)}</span>
         <span class="x">${s.text}</span>
@@ -431,14 +458,19 @@ function renderPlayer(entry){
       </div>`;
     }).join('');
   }
+  function wireSegList(el){
+    el.addEventListener('click', (e) => {
+      const row = e.target.closest('.segRow'); if (!row) return;
+      playAsQuote(segs[Number(row.dataset.i)]);
+    });
+  }
+  function renderSegList(){
+    if (!segs.length) return;
+    $('oiSegs').innerHTML = buildSegListHTML(curve);
+  }
   if (segs.length) {
     renderSegList();
-    $('oiSegs').addEventListener('click', (e) => {
-      const row = e.target.closest('.segRow'); if (!row) return;
-      const s = segs[Number(row.dataset.i)];
-      vid.currentTime = s.start;
-      vid.play();
-    });
+    wireSegList($('oiSegs'));
   }
 
   // Pregunta final (una sola vez, al terminar el video — no en vivo)
@@ -574,6 +606,14 @@ function renderPlayer(entry){
     $('oiBLabel').textContent = groupLabel(gB, 'Grupo B (todos)');
     $('oiTintA').style.background = tintFor(curveA);
     $('oiTintB').style.background = tintFor(curveB);
+    if (segs.length && $('oiSegsA')) {
+      const ptsA = curveA.map((v, i) => ({ t: (i / curveA.length) * duration, v }));
+      const ptsB = curveB.map((v, i) => ({ t: (i / curveB.length) * duration, v }));
+      $('oiSegsA').innerHTML = buildSegListHTML(ptsA);
+      $('oiSegsB').innerHTML = buildSegListHTML(ptsB);
+      wireSegList($('oiSegsA'));
+      wireSegList($('oiSegsB'));
+    }
   }
   ['gaSexo','gaEdad','gaZona','gbSexo','gbEdad','gbZona'].forEach(id => $(id).addEventListener('change', updateCompare));
   updateCompare();

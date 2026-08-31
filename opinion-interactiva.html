@@ -322,35 +322,49 @@ function renderEmpty(){
     try { return await fetch('/api/xvideo?download=1&url='+encodeURIComponent(url), { headers:{ 'Range':'bytes='+desde+'-'+hasta }, signal: ctl.signal }); }
     finally { clearTimeout(reloj); }
   }
+  async function intentarTraerX(url){
+    const partes=[]; let desde=0, total=null, vueltas=0;
+    while(total===null || desde<total){
+      if(++vueltas>400) throw new Error('demasiados trozos');
+      const r = await xTrozo(url, desde, desde+XCHUNK-1);
+      if(!r.ok && r.status!==206){ let m=''; try{ const j=await r.json(); m=j.error||''; }catch(e){} throw new Error(m||('HTTP '+r.status)); }
+      const cr = r.headers.get('content-range');
+      if(cr){ const t=parseInt(cr.split('/')[1],10); if(isFinite(t)) total=t; }
+      const b = await r.blob();
+      if(!b.size) break;
+      partes.push(b); desde+=b.size;
+      if(r.status!==206){ total=desde; break; }
+      stStat('<span class="spin"></span>Bajando… '+(desde/1048576).toFixed(1)+(total?(' de '+(total/1048576).toFixed(1)):'')+' MB');
+    }
+    const blob = new Blob(partes,{type:'video/mp4'});
+    if(blob.size<1000) throw new Error('el archivo vino vacío');
+    return blob;
+  }
   $('stXBtn').addEventListener('click', async () => {
     const url = ($('stXUrl').value||'').trim();
     if (!url) { stStat('Pegá el link del posteo de X.','err'); return; }
     $('stXBtn').disabled = true;
-    stStat('<span class="spin"></span>Buscando el video…');
-    try{
-      const partes=[]; let desde=0, total=null, vueltas=0;
-      while(total===null || desde<total){
-        if(++vueltas>400) throw new Error('demasiados trozos');
-        const r = await xTrozo(url, desde, desde+XCHUNK-1);
-        if(!r.ok && r.status!==206){ let m=''; try{ const j=await r.json(); m=j.error||''; }catch(e){} throw new Error(m||('HTTP '+r.status)); }
-        const cr = r.headers.get('content-range');
-        if(cr){ const t=parseInt(cr.split('/')[1],10); if(isFinite(t)) total=t; }
-        const b = await r.blob();
-        if(!b.size) break;
-        partes.push(b); desde+=b.size;
-        if(r.status!==206){ total=desde; break; }
-        stStat('<span class="spin"></span>Bajando… '+(desde/1048576).toFixed(1)+(total?(' de '+(total/1048576).toFixed(1)):'')+' MB');
+    const INTENTOS = 3;
+    let ultimoError = null;
+    for (let intento = 1; intento <= INTENTOS; intento++){
+      try{
+        stStat('<span class="spin"></span>Buscando el video…' + (intento>1 ? ' (intento '+intento+' de '+INTENTOS+')' : ''));
+        const blob = await intentarTraerX(url);
+        const file = new File([blob], 'x-'+Date.now()+'.mp4', {type:'video/mp4'});
+        stStat('Video traído ✓ ('+(blob.size/1048576).toFixed(1)+' MB).','ok');
+        fileReady(file);
+        ultimoError = null;
+        break;
+      }catch(e){
+        ultimoError = e;
+        if (intento < INTENTOS) await new Promise(r => setTimeout(r, 1200));
       }
-      const blob = new Blob(partes,{type:'video/mp4'});
-      if(blob.size<1000) throw new Error('el archivo vino vacío');
-      const file = new File([blob], 'x-'+Date.now()+'.mp4', {type:'video/mp4'});
-      stStat('Video traído ✓ ('+(blob.size/1048576).toFixed(1)+' MB).','ok');
-      fileReady(file);
-    }catch(e){
-      let msg=(e&&e.name==='AbortError') ? 'el servidor tardó demasiado en responder' : ((e&&e.message)||e);
+    }
+    if (ultimoError) {
+      let msg=(ultimoError&&ultimoError.name==='AbortError') ? 'el servidor tardó demasiado en responder' : ((ultimoError&&ultimoError.message)||ultimoError);
       if(/Failed to fetch|NetworkError|load failed/i.test(String(msg)))
-        msg='se cortó la conexión con el servidor — probá de nuevo, o subí el archivo directamente con "Seleccionar archivo"';
-      stStat('No se pudo traer el video: '+msg+'.','err');
+        msg='el endpoint de X está fallando ahora (es un servicio no oficial de X, se corta al azar) — probá de nuevo en un rato, o subí el archivo directamente con "Seleccionar archivo"';
+      stStat('No se pudo traer el video después de '+INTENTOS+' intentos: '+msg+'.','err');
     }
     $('stXBtn').disabled = false;
   });

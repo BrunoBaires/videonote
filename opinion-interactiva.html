@@ -42,6 +42,7 @@ h1 span{color:var(--rojo)}
 .empty a:hover{text-decoration:underline}
 
 video{width:auto;max-width:100%;max-height:26vh;display:block;margin:0 auto;border-radius:8px;background:#000}
+.videoRow.expanded video{max-height:70vh}
 .videoWrap{position:relative}
 .caption{position:absolute;left:6%;right:6%;bottom:9%;text-align:center;
   font-family:var(--ui);font-weight:600;font-size:clamp(11px,2.4vw,15px);line-height:1.3;
@@ -90,7 +91,10 @@ canvas{width:100%;display:block;border-radius:6px}
   background:var(--panel);padding:8px;border-radius:8px;
   box-shadow:0 6px 18px rgba(0,0,0,.18);
   max-height:50vh;overflow-y:auto}
+.videoRow.expanded{max-height:none;overflow-y:visible}
 .videoRow .videoWrap{flex:1;min-width:0}
+.expandBtnRow{display:none;justify-content:flex-end;margin-bottom:4px}
+.expandBtnRow.on{display:flex}
 .vu{display:flex;gap:6px;flex:0 0 auto}
 .vuCol{display:flex;flex-direction:column;align-items:center;gap:4px;width:24px}
 .vuPct{font-family:var(--mono);font-size:9.5px;color:var(--dim);font-weight:600}
@@ -461,6 +465,9 @@ function renderPlayer(entry){
     </div>
 
     <div class="videoRow" id="oiVideoRow">
+      <div class="expandBtnRow" id="oiExpandRow">
+        <button type="button" class="mini-btn" id="oiExpandBtn" style="margin-top:0">⤢ Expandir</button>
+      </div>
       <div style="display:flex;gap:8px;align-items:stretch">
         <div id="oiVuLeftWrap" style="display:none;flex-direction:column;align-items:center;gap:4px">
           <span class="hint" id="oiVuLeftLabel" style="font-weight:600;white-space:nowrap"></span>
@@ -756,6 +763,13 @@ function renderPlayer(entry){
   }
 
   // ---------- Toggle de modo ----------
+  function setExpanded(v){
+    $('oiVideoRow').classList.toggle('expanded', v);
+    $('oiExpandBtn').innerHTML = v ? '⤡ Colapsar' : '⤢ Expandir';
+  }
+  $('oiExpandBtn').addEventListener('click', () => {
+    setExpanded(!$('oiVideoRow').classList.contains('expanded'));
+  });
   function setMode(m){
     mode = m;
     $('oiModeVote').classList.toggle('on', m === 'vote');
@@ -765,6 +779,8 @@ function renderPlayer(entry){
     $('oiPaneExplore').style.display = m === 'explore' ? '' : 'none';
     $('oiVuCaption').textContent = '';
     $('oiGoReport').style.display = m === 'explore' ? '' : 'none';
+    $('oiExpandRow').classList.toggle('on', m === 'explore');
+    if (m === 'vote') setExpanded(false);
     document.getElementById('cumWrapR').classList.toggle('on', m === 'explore');
     document.getElementById('cumWrapL').classList.toggle('on', false);
     if (m === 'vote') {

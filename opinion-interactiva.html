@@ -86,8 +86,8 @@ canvas{width:100%;display:block;border-radius:6px}
 
 /* Video chico, SIEMPRE fijo arriba — fixed, no sticky, para que no dependa de layout */
 .videoRow{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:60;
-  display:flex;gap:8px;align-items:stretch;width:min(420px,94vw);
-  background:var(--panel);padding:6px;border-radius:8px;
+  display:flex;flex-direction:column;width:min(820px,94vw);
+  background:var(--panel);padding:8px;border-radius:8px;
   box-shadow:0 6px 18px rgba(0,0,0,.18)}
 .videoRowSpacer{width:100%}
 .videoRow .videoWrap{flex:1;min-width:0}
@@ -436,27 +436,34 @@ function renderPlayer(entry){
       <button type="button" class="mini-btn" id="oiClear" style="margin-top:0">↺ Cargar otro video</button>
     </div>
 
-    <div class="modeToggle">
-      <button type="button" class="modeBtn on" id="oiModeVote">Estoy votando</button>
-      <button type="button" class="modeBtn" id="oiModeExplore">Explorando resultados</button>
-    </div>
-
     <div class="videoRow" id="oiVideoRow">
-      <div class="vu" id="oiVuLeft" style="display:none">
-        <div class="vuCol"><span class="vuPct" id="vuLNegPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-neg" id="vuLNegFill"></div></div></div>
-        <div class="vuCol"><span class="vuPct" id="vuLPosPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-pos" id="vuLPosFill"></div></div></div>
+      <div class="modeToggle">
+        <button type="button" class="modeBtn on" id="oiModeVote">Estoy votando</button>
+        <button type="button" class="modeBtn" id="oiModeExplore">Explorando resultados</button>
       </div>
-      <div class="videoWrap" id="oiVideoWrap">
-        <video id="oiVid" playsinline controls src="${videoUrl}"></video>
-        <div class="caption" id="oiCaption"></div>
+      <div style="display:flex;gap:8px;align-items:stretch">
+        <div id="oiVuLeftWrap" style="display:none;flex-direction:column;align-items:center;gap:4px">
+          <span class="hint" id="oiVuLeftLabel" style="font-weight:600;white-space:nowrap"></span>
+          <div class="vu" id="oiVuLeft">
+            <div class="vuCol"><span class="vuPct" id="vuLNegPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-neg" id="vuLNegFill"></div></div></div>
+            <div class="vuCol"><span class="vuPct" id="vuLPosPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-pos" id="vuLPosFill"></div></div></div>
+          </div>
+        </div>
+        <div class="videoWrap" id="oiVideoWrap">
+          <video id="oiVid" playsinline controls src="${videoUrl}"></video>
+          <div class="caption" id="oiCaption"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+          <span class="hint" id="oiVuRightLabel" style="font-weight:600;white-space:nowrap"></span>
+          <div class="vu" id="oiVuRight">
+            <div class="vuCol"><span class="vuPct" id="vuRNegPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-neg" id="vuRNegFill"></div></div></div>
+            <div class="vuCol"><span class="vuPct" id="vuRPosPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-pos" id="vuRPosFill"></div></div></div>
+          </div>
+        </div>
       </div>
-      <div class="vu" id="oiVuRight">
-        <div class="vuCol"><span class="vuPct" id="vuRNegPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-neg" id="vuRNegFill"></div></div></div>
-        <div class="vuCol"><span class="vuPct" id="vuRPosPct">0%</span><div class="vuTrack"><div class="vuFill vuFill-pos" id="vuRPosFill"></div></div></div>
-      </div>
+      <div class="hint" id="oiVuCaption" style="text-align:center;margin-top:8px"></div>
     </div>
     <div class="videoRowSpacer" id="oiVideoSpacer"></div>
-    <div class="hint" id="oiVuCaption" style="text-align:center;margin-bottom:14px"></div>
 
     <div id="oiPaneVote">
       <div class="card"><div class="body">
@@ -571,8 +578,11 @@ function renderPlayer(entry){
 
   vid.addEventListener('loadedmetadata', () => { duration = vid.duration || duration; });
 
-  function fillSide(side, v){ // side: 'L' | 'R'
+  function fillSide(side, v){ // side: 'L' | 'R' — para un valor único (bipolar), modo votar
     const neg = Math.max(0, -v), pos = Math.max(0, v);
+    fillSideRaw(side, neg, pos);
+  }
+  function fillSideRaw(side, neg, pos){ // valores ya independientes (grupos simulados)
     $('vu'+side+'NegFill').style.height = neg + '%';
     $('vu'+side+'PosFill').style.height = pos + '%';
     $('vu'+side+'NegPct').textContent = Math.round(neg) + '%';
@@ -666,8 +676,10 @@ function renderPlayer(entry){
     if (watchingBack) fillSide('R', sampleCurveAt(curve, vid.currentTime));
     if (mode === 'explore') {
       const compareOn = $('oiCompareOn').checked;
-      fillSide('L', sampleGroupAt(curveA, vid.currentTime));
-      fillSide('R', sampleGroupAt(compareOn ? curveB : curveA, vid.currentTime));
+      const sA = sampleGroupAt(curveA, vid.currentTime);
+      fillSideRaw('L', sA.neg, sA.pos);
+      const sR = compareOn ? sampleGroupAt(curveB, vid.currentTime) : sA;
+      fillSideRaw('R', sR.neg, sR.pos);
     }
   });
   vid.addEventListener('seeked', () => { capIdx = -1; });
@@ -686,7 +698,9 @@ function renderPlayer(entry){
     $('oiPaneExplore').style.display = m === 'explore' ? '' : 'none';
     $('oiVuCaption').textContent = '';
     if (m === 'vote') {
-      $('oiVuLeft').style.display = 'none';
+      $('oiVuLeftWrap').style.display = 'none';
+      $('oiVuRightLabel').textContent = 'Vos';
+      $('oiVuRightLabel').style.color = '';
       fillSide('R', value);
     } else {
       updateCompare();
@@ -736,8 +750,18 @@ function renderPlayer(entry){
   // en vez de saltar entre valores fijos.
   function seededRand(seed){ let s = seed; return () => { s = (s*9301+49297) % 233280; return s/233280; }; }
   function genGroupCurve(seed, bias){
-    const N = 60; const r = seededRand(seed); let v = bias; const out = [];
-    for (let i=0;i<N;i++){ v += (r()-0.5)*14 + (bias - v)*0.08; v = Math.max(-100, Math.min(100, v)); out.push(v); }
+    // aprobación y disgusto son independientes: en un grupo real puede haber
+    // gente aprobando y gente rechazando al mismo momento. "bias" solo corre
+    // el equilibrio entre las dos, no fuerza a que una sea siempre cero.
+    const N = 60; const r = seededRand(seed);
+    const posBias = bias > 0 ? Math.min(85, 22 + bias*0.7) : Math.max(6, 20 + bias*0.22);
+    const negBias = bias < 0 ? Math.min(85, 22 - bias*0.7) : Math.max(6, 20 - bias*0.22);
+    let pv = posBias, nv = negBias; const out = [];
+    for (let i=0;i<N;i++){
+      pv += (r()-0.5)*16 + (posBias - pv)*0.1; pv = Math.max(0, Math.min(100, pv));
+      nv += (r()-0.5)*16 + (negBias - nv)*0.1; nv = Math.max(0, Math.min(100, nv));
+      out.push({ pos: pv, neg: nv, v: pv - nv }); // v = neto, para el gráfico y el tinte
+    }
     return out;
   }
   function groupSeed(g){ return 50 + (g.sexo||'').length*5 + (g.edad||'').length*7 + (g.zona||'').length*11; }
@@ -750,18 +774,23 @@ function renderPlayer(entry){
     const parts = [g.sexo, g.edad, g.zona].filter(Boolean);
     return parts.length ? parts.join(', ') : fallback;
   }
-  function tintFor(curveArr){
-    const avg = curveArr.reduce((a,b)=>a+b,0)/curveArr.length;
+  function tintFor(vArr){
+    const avg = vArr.reduce((a,b)=>a+b,0)/vArr.length;
     if (Math.abs(avg) < 8) return 'var(--field)';
     const a = Math.min(.5, Math.abs(avg)/100*.55);
     return avg > 0 ? `rgba(15,122,82,${a})` : `rgba(161,29,46,${a})`;
   }
   function sampleGroupAt(curveArr, t){
-    if (!curveArr.length || !duration) return 0;
+    if (!curveArr.length || !duration) return { pos: 0, neg: 0, v: 0 };
     const N = curveArr.length;
     const pos = Math.max(0, Math.min(N - 1, (t / duration) * (N - 1)));
     const i0 = Math.floor(pos), i1 = Math.min(N - 1, i0 + 1), frac = pos - i0;
-    return curveArr[i0] * (1 - frac) + curveArr[i1] * frac;
+    const a = curveArr[i0], b = curveArr[i1];
+    return {
+      pos: a.pos * (1 - frac) + b.pos * frac,
+      neg: a.neg * (1 - frac) + b.neg * frac,
+      v: a.v * (1 - frac) + b.v * frac,
+    };
   }
 
   const zeroZonePlugin = {
@@ -813,24 +842,28 @@ function renderPlayer(entry){
     const compareOn = $('oiCompareOn').checked;
     $('oiGroupBBox').style.display = compareOn ? '' : 'none';
     if ($('oiSegsBCol')) $('oiSegsBCol').style.display = compareOn ? '' : 'none';
-    if (mode === 'explore') $('oiVuLeft').style.display = compareOn ? 'flex' : 'none';
+    if (mode === 'explore') $('oiVuLeftWrap').style.display = compareOn ? 'flex' : 'none';
 
     const gA = readGroup('ga'), gB = readGroup('gb');
     curveA = genGroupCurve(groupSeed(gA), groupBias(gA));
     curveB = genGroupCurve(groupSeed(gB)+1, groupBias(gB));
-    compareChart.data.datasets[0].data = curveA;
-    compareChart.data.datasets[1].data = compareOn ? curveB : [];
+    compareChart.data.datasets[0].data = curveA.map(p => p.v);
+    compareChart.data.datasets[1].data = compareOn ? curveB.map(p => p.v) : [];
     compareChart.update();
     const labelA = groupLabel(gA, 'Grupo A (todos)'), labelB = groupLabel(gB, 'Grupo B (todos)');
     $('oiCompareTitle').textContent = compareOn ? (labelA + ' vs ' + labelB) : labelA;
-    $('oiTintA').style.background = tintFor(curveA);
-    $('oiTintB').style.background = compareOn ? tintFor(curveB) : 'var(--field)';
+    $('oiVuLeftLabel').textContent = labelA;
+    $('oiVuLeftLabel').style.color = '#2a78d6';
+    $('oiVuRightLabel').textContent = compareOn ? labelB : labelA;
+    $('oiVuRightLabel').style.color = compareOn ? '#6250d6' : '#2a78d6';
+    $('oiTintA').style.background = tintFor(curveA.map(p => p.v));
+    $('oiTintB').style.background = compareOn ? tintFor(curveB.map(p => p.v)) : 'var(--field)';
     if (segs.length && $('oiSegsA')) {
-      const ptsA = curveA.map((v, i) => ({ t: (i / curveA.length) * duration, v }));
+      const ptsA = curveA.map((p, i) => ({ t: (i / curveA.length) * duration, v: p.v }));
       $('oiSegsA').innerHTML = buildSegListHTML(ptsA);
       wireSegList($('oiSegsA'));
       if (compareOn) {
-        const ptsB = curveB.map((v, i) => ({ t: (i / curveB.length) * duration, v }));
+        const ptsB = curveB.map((p, i) => ({ t: (i / curveB.length) * duration, v: p.v }));
         $('oiSegsB').innerHTML = buildSegListHTML(ptsB);
         wireSegList($('oiSegsB'));
       }
@@ -890,8 +923,8 @@ function renderPlayer(entry){
     const gA = readGroup('ga'), gB = readGroup('gb');
     const labelA = groupLabel(gA, 'el grupo A'), labelB = groupLabel(gB, 'el grupo B');
     const rows = segs.map((s) => {
-      const a = segStat(curveA.map((v,j)=>({t:(j/curveA.length)*duration, v})), s);
-      const b = compareOn ? segStat(curveB.map((v,j)=>({t:(j/curveB.length)*duration, v})), s) : null;
+      const a = segStat(curveA.map((p,j)=>({t:(j/curveA.length)*duration, v:p.v})), s);
+      const b = compareOn ? segStat(curveB.map((p,j)=>({t:(j/curveB.length)*duration, v:p.v})), s) : null;
       return `- "${s.text.trim()}" → ${labelA}: ${a.label}` + (b ? ` · ${labelB}: ${b.label}` : '');
     }).join('\n');
     try {

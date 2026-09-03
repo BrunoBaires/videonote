@@ -1194,6 +1194,8 @@ video.src{display:none}
         <span data-pre="las definiciones políticas y las frases más fuertes">definiciones</span>
       </div>
       <label class="chk" style="margin:0;white-space:nowrap"><input type="checkbox" id="qAuto"> Automático</label>
+      <span class="hint" id="qRangeInfo" style="font-size:11.5px;color:var(--rojo);white-space:nowrap"></span>
+      <button type="button" class="mini-btn" id="qResetRange" style="margin:0;width:auto;padding:6px 10px;display:none">Buscar en todo el video</button>
       <span class="q-queue" id="qIaStat"></span>
     </div>
     <div class="q-cols">
@@ -4393,6 +4395,7 @@ function qApply(q){
   cancelClosing(); finalFrame=false;
   trimIn = Math.max(0, q.in/1000);
   trimOut = Math.min(vidDur()||q.out/1000, q.out/1000);
+  qUpdateRangeInfo();
   layoutTL();
   /* El epígrafe del quote NO se pinta en la placa por defecto: el clip sale con el video,
      el subtítulo y los parámetros calibrados, nada más. Se guarda como texto para publicar. */
@@ -4463,6 +4466,7 @@ function qOpenOverlay(){
   if(!subWords.length){ qStat('Primero transcribí el video (tarjeta Transcripción).','err'); return; }
   qBuildText();
   $('qOverlay').hidden=false;
+  qUpdateRangeInfo();
 }
 function qCloseOverlay(){ qStopPreview(); qHideFloat(); $('qOverlay').hidden=true; }
 
@@ -4644,8 +4648,22 @@ function qPromptText(){
 
 function qIaStat(t,c){ const e=$('qIaStat'); if(e){ e.innerHTML=t; e.style.color = c==='err'?'var(--rojo)':'var(--dim)'; } }
 
+function qUpdateRangeInfo(){
+  const info=$('qRangeInfo'), btn=$('qResetRange');
+  if(!info || !btn) return;
+  const full = segIn() <= 0.05 && segOut() >= (vidDur()||0) - 0.05;
+  info.textContent = full ? '' : 'Buscando solo en el recorte activo (' + qFmt(segIn()*1000) + '–' + qFmt(segOut()*1000) + ')';
+  btn.style.display = full ? 'none' : '';
+}
+if ($('qResetRange')) $('qResetRange').onclick = () => {
+  trimIn = 0; trimOut = vidDur();
+  layoutTL(); trimNumSync(); updateSeekLabel(); redraw();
+  qUpdateRangeInfo();
+};
+
 async function qIdentificar(){
   if(!subWords.length){ qIaStat('Primero transcribí el video.','err'); return; }
+  qUpdateRangeInfo();
   const foco=($('qIaFoco').value||'').trim();
   $('qIaBtn').disabled=true;
   qIaStat('<span class="spin"></span>Leyendo la transcripción…');
